@@ -173,11 +173,7 @@ func (n *MineNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) 
 var _ = (fs.NodeOpener)((*MineNode)(nil))
 
 func (n *MineNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	log.Printf("Open %d", n.num)
-	// disallow writes
-	if fuseFlags&(syscall.O_RDWR|syscall.O_WRONLY) != 0 {
-		return nil, 0, syscall.EROFS
-	}
+	log.Printf("Open %d with %v", n.num, flags)
 
 	// Return FOPEN_DIRECT_IO so content is not cached.
 	return nil, fuse.FOPEN_DIRECT_IO, 0

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package remotetree;
+
+service RemoteTree {
+    rpc Read(ReadRequest) returns (stream Chunk) {}
+}
+
+message Chunk {
+    int64 start = 1;
+    bytes data = 2;
+}
+
+message ReadRequest {
+    Path path = 1;
+    int64 start = 2;
+    int64 length = 3;
+}
+
+message Path {
+    repeated string names = 1;
+}

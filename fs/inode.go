@@ -29,6 +29,7 @@ import (
 //
 // External synchronization is required.
 type inode struct {
+	_id fuseops.InodeID
 	/////////////////////////
 	// Mutable state
 	/////////////////////////
@@ -65,6 +66,10 @@ type inode struct {
 
 	// extended attributes and values
 	_xattrs map[string][]byte
+}
+
+func (in *inode) ID() fuseops.InodeID {
+	return in._id
 }
 
 func (in *inode) Attrs() fuseops.InodeAttributes {
@@ -113,7 +118,7 @@ func (in *inode) SetXattrs(xattrs map[string][]byte) {
 
 // Create a new inode with the supplied attributes, which need not contain
 // time-related information (the inode object will take care of that).
-func newInode(attrs fuseops.InodeAttributes) *inode {
+func newInode(attrs fuseops.InodeAttributes, id fuseops.InodeID) *inode {
 	// Update time info.
 	now := time.Now()
 	attrs.Mtime = now
@@ -121,6 +126,7 @@ func newInode(attrs fuseops.InodeAttributes) *inode {
 
 	// Create the object.
 	return &inode{
+		_id:     id,
 		_attrs:  attrs,
 		_xattrs: make(map[string][]byte),
 	}

@@ -85,7 +85,7 @@ func NewMemFS(
 		Gid:  gid,
 	}
 
-	fs.inodes[fuseops.RootInodeID] = newInode(rootAttrs)
+	fs.inodes[fuseops.RootInodeID] = newInode(rootAttrs, fuseops.RootInodeID)
 
 	// Set up invariant checking.
 	fs.mu = syncutil.NewInvariantMutex(fs.checkInvariants)
@@ -160,16 +160,17 @@ func (fs *memFS) getInodeOrDie(id fuseops.InodeID) *inode {
 func (fs *memFS) allocateInode(
 	attrs fuseops.InodeAttributes) (id fuseops.InodeID, inode *inode) {
 	// Create the inode.
-	inode = newInode(attrs)
 
 	// Re-use a free ID if possible. Otherwise mint a new one.
 	numFree := len(fs.freeInodes)
 	if numFree != 0 {
 		id = fs.freeInodes[numFree-1]
+		inode = newInode(attrs, id)
 		fs.freeInodes = fs.freeInodes[:numFree-1]
 		fs.inodes[id] = inode
 	} else {
 		id = fuseops.InodeID(len(fs.inodes))
+		inode = newInode(attrs, id)
 		fs.inodes = append(fs.inodes, inode)
 	}
 

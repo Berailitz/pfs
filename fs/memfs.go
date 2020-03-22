@@ -145,6 +145,7 @@ func (fs *memFS) checkInvariants() {
 //
 // LOCKS_REQUIRED(fs.mu)
 func (fs *memFS) getInodeOrDie(id fuseops.InodeID) *inode {
+	// TODO: lock remote inode
 	inode := fs.inodes[id]
 	if inode == nil {
 		panic(fmt.Sprintf("Unknown inode: %v", id))
@@ -211,7 +212,7 @@ func (fs *memFS) LookUpInode(
 
 	// Fill in the response.
 	op.Entry.Child = childID
-	op.Entry.Attributes = child.attrs
+	op.Entry.Attributes = child.Attrs()
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
@@ -231,7 +232,7 @@ func (fs *memFS) GetInodeAttributes(
 	inode := fs.getInodeOrDie(op.Inode)
 
 	// Fill in the response.
-	op.Attributes = inode.attrs
+	op.Attributes = inode.Attrs()
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
@@ -260,7 +261,7 @@ func (fs *memFS) SetInodeAttributes(
 	inode.SetAttributes(op.Size, op.Mode, op.Mtime)
 
 	// Fill in the response.
-	op.Attributes = inode.attrs
+	op.Attributes = inode.Attrs()
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
@@ -301,7 +302,7 @@ func (fs *memFS) MkDir(
 
 	// Fill in the response.
 	op.Entry.Child = childID
-	op.Entry.Attributes = child.attrs
+	op.Entry.Attributes = child.Attrs()
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
@@ -359,7 +360,7 @@ func (fs *memFS) createFile(
 	// Fill in the response entry.
 	var entry fuseops.ChildInodeEntry
 	entry.Child = childID
-	entry.Attributes = child.attrs
+	entry.Attributes = child.Attrs()
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
@@ -413,14 +414,14 @@ func (fs *memFS) CreateSymlink(
 	childID, child := fs.allocateInode(childAttrs)
 
 	// Set up its target.
-	child.target = op.Target
+	child.SetTarget(op.Target)
 
 	// Add an entry in the parent.
 	parent.AddChild(childID, op.Name, fuseutil.DT_Link)
 
 	// Fill in the response entry.
 	op.Entry.Child = childID
-	op.Entry.Attributes = child.attrs
+	op.Entry.Attributes = child.Attrs()
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
@@ -451,15 +452,17 @@ func (fs *memFS) CreateLink(
 
 	// Update the attributes
 	now := time.Now()
-	target.attrs.Nlink++
-	target.attrs.Ctime = now
+	attrs := target.Attrs()
+	attrs.Nlink++
+	attrs.Ctime = now
+	target.SetAttrs(attrs)
 
 	// Add an entry in the parent.
 	parent.AddChild(op.Target, op.Name, fuseutil.DT_File)
 
 	// Return the response.
 	op.Entry.Child = op.Target
-	op.Entry.Attributes = target.attrs
+	op.Entry.Attributes = target.Attrs()
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
@@ -537,7 +540,9 @@ func (fs *memFS) RmDir(
 	parent.RemoveChild(op.Name)
 
 	// Mark the child as unlinked.
-	child.attrs.Nlink--
+	attrs := child.Attrs()
+	attrs.Nlink--
+	child.SetAttrs(attrs)
 
 	return nil
 }
@@ -564,7 +569,9 @@ func (fs *memFS) Unlink(
 	parent.RemoveChild(op.Name)
 
 	// Mark the child as unlinked.
-	child.attrs.Nlink--
+	attrs := child.Attrs()
+	attrs.Nlink--
+	child.SetAttrs(attrs)
 
 	return nil
 }
@@ -666,7 +673,7 @@ func (fs *memFS) ReadSymlink(
 	inode := fs.getInodeOrDie(op.Inode)
 
 	// Serve the request.
-	op.Target = inode.target
+	op.Target = inode.Target()
 
 	return nil
 }
@@ -677,7 +684,7 @@ func (fs *memFS) GetXattr(ctx context.Context,
 	defer fs.mu.Unlock()
 
 	inode := fs.getInodeOrDie(op.Inode)
-	if value, ok := inode.xattrs[op.Name]; ok {
+	if value, ok := inode.Xattrs()[op.Name]; ok {
 		op.BytesRead = len(value)
 		if len(op.Dst) >= len(value) {
 			copy(op.Dst, value)
@@ -699,7 +706,7 @@ func (fs *memFS) ListXattr(ctx context.Context,
 	inode := fs.getInodeOrDie(op.Inode)
 
 	dst := op.Dst[:]
-	for key := range inode.xattrs {
+	for key := range inode.Xattrs() {
 		keyLen := len(key) + 1
 
 		if len(dst) >= keyLen {
@@ -720,8 +727,10 @@ func (fs *memFS) RemoveXattr(ctx context.Context,
 	defer fs.mu.Unlock()
 	inode := fs.getInodeOrDie(op.Inode)
 
-	if _, ok := inode.xattrs[op.Name]; ok {
-		delete(inode.xattrs, op.Name)
+	if _, ok := inode.Xattrs()[op.Name]; ok {
+		xattrs := inode.Xattrs()
+		delete(xattrs, op.Name)
+		inode.SetXattrs(xattrs)
 	} else {
 		return fuse.ENOATTR
 	}
@@ -734,7 +743,7 @@ func (fs *memFS) SetXattr(ctx context.Context,
 	defer fs.mu.Unlock()
 	inode := fs.getInodeOrDie(op.Inode)
 
-	_, ok := inode.xattrs[op.Name]
+	_, ok := inode.Xattrs()[op.Name]
 
 	switch op.Flags {
 	case unix.XATTR_CREATE:
@@ -749,7 +758,9 @@ func (fs *memFS) SetXattr(ctx context.Context,
 
 	value := make([]byte, len(op.Value))
 	copy(value, op.Value)
-	inode.xattrs[op.Name] = value
+	xattrs := inode.Xattrs()
+	xattrs[op.Name] = value
+	inode.SetXattrs(xattrs)
 	return nil
 }
 

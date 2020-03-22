@@ -38,7 +38,7 @@ type inode struct {
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
 	// INVARIANT: !(isDir() && isSymlink())
 	// INVARIANT: attrs.Size == len(contents)
-	attrs fuseops.InodeAttributes
+	_attrs fuseops.InodeAttributes
 
 	// For directories, entries describing the children of the directory. Unused
 	// entries are of type DT_Unknown.
@@ -51,20 +51,60 @@ type inode struct {
 	// INVARIANT: If !isDir(), len(entries) == 0
 	// INVARIANT: For each i, entries[i].Offset == i+1
 	// INVARIANT: Contains no duplicate names in used entries.
-	entries []fuseutil.Dirent
+	_entries []fuseutil.Dirent
 
 	// For files, the current contents of the file.
 	//
 	// INVARIANT: If !isFile(), len(contents) == 0
-	contents []byte
+	_contents []byte
 
 	// For symlinks, the target of the symlink.
 	//
 	// INVARIANT: If !isSymlink(), len(target) == 0
-	target string
+	_target string
 
 	// extended attributes and values
-	xattrs map[string][]byte
+	_xattrs map[string][]byte
+}
+
+func (in *inode) Attrs() fuseops.InodeAttributes {
+	return in._attrs
+}
+
+func (in *inode) SetAttrs(attrs fuseops.InodeAttributes) {
+	in._attrs = attrs
+}
+
+func (in *inode) Entries() []fuseutil.Dirent {
+	return in._entries
+}
+
+func (in *inode) SetEntries(entries []fuseutil.Dirent) {
+	in._entries = entries
+}
+
+func (in *inode) Contents() []byte {
+	return in._contents
+}
+
+func (in *inode) SetContents(contents []byte) {
+	in._contents = contents
+}
+
+func (in *inode) Target() string {
+	return in._target
+}
+
+func (in *inode) SetTarget(target string) {
+	in._target = target
+}
+
+func (in *inode) Xattrs() map[string][]byte {
+	return in._xattrs
+}
+
+func (in *inode) SetXattrs(xattrs map[string][]byte) {
+	in._xattrs = xattrs
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -81,37 +121,37 @@ func newInode(attrs fuseops.InodeAttributes) *inode {
 
 	// Create the object.
 	return &inode{
-		attrs:  attrs,
-		xattrs: make(map[string][]byte),
+		_attrs:  attrs,
+		_xattrs: make(map[string][]byte),
 	}
 }
 
 func (in *inode) CheckInvariants() {
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
-	if !(in.attrs.Mode&^(os.ModePerm|os.ModeDir|os.ModeSymlink) == 0) {
-		panic(fmt.Sprintf("Unexpected mode: %v", in.attrs.Mode))
+	if !(in.Attrs().Mode&^(os.ModePerm|os.ModeDir|os.ModeSymlink) == 0) {
+		panic(fmt.Sprintf("Unexpected mode: %v", in.Attrs().Mode))
 	}
 
 	// INVARIANT: !(isDir() && isSymlink())
 	if in.isDir() && in.isSymlink() {
-		panic(fmt.Sprintf("Unexpected mode: %v", in.attrs.Mode))
+		panic(fmt.Sprintf("Unexpected mode: %v", in.Attrs().Mode))
 	}
 
 	// INVARIANT: attrs.Size == len(contents)
-	if in.attrs.Size != uint64(len(in.contents)) {
+	if in.Attrs().Size != uint64(len(in.Contents())) {
 		panic(fmt.Sprintf(
 			"Size mismatch: %d vs. %d",
-			in.attrs.Size,
-			len(in.contents)))
+			in.Attrs().Size,
+			len(in.Contents())))
 	}
 
 	// INVARIANT: If !isDir(), len(entries) == 0
-	if !in.isDir() && len(in.entries) != 0 {
-		panic(fmt.Sprintf("Unexpected entries length: %d", len(in.entries)))
+	if !in.isDir() && len(in.Entries()) != 0 {
+		panic(fmt.Sprintf("Unexpected entries length: %d", len(in.Entries())))
 	}
 
 	// INVARIANT: For each i, entries[i].Offset == i+1
-	for i, e := range in.entries {
+	for i, e := range in.Entries() {
 		if !(e.Offset == fuseops.DirOffset(i+1)) {
 			panic(fmt.Sprintf("Unexpected offset for index %d: %d", i, e.Offset))
 		}
@@ -119,7 +159,7 @@ func (in *inode) CheckInvariants() {
 
 	// INVARIANT: Contains no duplicate names in used entries.
 	childNames := make(map[string]struct{})
-	for _, e := range in.entries {
+	for _, e := range in.Entries() {
 		if e.Type != fuseutil.DT_Unknown {
 			if _, ok := childNames[e.Name]; ok {
 				panic(fmt.Sprintf("Duplicate name: %s", e.Name))
@@ -130,31 +170,31 @@ func (in *inode) CheckInvariants() {
 	}
 
 	// INVARIANT: If !isFile(), len(contents) == 0
-	if !in.isFile() && len(in.contents) != 0 {
-		panic(fmt.Sprintf("Unexpected length: %d", len(in.contents)))
+	if !in.isFile() && len(in.Contents()) != 0 {
+		panic(fmt.Sprintf("Unexpected length: %d", len(in.Contents())))
 	}
 
 	// INVARIANT: If !isSymlink(), len(target) == 0
-	if !in.isSymlink() && len(in.target) != 0 {
-		panic(fmt.Sprintf("Unexpected target length: %d", len(in.target)))
+	if !in.isSymlink() && len(in.Target()) != 0 {
+		panic(fmt.Sprintf("Unexpected target length: %d", len(in.Target())))
 	}
 
 	return
 }
 
 func (in *inode) isDir() bool {
-	return in.attrs.Mode&os.ModeDir != 0
+	return in.Attrs().Mode&os.ModeDir != 0
 }
 
 func (in *inode) isSymlink() bool {
-	return in.attrs.Mode&os.ModeSymlink != 0
+	return in.Attrs().Mode&os.ModeSymlink != 0
 }
 
 func (in *inode) isFile() bool {
 	return !(in.isDir() || in.isSymlink())
 }
 
-// Return the index of the child within in.entries, if it exists.
+// Return the index of the child within in.Entries(), if it exists.
 //
 // REQUIRES: in.isDir()
 func (in *inode) findChild(name string) (i int, ok bool) {
@@ -163,7 +203,7 @@ func (in *inode) findChild(name string) (i int, ok bool) {
 	}
 
 	var e fuseutil.Dirent
-	for i, e = range in.entries {
+	for i, e = range in.Entries() {
 		if e.Name == name {
 			return i, true
 		}
@@ -181,7 +221,7 @@ func (in *inode) findChild(name string) (i int, ok bool) {
 // REQUIRES: in.isDir()
 func (in *inode) Len() int {
 	var n int
-	for _, e := range in.entries {
+	for _, e := range in.Entries() {
 		if e.Type != fuseutil.DT_Unknown {
 			n++
 		}
@@ -194,13 +234,14 @@ func (in *inode) Len() int {
 //
 // REQUIRES: in.isDir()
 func (in *inode) LookUpChild(name string) (
+	// TODO: lock remote children
 	id fuseops.InodeID,
 	typ fuseutil.DirentType,
 	ok bool) {
 	index, ok := in.findChild(name)
 	if ok {
-		id = in.entries[index].Inode
-		typ = in.entries[index].Type
+		id = in.Entries()[index].Inode
+		typ = in.Entries()[index].Type
 	}
 
 	return id, typ, ok
@@ -211,18 +252,23 @@ func (in *inode) LookUpChild(name string) (
 // REQUIRES: in.isDir()
 // REQUIRES: dt != fuseutil.DT_Unknown
 func (in *inode) AddChild(
+	// TODO: add remote child
 	id fuseops.InodeID,
 	name string,
 	dt fuseutil.DirentType) {
 	var index int
 
 	// Update the modification time.
-	in.attrs.Mtime = time.Now()
+	attrs := in.Attrs()
+	attrs.Mtime = time.Now()
+	in.SetAttrs(attrs)
 
 	// No matter where we place the entry, make sure it has the correct Offset
 	// field.
 	defer func() {
-		in.entries[index].Offset = fuseops.DirOffset(index + 1)
+		entries := in.Entries()
+		entries[index].Offset = fuseops.DirOffset(index + 1)
+		in.SetEntries(entries)
 	}()
 
 	// Set up the entry.
@@ -233,16 +279,18 @@ func (in *inode) AddChild(
 	}
 
 	// Look for a gap in which we can insert it.
-	for index = range in.entries {
-		if in.entries[index].Type == fuseutil.DT_Unknown {
-			in.entries[index] = e
+	for index = range in.Entries() {
+		if in.Entries()[index].Type == fuseutil.DT_Unknown {
+			entries := in.Entries()
+			entries[index] = e
+			in.SetEntries(entries)
 			return
 		}
 	}
 
 	// Append it to the end.
-	index = len(in.entries)
-	in.entries = append(in.entries, e)
+	index = len(in.Entries())
+	in.SetEntries(append(in.Entries(), e))
 }
 
 // Remove an entry for a child.
@@ -250,8 +298,11 @@ func (in *inode) AddChild(
 // REQUIRES: in.isDir()
 // REQUIRES: An entry for the given name exists.
 func (in *inode) RemoveChild(name string) {
+	// TODO: remove remote child
 	// Update the modification time.
-	in.attrs.Mtime = time.Now()
+	attrs := in.Attrs()
+	attrs.Mtime = time.Now()
+	in.SetAttrs(attrs)
 
 	// Find the entry.
 	i, ok := in.findChild(name)
@@ -260,30 +311,33 @@ func (in *inode) RemoveChild(name string) {
 	}
 
 	// Mark it as unused.
-	in.entries[i] = fuseutil.Dirent{
+	entries := in.Entries()
+	entries[i] = fuseutil.Dirent{
 		Type:   fuseutil.DT_Unknown,
 		Offset: fuseops.DirOffset(i + 1),
 	}
+	in.SetEntries(entries)
 }
 
 // Serve a ReadDir request.
 //
 // REQUIRES: in.isDir()
 func (in *inode) ReadDir(p []byte, offset int) int {
+	// TODO: fetch remote dir
 	if !in.isDir() {
 		panic("ReadDir called on non-directory.")
 	}
 
 	var n int
-	for i := offset; i < len(in.entries); i++ {
-		e := in.entries[i]
+	for i := offset; i < len(in.Entries()); i++ {
+		e := in.Entries()[i]
 
 		// Skip unused entries.
 		if e.Type == fuseutil.DT_Unknown {
 			continue
 		}
 
-		tmp := fuseutil.WriteDirent(p[n:], in.entries[i])
+		tmp := fuseutil.WriteDirent(p[n:], in.Entries()[i])
 		if tmp == 0 {
 			break
 		}
@@ -298,17 +352,18 @@ func (in *inode) ReadDir(p []byte, offset int) int {
 //
 // REQUIRES: in.isFile()
 func (in *inode) ReadAt(p []byte, off int64) (int, error) {
+	// TODO: read remote content
 	if !in.isFile() {
 		panic("ReadAt called on non-file.")
 	}
 
 	// Ensure the offset is in range.
-	if off > int64(len(in.contents)) {
+	if off > int64(len(in.Contents())) {
 		return 0, io.EOF
 	}
 
 	// Read what we can.
-	n := copy(p, in.contents[off:])
+	n := copy(p, in.Contents()[off:])
 	if n < len(p) {
 		return n, io.EOF
 	}
@@ -320,23 +375,28 @@ func (in *inode) ReadAt(p []byte, off int64) (int, error) {
 //
 // REQUIRES: in.isFile()
 func (in *inode) WriteAt(p []byte, off int64) (int, error) {
+	// TODO: write remote content
 	if !in.isFile() {
 		panic("WriteAt called on non-file.")
 	}
 
 	// Update the modification time.
-	in.attrs.Mtime = time.Now()
+	attrs := in.Attrs()
+	attrs.Mtime = time.Now()
+	in.SetAttrs(attrs)
 
 	// Ensure that the contents slice is long enough.
 	newLen := int(off) + len(p)
-	if len(in.contents) < newLen {
-		padding := make([]byte, newLen-len(in.contents))
-		in.contents = append(in.contents, padding...)
-		in.attrs.Size = uint64(newLen)
+	if len(in.Contents()) < newLen {
+		padding := make([]byte, newLen-len(in.Contents()))
+		in.SetContents(append(in.Contents(), padding...))
+		attrs := in.Attrs()
+		attrs.Size = uint64(newLen)
+		in.SetAttrs(attrs)
 	}
 
 	// Copy in the data.
-	n := copy(in.contents[off:], p)
+	n := copy(in.Contents()[off:], p)
 
 	// Sanity check.
 	if n != len(p) {
@@ -352,33 +412,39 @@ func (in *inode) SetAttributes(
 	mode *os.FileMode,
 	mtime *time.Time) {
 	// Update the modification time.
-	in.attrs.Mtime = time.Now()
+	attrs := in.Attrs()
+	attrs.Mtime = time.Now()
+	in.SetAttrs(attrs)
 
 	// Truncate?
 	if size != nil {
 		intSize := int(*size)
 
 		// Update contents.
-		if intSize <= len(in.contents) {
-			in.contents = in.contents[:intSize]
+		if intSize <= len(in.Contents()) {
+			in.SetContents(in.Contents()[:intSize])
 		} else {
-			padding := make([]byte, intSize-len(in.contents))
-			in.contents = append(in.contents, padding...)
+			padding := make([]byte, intSize-len(in.Contents()))
+			in.SetContents(append(in.Contents(), padding...))
 		}
 
 		// Update attributes.
-		in.attrs.Size = *size
+		attrs := in.Attrs()
+		attrs.Size = *size
+		in.SetAttrs(attrs)
 	}
 
+	attrs = in.Attrs()
 	// Change mode?
 	if mode != nil {
-		in.attrs.Mode = *mode
+		attrs.Mode = *mode
 	}
 
 	// Change mtime?
 	if mtime != nil {
-		in.attrs.Mtime = *mtime
+		attrs.Mtime = *mtime
 	}
+	in.SetAttrs(attrs)
 }
 
 func (in *inode) Fallocate(mode uint32, offset uint64, length uint64) error {
@@ -386,10 +452,12 @@ func (in *inode) Fallocate(mode uint32, offset uint64, length uint64) error {
 		return fuse.ENOSYS
 	}
 	newSize := int(offset + length)
-	if newSize > len(in.contents) {
-		padding := make([]byte, newSize-len(in.contents))
-		in.contents = append(in.contents, padding...)
-		in.attrs.Size = offset + length
+	if newSize > len(in.Contents()) {
+		padding := make([]byte, newSize-len(in.Contents()))
+		in.SetContents(append(in.Contents(), padding...))
+		attrs := in.Attrs()
+		attrs.Size = offset + length
+		in.SetAttrs(attrs)
 	}
 	return nil
 }

@@ -3,6 +3,12 @@ syntax = "proto3";
 package remotetree;
 
 service RemoteTree {
+    //rpc Lock(Path) returns (StatusReply) {}
+    //rpc Unlock(Path) returns (StatusReply) {}
+    rpc Create(CreateRequest) returns (StatusReply) {}
+    rpc Delete(Path) returns (StatusReply) {}
+    rpc Write(stream PathChunk) returns (StatusReply) {}
+    rpc Lookup(Path) returns (stream NameReply) {}
     rpc Read(ReadRequest) returns (stream Chunk) {}
 }
 
@@ -19,4 +25,22 @@ message ReadRequest {
 
 message Path {
     repeated string names = 1;
+}
+
+message CreateRequest {
+    Path path = 1;
+    bool isFile = 2;
+}
+
+message PathChunk {
+    Chunk chunk = 1;
+    Path path = 2;
+}
+
+message StatusReply {
+    int64 state = 1;
+}
+
+message NameReply {
+    string name = 1;
 }

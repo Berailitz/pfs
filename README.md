@@ -18,9 +18,12 @@ Private workspace for Golang.
 1. release lock
 
 # Plan
-1. create/delete
-1. server use Inode
-1. flush, fsync, etc
+1. rpc proto
+1. rpc client
+1. rpc server
+1. always run rpc server
+1. master flag
+1. remote lock
 1. read/write lock
 1. mirror a dir
 1. dump to dir

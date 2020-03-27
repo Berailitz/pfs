@@ -28,18 +28,30 @@ import (
 // Common attributes for files and directories.
 //
 // External synchronization is required.
-type RNode struct {
-	_id fuseops.InodeID
-	/////////////////////////
-	// Mutable state
-	/////////////////////////
 
+type RNodeAttr struct {
 	// The current attributes of this RNode.
 	//
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
 	// INVARIANT: !(isDir() && isSymlink())
 	// INVARIANT: attrs.Size == len(contents)
 	_attrs fuseops.InodeAttributes
+
+	// For symlinks, the target of the symlink.
+	//
+	// INVARIANT: If !isSymlink(), len(target) == 0
+	_target string
+
+	// extended attributes and values
+	_xattrs map[string][]byte
+}
+
+type RNode struct {
+	_id fuseops.InodeID
+	/////////////////////////
+	// Mutable state
+	/////////////////////////
+	RNodeAttr
 
 	// For directories, entries describing the children of the directory. Unused
 	// entries are of type DT_Unknown.
@@ -58,25 +70,17 @@ type RNode struct {
 	//
 	// INVARIANT: If !isFile(), len(contents) == 0
 	_contents []byte
-
-	// For symlinks, the target of the symlink.
-	//
-	// INVARIANT: If !isSymlink(), len(target) == 0
-	_target string
-
-	// extended attributes and values
-	_xattrs map[string][]byte
 }
 
 func (in *RNode) ID() fuseops.InodeID {
 	return in._id
 }
 
-func (in *RNode) Attrs() fuseops.InodeAttributes {
+func (in *RNodeAttr) Attrs() fuseops.InodeAttributes {
 	return in._attrs
 }
 
-func (in *RNode) SetAttrs(attrs fuseops.InodeAttributes) {
+func (in *RNodeAttr) SetAttrs(attrs fuseops.InodeAttributes) {
 	in._attrs = attrs
 }
 
@@ -96,19 +100,19 @@ func (in *RNode) SetContents(contents []byte) {
 	in._contents = contents
 }
 
-func (in *RNode) Target() string {
+func (in *RNodeAttr) Target() string {
 	return in._target
 }
 
-func (in *RNode) SetTarget(target string) {
+func (in *RNodeAttr) SetTarget(target string) {
 	in._target = target
 }
 
-func (in *RNode) Xattrs() map[string][]byte {
+func (in *RNodeAttr) Xattrs() map[string][]byte {
 	return in._xattrs
 }
 
-func (in *RNode) SetXattrs(xattrs map[string][]byte) {
+func (in *RNodeAttr) SetXattrs(xattrs map[string][]byte) {
 	in._xattrs = xattrs
 }
 
@@ -126,9 +130,11 @@ func newInode(attrs fuseops.InodeAttributes, id fuseops.InodeID) *RNode {
 
 	// Create the object.
 	return &RNode{
-		_id:     id,
-		_attrs:  attrs,
-		_xattrs: make(map[string][]byte),
+		_id: id,
+		RNodeAttr: RNodeAttr{
+			_attrs:  attrs,
+			_xattrs: make(map[string][]byte),
+		},
 	}
 }
 

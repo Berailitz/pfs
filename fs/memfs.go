@@ -32,7 +32,7 @@ import (
 type memFS struct {
 	fuseutil.NotImplementedFileSystem
 
-	// The UID and GID that every inode receives.
+	// The UID and GID that every RNode receives.
 	uid uint32
 	gid uint32
 
@@ -48,14 +48,14 @@ type memFS struct {
 	//
 	// All inodes are protected by the file system mutex.
 	//
-	// INVARIANT: For each inode in, in.CheckInvariants() does not panic.
+	// INVARIANT: For each RNode in, in.CheckInvariants() does not panic.
 	// INVARIANT: len(inodes) > fuseops.RootInodeID
 	// INVARIANT: For all i < fuseops.RootInodeID, inodes[i] == nil
 	// INVARIANT: inodes[fuseops.RootInodeID] != nil
 	// INVARIANT: inodes[fuseops.RootInodeID].isDir()
-	inodes []*inode // GUARDED_BY(mu)
+	inodes []*RNode // GUARDED_BY(mu)
 
-	// A list of inode IDs within inodes available for reuse, not including the
+	// A list of RNode IDs within inodes available for reuse, not including the
 	// reserved IDs less than fuseops.RootInodeID.
 	//
 	// INVARIANT: This is all and only indices i of 'inodes' such that i >
@@ -65,7 +65,7 @@ type memFS struct {
 
 // Create a file system that stores data and metadata in memory.
 //
-// The supplied UID/GID pair will own the root inode. This file system does no
+// The supplied UID/GID pair will own the root RNode. This file system does no
 // permissions checking, and should therefore be mounted with the
 // default_permissions option.
 func NewMemFS(
@@ -73,12 +73,12 @@ func NewMemFS(
 	gid uint32) fuse.Server {
 	// Set up the basic struct.
 	fs := &memFS{
-		inodes: make([]*inode, fuseops.RootInodeID+1),
+		inodes: make([]*RNode, fuseops.RootInodeID+1),
 		uid:    uid,
 		gid:    gid,
 	}
 
-	// Set up the root inode.
+	// Set up the root RNode.
 	rootAttrs := fuseops.InodeAttributes{
 		Mode: 0700 | os.ModeDir,
 		Uid:  uid,
@@ -101,11 +101,11 @@ func (fs *memFS) checkInvariants() {
 	// Check reserved inodes.
 	for i := 0; i < fuseops.RootInodeID; i++ {
 		if fs.inodes[i] != nil {
-			panic(fmt.Sprintf("Non-nil inode for ID: %v", i))
+			panic(fmt.Sprintf("Non-nil RNode for ID: %v", i))
 		}
 	}
 
-	// Check the root inode.
+	// Check the root RNode.
 	if !fs.inodes[fuseops.RootInodeID].isDir() {
 		panic("Expected root to be a directory.")
 	}
@@ -113,8 +113,8 @@ func (fs *memFS) checkInvariants() {
 	// Build our own list of free IDs.
 	freeIDsEncountered := make(map[fuseops.InodeID]struct{})
 	for i := fuseops.RootInodeID + 1; i < len(fs.inodes); i++ {
-		inode := fs.inodes[i]
-		if inode == nil {
+		RNode := fs.inodes[i]
+		if RNode == nil {
 			freeIDsEncountered[fuseops.InodeID(i)] = struct{}{}
 			continue
 		}
@@ -131,50 +131,50 @@ func (fs *memFS) checkInvariants() {
 
 	for _, id := range fs.freeInodes {
 		if _, ok := freeIDsEncountered[id]; !ok {
-			panic(fmt.Sprintf("Unexected free inode ID: %v", id))
+			panic(fmt.Sprintf("Unexected free RNode ID: %v", id))
 		}
 	}
 
-	// INVARIANT: For each inode in, in.CheckInvariants() does not panic.
+	// INVARIANT: For each RNode in, in.CheckInvariants() does not panic.
 	for _, in := range fs.inodes {
 		in.CheckInvariants()
 	}
 }
 
-// Find the given inode. Panic if it doesn't exist.
+// Find the given RNode. Panic if it doesn't exist.
 //
 // LOCKS_REQUIRED(fs.mu)
-func (fs *memFS) getInodeOrDie(id fuseops.InodeID) *inode {
-	// TODO: lock remote inode
-	inode := fs.inodes[id]
-	if inode == nil {
-		panic(fmt.Sprintf("Unknown inode: %v", id))
+func (fs *memFS) getInodeOrDie(id fuseops.InodeID) *RNode {
+	// TODO: lock remote RNode
+	RNode := fs.inodes[id]
+	if RNode == nil {
+		panic(fmt.Sprintf("Unknown RNode: %v", id))
 	}
 
-	return inode
+	return RNode
 }
 
-// Allocate a new inode, assigning it an ID that is not in use.
+// Allocate a new RNode, assigning it an ID that is not in use.
 //
 // LOCKS_REQUIRED(fs.mu)
 func (fs *memFS) allocateInode(
-	attrs fuseops.InodeAttributes) (id fuseops.InodeID, inode *inode) {
-	// Create the inode.
+	attrs fuseops.InodeAttributes) (id fuseops.InodeID, RNode *RNode) {
+	// Create the RNode.
 
 	// Re-use a free ID if possible. Otherwise mint a new one.
 	numFree := len(fs.freeInodes)
 	if numFree != 0 {
 		id = fs.freeInodes[numFree-1]
-		inode = newInode(attrs, id)
+		RNode = newInode(attrs, id)
 		fs.freeInodes = fs.freeInodes[:numFree-1]
-		fs.inodes[id] = inode
+		fs.inodes[id] = RNode
 	} else {
 		id = fuseops.InodeID(len(fs.inodes))
-		inode = newInode(attrs, id)
-		fs.inodes = append(fs.inodes, inode)
+		RNode = newInode(attrs, id)
+		fs.inodes = append(fs.inodes, RNode)
 	}
 
-	return id, inode
+	return id, RNode
 }
 
 // LOCKS_REQUIRED(fs.mu)
@@ -200,10 +200,10 @@ func (fs *memFS) LookUpInode(
 	defer fs.mu.Unlock()
 
 	// Grab the parent directory.
-	inode := fs.getInodeOrDie(op.Parent)
+	RNode := fs.getInodeOrDie(op.Parent)
 
 	// Does the directory have an entry with the given name?
-	childID, _, ok := inode.LookUpChild(op.Name)
+	childID, _, ok := RNode.LookUpChild(op.Name)
 	if !ok {
 		return fuse.ENOENT
 	}
@@ -229,11 +229,11 @@ func (fs *memFS) GetInodeAttributes(
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// Grab the inode.
-	inode := fs.getInodeOrDie(op.Inode)
+	// Grab the RNode.
+	RNode := fs.getInodeOrDie(op.Inode)
 
 	// Fill in the response.
-	op.Attributes = inode.Attrs()
+	op.Attributes = RNode.Attrs()
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
@@ -255,14 +255,14 @@ func (fs *memFS) SetInodeAttributes(
 		err = syscall.EBADF
 	}
 
-	// Grab the inode.
-	inode := fs.getInodeOrDie(op.Inode)
+	// Grab the RNode.
+	RNode := fs.getInodeOrDie(op.Inode)
 
 	// Handle the request.
-	inode.SetAttributes(op.Size, op.Mode, op.Mtime)
+	RNode.SetAttributes(op.Size, op.Mode, op.Mtime)
 
 	// Fill in the response.
-	op.Attributes = inode.Attrs()
+	op.Attributes = RNode.Attrs()
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
@@ -448,7 +448,7 @@ func (fs *memFS) CreateLink(
 		return fuse.EEXIST
 	}
 
-	// Get the target inode to be linked
+	// Get the target RNode to be linked
 	target := fs.getInodeOrDie(op.Target)
 
 	// Update the attributes
@@ -479,7 +479,7 @@ func (fs *memFS) Rename(
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// Ask the old parent for the child's inode ID and type.
+	// Ask the old parent for the child's RNode ID and type.
 	oldParent := fs.getInodeOrDie(op.OldParent)
 	childID, childType, ok := oldParent.LookUpChild(op.OldName)
 
@@ -584,11 +584,11 @@ func (fs *memFS) OpenDir(
 	defer fs.mu.Unlock()
 
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
-	// inode that doesn't exist, something screwed up earlier (a lookup, a
+	// RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	inode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.getInodeOrDie(op.Inode)
 
-	if !inode.isDir() {
+	if !RNode.isDir() {
 		panic("Found non-dir.")
 	}
 
@@ -602,10 +602,10 @@ func (fs *memFS) ReadDir(
 	defer fs.mu.Unlock()
 
 	// Grab the directory.
-	inode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.getInodeOrDie(op.Inode)
 
 	// Serve the request.
-	op.BytesRead = inode.ReadDir(op.Dst, int(op.Offset))
+	op.BytesRead = RNode.ReadDir(op.Dst, int(op.Offset))
 
 	return nil
 }
@@ -617,11 +617,11 @@ func (fs *memFS) OpenFile(
 	defer fs.mu.Unlock()
 
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
-	// inode that doesn't exist, something screwed up earlier (a lookup, a
+	// RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	inode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.getInodeOrDie(op.Inode)
 
-	if !inode.isFile() {
+	if !RNode.isFile() {
 		panic("Found non-file.")
 	}
 
@@ -634,12 +634,12 @@ func (fs *memFS) ReadFile(
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// Find the inode in question.
-	inode := fs.getInodeOrDie(op.Inode)
+	// Find the RNode in question.
+	RNode := fs.getInodeOrDie(op.Inode)
 
 	// Serve the request.
 	var err error
-	op.BytesRead, err = inode.ReadAt(op.Dst, op.Offset)
+	op.BytesRead, err = RNode.ReadAt(op.Dst, op.Offset)
 
 	// Don't return EOF errors; we just indicate EOF to fuse using a short read.
 	if err == io.EOF {
@@ -655,11 +655,11 @@ func (fs *memFS) WriteFile(
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// Find the inode in question.
-	inode := fs.getInodeOrDie(op.Inode)
+	// Find the RNode in question.
+	RNode := fs.getInodeOrDie(op.Inode)
 
 	// Serve the request.
-	_, err := inode.WriteAt(op.Data, op.Offset)
+	_, err := RNode.WriteAt(op.Data, op.Offset)
 
 	return err
 }
@@ -670,11 +670,11 @@ func (fs *memFS) ReadSymlink(
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// Find the inode in question.
-	inode := fs.getInodeOrDie(op.Inode)
+	// Find the RNode in question.
+	RNode := fs.getInodeOrDie(op.Inode)
 
 	// Serve the request.
-	op.Target = inode.Target()
+	op.Target = RNode.Target()
 
 	return nil
 }
@@ -684,8 +684,8 @@ func (fs *memFS) GetXattr(ctx context.Context,
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	inode := fs.getInodeOrDie(op.Inode)
-	if value, ok := inode.Xattrs()[op.Name]; ok {
+	RNode := fs.getInodeOrDie(op.Inode)
+	if value, ok := RNode.Xattrs()[op.Name]; ok {
 		op.BytesRead = len(value)
 		if len(op.Dst) >= len(value) {
 			copy(op.Dst, value)
@@ -704,10 +704,10 @@ func (fs *memFS) ListXattr(ctx context.Context,
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	inode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.getInodeOrDie(op.Inode)
 
 	dst := op.Dst[:]
-	for key := range inode.Xattrs() {
+	for key := range RNode.Xattrs() {
 		keyLen := len(key) + 1
 
 		if len(dst) >= keyLen {
@@ -726,12 +726,12 @@ func (fs *memFS) RemoveXattr(ctx context.Context,
 	op *fuseops.RemoveXattrOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	inode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.getInodeOrDie(op.Inode)
 
-	if _, ok := inode.Xattrs()[op.Name]; ok {
-		xattrs := inode.Xattrs()
+	if _, ok := RNode.Xattrs()[op.Name]; ok {
+		xattrs := RNode.Xattrs()
 		delete(xattrs, op.Name)
-		inode.SetXattrs(xattrs)
+		RNode.SetXattrs(xattrs)
 	} else {
 		return fuse.ENOATTR
 	}
@@ -742,9 +742,9 @@ func (fs *memFS) SetXattr(ctx context.Context,
 	op *fuseops.SetXattrOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	inode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.getInodeOrDie(op.Inode)
 
-	_, ok := inode.Xattrs()[op.Name]
+	_, ok := RNode.Xattrs()[op.Name]
 
 	switch op.Flags {
 	case unix.XATTR_CREATE:
@@ -759,9 +759,9 @@ func (fs *memFS) SetXattr(ctx context.Context,
 
 	value := make([]byte, len(op.Value))
 	copy(value, op.Value)
-	xattrs := inode.Xattrs()
+	xattrs := RNode.Xattrs()
 	xattrs[op.Name] = value
-	inode.SetXattrs(xattrs)
+	RNode.SetXattrs(xattrs)
 	return nil
 }
 
@@ -769,7 +769,7 @@ func (fs *memFS) Fallocate(ctx context.Context,
 	op *fuseops.FallocateOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	inode := fs.getInodeOrDie(op.Inode)
-	inode.Fallocate(op.Mode, op.Length, op.Length)
+	RNode := fs.getInodeOrDie(op.Inode)
+	RNode.Fallocate(op.Mode, op.Length, op.Length)
 	return nil
 }

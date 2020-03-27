@@ -28,13 +28,13 @@ import (
 // Common attributes for files and directories.
 //
 // External synchronization is required.
-type inode struct {
+type RNode struct {
 	_id fuseops.InodeID
 	/////////////////////////
 	// Mutable state
 	/////////////////////////
 
-	// The current attributes of this inode.
+	// The current attributes of this RNode.
 	//
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
 	// INVARIANT: !(isDir() && isSymlink())
@@ -68,47 +68,47 @@ type inode struct {
 	_xattrs map[string][]byte
 }
 
-func (in *inode) ID() fuseops.InodeID {
+func (in *RNode) ID() fuseops.InodeID {
 	return in._id
 }
 
-func (in *inode) Attrs() fuseops.InodeAttributes {
+func (in *RNode) Attrs() fuseops.InodeAttributes {
 	return in._attrs
 }
 
-func (in *inode) SetAttrs(attrs fuseops.InodeAttributes) {
+func (in *RNode) SetAttrs(attrs fuseops.InodeAttributes) {
 	in._attrs = attrs
 }
 
-func (in *inode) Entries() []fuseutil.Dirent {
+func (in *RNode) Entries() []fuseutil.Dirent {
 	return in._entries
 }
 
-func (in *inode) SetEntries(entries []fuseutil.Dirent) {
+func (in *RNode) SetEntries(entries []fuseutil.Dirent) {
 	in._entries = entries
 }
 
-func (in *inode) Contents() []byte {
+func (in *RNode) Contents() []byte {
 	return in._contents
 }
 
-func (in *inode) SetContents(contents []byte) {
+func (in *RNode) SetContents(contents []byte) {
 	in._contents = contents
 }
 
-func (in *inode) Target() string {
+func (in *RNode) Target() string {
 	return in._target
 }
 
-func (in *inode) SetTarget(target string) {
+func (in *RNode) SetTarget(target string) {
 	in._target = target
 }
 
-func (in *inode) Xattrs() map[string][]byte {
+func (in *RNode) Xattrs() map[string][]byte {
 	return in._xattrs
 }
 
-func (in *inode) SetXattrs(xattrs map[string][]byte) {
+func (in *RNode) SetXattrs(xattrs map[string][]byte) {
 	in._xattrs = xattrs
 }
 
@@ -116,23 +116,23 @@ func (in *inode) SetXattrs(xattrs map[string][]byte) {
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
-// Create a new inode with the supplied attributes, which need not contain
-// time-related information (the inode object will take care of that).
-func newInode(attrs fuseops.InodeAttributes, id fuseops.InodeID) *inode {
+// Create a new RNode with the supplied attributes, which need not contain
+// time-related information (the RNode object will take care of that).
+func newInode(attrs fuseops.InodeAttributes, id fuseops.InodeID) *RNode {
 	// Update time info.
 	now := time.Now()
 	attrs.Mtime = now
 	attrs.Crtime = now
 
 	// Create the object.
-	return &inode{
+	return &RNode{
 		_id:     id,
 		_attrs:  attrs,
 		_xattrs: make(map[string][]byte),
 	}
 }
 
-func (in *inode) CheckInvariants() {
+func (in *RNode) CheckInvariants() {
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
 	if !(in.Attrs().Mode&^(os.ModePerm|os.ModeDir|os.ModeSymlink) == 0) {
 		panic(fmt.Sprintf("Unexpected mode: %v", in.Attrs().Mode))
@@ -188,22 +188,22 @@ func (in *inode) CheckInvariants() {
 	return
 }
 
-func (in *inode) isDir() bool {
+func (in *RNode) isDir() bool {
 	return in.Attrs().Mode&os.ModeDir != 0
 }
 
-func (in *inode) isSymlink() bool {
+func (in *RNode) isSymlink() bool {
 	return in.Attrs().Mode&os.ModeSymlink != 0
 }
 
-func (in *inode) isFile() bool {
+func (in *RNode) isFile() bool {
 	return !(in.isDir() || in.isSymlink())
 }
 
 // Return the index of the child within in.Entries(), if it exists.
 //
 // REQUIRES: in.isDir()
-func (in *inode) findChild(name string) (i int, ok bool) {
+func (in *RNode) findChild(name string) (i int, ok bool) {
 	if !in.isDir() {
 		panic("findChild called on non-directory.")
 	}
@@ -225,7 +225,7 @@ func (in *inode) findChild(name string) (i int, ok bool) {
 // Return the number of children of the directory.
 //
 // REQUIRES: in.isDir()
-func (in *inode) Len() int {
+func (in *RNode) Len() int {
 	var n int
 	for _, e := range in.Entries() {
 		if e.Type != fuseutil.DT_Unknown {
@@ -236,10 +236,10 @@ func (in *inode) Len() int {
 	return n
 }
 
-// Find an entry for the given child name and return its inode ID.
+// Find an entry for the given child name and return its RNode ID.
 //
 // REQUIRES: in.isDir()
-func (in *inode) LookUpChild(name string) (
+func (in *RNode) LookUpChild(name string) (
 	// TODO: lock remote children
 	id fuseops.InodeID,
 	typ fuseutil.DirentType,
@@ -257,7 +257,7 @@ func (in *inode) LookUpChild(name string) (
 //
 // REQUIRES: in.isDir()
 // REQUIRES: dt != fuseutil.DT_Unknown
-func (in *inode) AddChild(
+func (in *RNode) AddChild(
 	// TODO: add remote child
 	id fuseops.InodeID,
 	name string,
@@ -303,7 +303,7 @@ func (in *inode) AddChild(
 //
 // REQUIRES: in.isDir()
 // REQUIRES: An entry for the given name exists.
-func (in *inode) RemoveChild(name string) {
+func (in *RNode) RemoveChild(name string) {
 	// TODO: remove remote child
 	// Update the modification time.
 	attrs := in.Attrs()
@@ -328,7 +328,7 @@ func (in *inode) RemoveChild(name string) {
 // Serve a ReadDir request.
 //
 // REQUIRES: in.isDir()
-func (in *inode) ReadDir(p []byte, offset int) int {
+func (in *RNode) ReadDir(p []byte, offset int) int {
 	// TODO: fetch remote dir
 	if !in.isDir() {
 		panic("ReadDir called on non-directory.")
@@ -357,7 +357,7 @@ func (in *inode) ReadDir(p []byte, offset int) int {
 // Read from the file's contents. See documentation for ioutil.ReaderAt.
 //
 // REQUIRES: in.isFile()
-func (in *inode) ReadAt(p []byte, off int64) (int, error) {
+func (in *RNode) ReadAt(p []byte, off int64) (int, error) {
 	// TODO: read remote content
 	if !in.isFile() {
 		panic("ReadAt called on non-file.")
@@ -380,7 +380,7 @@ func (in *inode) ReadAt(p []byte, off int64) (int, error) {
 // Write to the file's contents. See documentation for ioutil.WriterAt.
 //
 // REQUIRES: in.isFile()
-func (in *inode) WriteAt(p []byte, off int64) (int, error) {
+func (in *RNode) WriteAt(p []byte, off int64) (int, error) {
 	// TODO: write remote content
 	if !in.isFile() {
 		panic("WriteAt called on non-file.")
@@ -413,7 +413,7 @@ func (in *inode) WriteAt(p []byte, off int64) (int, error) {
 }
 
 // Update attributes from non-nil parameters.
-func (in *inode) SetAttributes(
+func (in *RNode) SetAttributes(
 	size *uint64,
 	mode *os.FileMode,
 	mtime *time.Time) {
@@ -453,7 +453,7 @@ func (in *inode) SetAttributes(
 	in.SetAttrs(attrs)
 }
 
-func (in *inode) Fallocate(mode uint32, offset uint64, length uint64) error {
+func (in *RNode) Fallocate(mode uint32, offset uint64, length uint64) error {
 	if mode != 0 {
 		return fuse.ENOSYS
 	}

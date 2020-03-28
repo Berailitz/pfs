@@ -29,7 +29,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type memFS struct {
+type MemFS struct {
 	fuseutil.NotImplementedFileSystem
 
 	// The UID and GID that every RNode receives.
@@ -72,7 +72,7 @@ func NewMemFS(
 	uid uint32,
 	gid uint32) fuse.Server {
 	// Set up the basic struct.
-	fs := &memFS{
+	fs := &MemFS{
 		inodes: make([]*RNode, fuseops.RootInodeID+1),
 		uid:    uid,
 		gid:    gid,
@@ -97,7 +97,7 @@ func NewMemFS(
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
-func (fs *memFS) checkInvariants() {
+func (fs *MemFS) checkInvariants() {
 	// Check reserved inodes.
 	for i := 0; i < fuseops.RootInodeID; i++ {
 		if fs.inodes[i] != nil {
@@ -144,7 +144,7 @@ func (fs *memFS) checkInvariants() {
 // Find the given RNode. Panic if it doesn't exist.
 //
 // LOCKS_REQUIRED(fs.mu)
-func (fs *memFS) getInodeOrDie(id fuseops.InodeID) *RNode {
+func (fs *MemFS) getInodeOrDie(id fuseops.InodeID) *RNode {
 	// TODO: lock remote RNode
 	RNode := fs.inodes[id]
 	if RNode == nil {
@@ -157,7 +157,7 @@ func (fs *memFS) getInodeOrDie(id fuseops.InodeID) *RNode {
 // Allocate a new RNode, assigning it an ID that is not in use.
 //
 // LOCKS_REQUIRED(fs.mu)
-func (fs *memFS) allocateInode(
+func (fs *MemFS) allocateInode(
 	attrs fuseops.InodeAttributes) (id fuseops.InodeID, RNode *RNode) {
 	// Create the RNode.
 
@@ -178,7 +178,7 @@ func (fs *memFS) allocateInode(
 }
 
 // LOCKS_REQUIRED(fs.mu)
-func (fs *memFS) deallocateInode(id fuseops.InodeID) {
+func (fs *MemFS) deallocateInode(id fuseops.InodeID) {
 	fs.freeInodes = append(fs.freeInodes, id)
 	fs.inodes[id] = nil
 }
@@ -187,13 +187,13 @@ func (fs *memFS) deallocateInode(id fuseops.InodeID) {
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
 
-func (fs *memFS) StatFS(
+func (fs *MemFS) StatFS(
 	ctx context.Context,
 	op *fuseops.StatFSOp) error {
 	return nil
 }
 
-func (fs *memFS) LookUpInode(
+func (fs *MemFS) LookUpInode(
 	ctx context.Context,
 	op *fuseops.LookUpInodeOp) error {
 	fs.mu.Lock()
@@ -223,7 +223,7 @@ func (fs *memFS) LookUpInode(
 	return nil
 }
 
-func (fs *memFS) GetInodeAttributes(
+func (fs *MemFS) GetInodeAttributes(
 	ctx context.Context,
 	op *fuseops.GetInodeAttributesOp) error {
 	fs.mu.Lock()
@@ -242,7 +242,7 @@ func (fs *memFS) GetInodeAttributes(
 	return nil
 }
 
-func (fs *memFS) SetInodeAttributes(
+func (fs *MemFS) SetInodeAttributes(
 	ctx context.Context,
 	op *fuseops.SetInodeAttributesOp) error {
 	fs.mu.Lock()
@@ -271,7 +271,7 @@ func (fs *memFS) SetInodeAttributes(
 	return err
 }
 
-func (fs *memFS) MkDir(
+func (fs *MemFS) MkDir(
 	ctx context.Context,
 	op *fuseops.MkDirOp) error {
 	fs.mu.Lock()
@@ -313,7 +313,7 @@ func (fs *memFS) MkDir(
 	return nil
 }
 
-func (fs *memFS) MkNode(
+func (fs *MemFS) MkNode(
 	ctx context.Context,
 	op *fuseops.MkNodeOp) error {
 	fs.mu.Lock()
@@ -325,7 +325,7 @@ func (fs *memFS) MkNode(
 }
 
 // LOCKS_REQUIRED(fs.mu)
-func (fs *memFS) createFile(
+func (fs *MemFS) createFile(
 	parentID fuseops.InodeID,
 	name string,
 	mode os.FileMode) (fuseops.ChildInodeEntry, error) {
@@ -371,7 +371,7 @@ func (fs *memFS) createFile(
 	return entry, nil
 }
 
-func (fs *memFS) CreateFile(
+func (fs *MemFS) CreateFile(
 	ctx context.Context,
 	op *fuseops.CreateFileOp) error {
 	fs.mu.Lock()
@@ -382,7 +382,7 @@ func (fs *memFS) CreateFile(
 	return err
 }
 
-func (fs *memFS) CreateSymlink(
+func (fs *MemFS) CreateSymlink(
 	ctx context.Context,
 	op *fuseops.CreateSymlinkOp) error {
 	fs.mu.Lock()
@@ -432,7 +432,7 @@ func (fs *memFS) CreateSymlink(
 	return nil
 }
 
-func (fs *memFS) CreateLink(
+func (fs *MemFS) CreateLink(
 	ctx context.Context,
 	op *fuseops.CreateLinkOp) error {
 	fs.mu.Lock()
@@ -473,7 +473,7 @@ func (fs *memFS) CreateLink(
 	return nil
 }
 
-func (fs *memFS) Rename(
+func (fs *MemFS) Rename(
 	ctx context.Context,
 	op *fuseops.RenameOp) error {
 	fs.mu.Lock()
@@ -514,7 +514,7 @@ func (fs *memFS) Rename(
 	return nil
 }
 
-func (fs *memFS) RmDir(
+func (fs *MemFS) RmDir(
 	ctx context.Context,
 	op *fuseops.RmDirOp) error {
 	fs.mu.Lock()
@@ -548,7 +548,7 @@ func (fs *memFS) RmDir(
 	return nil
 }
 
-func (fs *memFS) Unlink(
+func (fs *MemFS) Unlink(
 	ctx context.Context,
 	op *fuseops.UnlinkOp) error {
 	fs.mu.Lock()
@@ -577,7 +577,7 @@ func (fs *memFS) Unlink(
 	return nil
 }
 
-func (fs *memFS) OpenDir(
+func (fs *MemFS) OpenDir(
 	ctx context.Context,
 	op *fuseops.OpenDirOp) error {
 	fs.mu.Lock()
@@ -595,7 +595,7 @@ func (fs *memFS) OpenDir(
 	return nil
 }
 
-func (fs *memFS) ReadDir(
+func (fs *MemFS) ReadDir(
 	ctx context.Context,
 	op *fuseops.ReadDirOp) error {
 	fs.mu.Lock()
@@ -610,7 +610,7 @@ func (fs *memFS) ReadDir(
 	return nil
 }
 
-func (fs *memFS) OpenFile(
+func (fs *MemFS) OpenFile(
 	ctx context.Context,
 	op *fuseops.OpenFileOp) error {
 	fs.mu.Lock()
@@ -628,7 +628,7 @@ func (fs *memFS) OpenFile(
 	return nil
 }
 
-func (fs *memFS) ReadFile(
+func (fs *MemFS) ReadFile(
 	ctx context.Context,
 	op *fuseops.ReadFileOp) error {
 	fs.mu.Lock()
@@ -649,7 +649,7 @@ func (fs *memFS) ReadFile(
 	return err
 }
 
-func (fs *memFS) WriteFile(
+func (fs *MemFS) WriteFile(
 	ctx context.Context,
 	op *fuseops.WriteFileOp) error {
 	fs.mu.Lock()
@@ -664,7 +664,7 @@ func (fs *memFS) WriteFile(
 	return err
 }
 
-func (fs *memFS) ReadSymlink(
+func (fs *MemFS) ReadSymlink(
 	ctx context.Context,
 	op *fuseops.ReadSymlinkOp) error {
 	fs.mu.Lock()
@@ -679,7 +679,7 @@ func (fs *memFS) ReadSymlink(
 	return nil
 }
 
-func (fs *memFS) GetXattr(ctx context.Context,
+func (fs *MemFS) GetXattr(ctx context.Context,
 	op *fuseops.GetXattrOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -699,7 +699,7 @@ func (fs *memFS) GetXattr(ctx context.Context,
 	return nil
 }
 
-func (fs *memFS) ListXattr(ctx context.Context,
+func (fs *MemFS) ListXattr(ctx context.Context,
 	op *fuseops.ListXattrOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -722,7 +722,7 @@ func (fs *memFS) ListXattr(ctx context.Context,
 	return nil
 }
 
-func (fs *memFS) RemoveXattr(ctx context.Context,
+func (fs *MemFS) RemoveXattr(ctx context.Context,
 	op *fuseops.RemoveXattrOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -738,7 +738,7 @@ func (fs *memFS) RemoveXattr(ctx context.Context,
 	return nil
 }
 
-func (fs *memFS) SetXattr(ctx context.Context,
+func (fs *MemFS) SetXattr(ctx context.Context,
 	op *fuseops.SetXattrOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -765,7 +765,7 @@ func (fs *memFS) SetXattr(ctx context.Context,
 	return nil
 }
 
-func (fs *memFS) Fallocate(ctx context.Context,
+func (fs *MemFS) Fallocate(ctx context.Context,
 	op *fuseops.FallocateOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()

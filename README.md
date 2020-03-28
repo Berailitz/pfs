@@ -55,6 +55,12 @@ Private workspace for Golang.
         1. talk with Master to allocate/deallocate
 1. release lock
 
+### TODO
+1. shortcut by use local rserver as proxy
+    1. if local rserver->fserver has the node
+        1. if node is not transfering
+            1. reads/write can be handled locally
+
 ## Compatibility plane
 1. translate system calls
 1. invoke client's methods

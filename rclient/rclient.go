@@ -18,8 +18,6 @@ type Client interface {
 
 type RClient struct {
 	ID      uint64
-	Remote  string
-	Local   string
 	GClient remotetree.RemoteTreeClient
 }
 
@@ -86,17 +84,40 @@ func (c *RClient) RemoveOwner(ownerID uint64) bool {
 	return out.Ok
 }
 
-func NewRClient(id uint64, remote, local string, opts []grpc.DialOption) *RClient {
+// RegisterSelf is called only at initialization
+func (c *RClient) RegisterSelf(addr string) bool {
+	if c.ID > 0 {
+		log.Printf("duplicate register error: addr=%v", addr)
+		return false
+	}
+
+	localID := c.RegisterOwner(addr)
+	if localID > 0 {
+		c.ID = localID
+		log.Printf("register success: addr=%v, localID=%v", addr, localID)
+		return true
+	}
+
+	log.Printf("register error: addr=%v", addr)
+	return false
+}
+
+func NewRClient(master, local string, opts []grpc.DialOption) *RClient {
 	// TODO: add tls support
+	log.Printf("new rcli: master=%v, local=%v, opts=%+v", master, local, opts)
 	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(remote, opts...)
+	conn, err := grpc.Dial(master, opts...)
 	if err != nil {
+		log.Printf("new rcli fial error: master=%v, local=%v, opts=%+v, err=%+V", master, local, opts, err)
 		return nil
 	}
-	return &RClient{
-		ID:      id,
-		Remote:  remote,
-		Local:   local,
+	rcli := &RClient{
 		GClient: pb.NewRemoteTreeClient(conn),
 	}
+	if !rcli.RegisterSelf(local) {
+		log.Printf("new rcli register self error: master=%v, local=%v", master, local)
+		return nil
+	}
+	log.Printf("new rcli success: master=%v, local=%v", master, local)
+	return rcli
 }

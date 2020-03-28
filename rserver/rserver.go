@@ -9,12 +9,14 @@ import (
 	"net"
 	"os"
 
+	"github.com/Berailitz/pfs/manager"
+
+	"github.com/Berailitz/pfs/fbackend"
+
 	"github.com/jacobsa/fuse/fuseops"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/Berailitz/pfs/fs"
 
 	"google.golang.org/grpc"
 
@@ -23,15 +25,16 @@ import (
 
 type RServer struct {
 	pb.UnimplementedRemoteTreeServer
-	Server     *grpc.Server
-	Filesystem *fs.MemFS
+	Server *grpc.Server
+	FB     *fbackend.FBackEnd
+	ma     *manager.RManager
 }
 
 func (s *RServer) Create(ctx context.Context, req *pb.CreateRequest) (*pb.CreateReply, error) {
-	s.Filesystem.Lock()
-	defer s.Filesystem.Unlock()
+	s.FB.Lock()
+	defer s.FB.Unlock()
 
-	entry, err := s.Filesystem.DoCreateFile(fuseops.InodeID(req.Parent), req.Name, os.FileMode(req.Dt))
+	entry, err := s.FB.DoCreateFile(fuseops.InodeID(req.Parent), req.Name, os.FileMode(req.Dt))
 	if err != nil {
 		return &pb.CreateReply{
 			Err: &pb.Error{
@@ -65,14 +68,43 @@ func (s *RServer) ReadAttr(ctx context.Context, req *pb.NodeId) (*pb.ReadAttrRep
 	return nil, status.Errorf(codes.Unimplemented, "method ReadAttr not implemented")
 }
 
-func NewRServer(filesystem *fs.MemFS) *RServer {
-	if filesystem == nil {
-		return nil
+func (s *RServer) QueryOwner(ctx context.Context, req *pb.NodeId) (*pb.Addr, error) {
+	return &pb.Addr{Addr: s.ma.QueryOwner(req.Id)}, nil
+}
+
+func (s *RServer) Allocate(ctx context.Context, req *pb.OwnerId) (*pb.NodeId, error) {
+	return &pb.NodeId{Id: s.ma.Allocate(req.Id)}, nil
+}
+
+func (s *RServer) Deallocate(ctx context.Context, req *pb.NodeId) (*pb.IsOK, error) {
+	return &pb.IsOK{Ok: s.ma.Deallocate(req.Id)}, nil
+}
+
+func (s *RServer) RegisterOwner(ctx context.Context, req *pb.Addr) (*pb.OwnerId, error) {
+	return &pb.OwnerId{Id: s.ma.RegisterOwner(req.Addr)}, nil
+}
+
+func (s *RServer) RemoveOwner(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, error) {
+	return &pb.IsOK{Ok: s.ma.RemoveOwner(req.Id)}, nil
+}
+
+func (s *RServer) AllocateRoot(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, error) {
+	return &pb.IsOK{Ok: s.ma.AllocateRoot(req.Id)}, nil
+}
+
+func (s *RServer) RegisterFBackEnd(fb *fbackend.FBackEnd) {
+	if fb == nil {
+		log.Fatalf("nil backend error")
 	}
-	s := &RServer{
-		Filesystem: filesystem,
+	if s.FB != nil {
+		log.Fatalf("duplicate backend error")
 	}
-	return s
+	s.FB = fb
+}
+
+// NewRServer do NOT register backend
+func NewRServer() *RServer {
+	return &RServer{ma: manager.NewRManager()}
 }
 
 // Start blocks and starts the server

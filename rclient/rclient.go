@@ -16,6 +16,12 @@ type RClient struct {
 	GClient remotetree.RemoteTreeClient
 }
 
+type RCliCfg struct {
+	Master string
+	Local  string
+	GOpts  []grpc.DialOption
+}
+
 func (c *RClient) QueryOwner(nodeID uint64) string {
 	ctx := context.Background()
 	addr, err := c.GClient.QueryOwner(ctx, &remotetree.NodeId{
@@ -97,22 +103,23 @@ func (c *RClient) RegisterSelf(addr string) bool {
 	return false
 }
 
-func NewRClient(master, local string, opts []grpc.DialOption) *RClient {
+func NewRClient(cfg RCliCfg) *RClient {
 	// TODO: add tls support
-	log.Printf("new rcli: master=%v, local=%v, opts=%+v", master, local, opts)
-	opts = append(opts, grpc.WithInsecure())
-	conn, err := grpc.Dial(master, opts...)
+	log.Printf("new rcli: master=%v, local=%v, opts=%+v", cfg.Master, cfg.Local, cfg.GOpts)
+	cfg.GOpts = append(cfg.GOpts, grpc.WithInsecure())
+	conn, err := grpc.Dial(cfg.Master, cfg.GOpts...)
 	if err != nil {
-		log.Printf("new rcli fial error: master=%v, local=%v, opts=%+v, err=%+V", master, local, opts, err)
+		log.Printf("new rcli fial error: master=%v, local=%v, opts=%+v, err=%+V",
+			cfg.Master, cfg.Local, cfg.GOpts, err)
 		return nil
 	}
 	rcli := &RClient{
 		GClient: pb.NewRemoteTreeClient(conn),
 	}
-	if !rcli.RegisterSelf(local) {
-		log.Printf("new rcli register self error: master=%v, local=%v", master, local)
+	if !rcli.RegisterSelf(cfg.Local) {
+		log.Printf("new rcli register self error: master=%v, local=%v", cfg.Master, cfg.Local)
 		return nil
 	}
-	log.Printf("new rcli success: master=%v, local=%v", master, local)
+	log.Printf("new rcli success: master=%v, local=%v", cfg.Master, cfg.Local)
 	return rcli
 }

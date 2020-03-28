@@ -9,7 +9,7 @@ Private workspace for Golang.
 
 # Procedure
 ## Control plane
-### Master
+### Master - manager
 1. preserve owner table `map[uint64]OwnerID`, `map[OwnerID]OwnerAddress`
 1. manager node ids
     1. create/allocate
@@ -27,7 +27,7 @@ Private workspace for Golang.
             1. dst remove node
 
 ## Data plane
-### Client
+### Client - fbackend, rclient
 1. Get (parent) node owner from Master
     1. get whole node object from owner
 1. RPC to owner (the one who created it)
@@ -38,7 +38,7 @@ Private workspace for Golang.
     1. create/delete
         1. send args, fetch reply
 
-### Server
+### Server - rserver
 1. preserve node map `map[uint64]*RNode`
 1. check root node
     1. if no root node
@@ -61,7 +61,7 @@ Private workspace for Golang.
         1. if node is not transfering
             1. reads/write can be handled locally
 
-## Compatibility plane
+## Compatibility plane - lfs
 1. translate system calls
 1. invoke client's methods
 

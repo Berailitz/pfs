@@ -349,12 +349,12 @@ func (fs *MemFS) MkNode(
 	defer fs.mu.Unlock()
 
 	var err error
-	op.Entry, err = fs.createFile(op.Parent, op.Name, op.Mode)
+	op.Entry, err = fs.DoCreateFile(op.Parent, op.Name, op.Mode)
 	return err
 }
 
 // LOCKS_REQUIRED(fs.mu)
-func (fs *MemFS) createFile(
+func (fs *MemFS) DoCreateFile(
 	parentID fuseops.InodeID,
 	name string,
 	mode os.FileMode) (fuseops.ChildInodeEntry, error) {
@@ -407,7 +407,7 @@ func (fs *MemFS) CreateFile(
 	defer fs.mu.Unlock()
 
 	var err error
-	op.Entry, err = fs.createFile(op.Parent, op.Name, op.Mode)
+	op.Entry, err = fs.DoCreateFile(op.Parent, op.Name, op.Mode)
 	return err
 }
 

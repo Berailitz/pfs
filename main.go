@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/Berailitz/pfs/fs"
+	"github.com/Berailitz/pfs/rserver"
 
 	"github.com/jacobsa/fuse"
 )
@@ -45,13 +46,16 @@ func currentGid() uint32 {
 
 func main() {
 	debug := flag.Bool("debug", false, "print debugging messages.")
+	port := flag.Int("port", 10000, "The server port")
 	flag.Parse()
 	ctx := context.Background()
 	cfg := fuse.MountConfig{}
 	if *debug {
 		cfg.DebugLogger = log.New(os.Stderr, "fuse: ", 0)
 	}
-	server := fs.NewMemFS(currentUid(), currentGid())
+	filesystem := fs.NewMemFS(currentUid(), currentGid())
+	fsvr := fs.NewFServer(filesystem)
+	rsvr := rserver.NewRServer(filesystem)
 	if cfg.OpContext == nil {
 		cfg.OpContext = ctx
 	}
@@ -60,9 +64,13 @@ func main() {
 	var err error
 
 	// Mount the file system.
-	mfs, err := fuse.Mount(dir, server, &cfg)
+	mfs, err := fuse.Mount(dir, fsvr, &cfg)
 	if err != nil {
 		log.Fatalf("Mount: %v", err)
 	}
+	go func() {
+		rsvr.Start(*port)
+	}()
 	mfs.Join(ctx)
+	rsvr.Stop()
 }

@@ -126,7 +126,7 @@ func NewRClient(cfg RCliCfg) *RClient {
 	cfg.GOpts = append(cfg.GOpts, grpc.WithInsecure())
 	conn, err := grpc.Dial(cfg.Master, cfg.GOpts...)
 	if err != nil {
-		log.Printf("new rcli fial error: master=%v, local=%v, opts=%+v, err=%+V",
+		log.Fatalf("new rcli fial error: master=%v, local=%v, opts=%+v, err=%+V",
 			cfg.Master, cfg.Local, cfg.GOpts, err)
 		return nil
 	}
@@ -134,7 +134,7 @@ func NewRClient(cfg RCliCfg) *RClient {
 		GClient: pb.NewRemoteTreeClient(conn),
 	}
 	if !rcli.RegisterSelf(cfg.Local) {
-		log.Printf("new rcli register self error: master=%v, local=%v", cfg.Master, cfg.Local)
+		log.Fatalf("new rcli register self error: master=%v, local=%v", cfg.Master, cfg.Local)
 		return nil
 	}
 	log.Printf("new rcli success: master=%v, local=%v", cfg.Master, cfg.Local)

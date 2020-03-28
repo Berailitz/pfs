@@ -38,15 +38,15 @@ type RNodeAttr struct {
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
 	// INVARIANT: !(isDir() && isSymlink())
 	// INVARIANT: attrs.Size == len(contents)
-	_attrs fuseops.InodeAttributes
+	NAttr fuseops.InodeAttributes
 
 	// For symlinks, the target of the symlink.
 	//
 	// INVARIANT: If !isSymlink(), len(target) == 0
-	_target string
+	NTarget string
 
 	// extended attributes and values
-	_xattrs map[string][]byte
+	NXattrs map[string][]byte
 }
 
 type RNode struct {
@@ -67,12 +67,12 @@ type RNode struct {
 	// INVARIANT: If !isDir(), len(entries) == 0
 	// INVARIANT: For each i, entries[i].Offset == i+1
 	// INVARIANT: Contains no duplicate names in used entries.
-	_entries []fuseutil.Dirent
+	NEntries []fuseutil.Dirent
 
 	// For files, the current contents of the file.
 	//
 	// INVARIANT: If !isFile(), len(contents) == 0
-	_contents []byte
+	NContents []byte
 }
 
 func (in *RNode) ID() fuseops.InodeID {
@@ -80,43 +80,43 @@ func (in *RNode) ID() fuseops.InodeID {
 }
 
 func (in *RNodeAttr) Attrs() fuseops.InodeAttributes {
-	return in._attrs
+	return in.NAttr
 }
 
 func (in *RNodeAttr) SetAttrs(attrs fuseops.InodeAttributes) {
-	in._attrs = attrs
+	in.NAttr = attrs
 }
 
 func (in *RNode) Entries() []fuseutil.Dirent {
-	return in._entries
+	return in.NEntries
 }
 
 func (in *RNode) SetEntries(entries []fuseutil.Dirent) {
-	in._entries = entries
+	in.NEntries = entries
 }
 
 func (in *RNode) Contents() []byte {
-	return in._contents
+	return in.NContents
 }
 
 func (in *RNode) SetContents(contents []byte) {
-	in._contents = contents
+	in.NContents = contents
 }
 
 func (in *RNodeAttr) Target() string {
-	return in._target
+	return in.NTarget
 }
 
 func (in *RNodeAttr) SetTarget(target string) {
-	in._target = target
+	in.NTarget = target
 }
 
 func (in *RNodeAttr) Xattrs() map[string][]byte {
-	return in._xattrs
+	return in.NXattrs
 }
 
 func (in *RNodeAttr) SetXattrs(xattrs map[string][]byte) {
-	in._xattrs = xattrs
+	in.NXattrs = xattrs
 }
 
 func (in *RNode) GetRNodeAttr() RNodeAttr {
@@ -163,8 +163,8 @@ func newInode(attrs fuseops.InodeAttributes, id fuseops.InodeID) *RNode {
 	return &RNode{
 		_id: id,
 		RNodeAttr: RNodeAttr{
-			_attrs:  attrs,
-			_xattrs: make(map[string][]byte),
+			NAttr:   attrs,
+			NXattrs: make(map[string][]byte),
 		},
 	}
 }

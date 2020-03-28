@@ -282,9 +282,6 @@ func (fb *FBackEnd) MkDir(
 func (fb *FBackEnd) MkNode(
 	ctx context.Context,
 	op *fuseops.MkNodeOp) error {
-	fb.mu.Lock()
-	defer fb.mu.Unlock()
-
 	var err error
 	op.Entry, err = fb.DoCreateFile(op.Parent, op.Name, op.Mode)
 	return err
@@ -295,6 +292,9 @@ func (fb *FBackEnd) DoCreateFile(
 	parentID fuseops.InodeID,
 	name string,
 	mode os.FileMode) (fuseops.ChildInodeEntry, error) {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+
 	// Grab the parent, which we will update shortly.
 	parent := fb.MustLoadInode(parentID)
 

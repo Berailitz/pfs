@@ -15,8 +15,11 @@
 package fs
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"time"
 
@@ -114,6 +117,34 @@ func (in *RNodeAttr) Xattrs() map[string][]byte {
 
 func (in *RNodeAttr) SetXattrs(xattrs map[string][]byte) {
 	in._xattrs = xattrs
+}
+
+func (in *RNode) GetRNodeAttr() RNodeAttr {
+	return in.RNodeAttr
+}
+
+func (in *RNode) SetRNodeAttr(attr RNodeAttr) {
+	in.RNodeAttr = attr
+}
+
+func (in *RNode) GetRNodeAttrBytes() *bytes.Buffer {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(in.RNodeAttr); err != nil {
+		log.Printf("encode attr error: err=%+v", err)
+		return nil
+	}
+	return &buf
+}
+
+func (in *RNode) SetRNodeAttrBytes(data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	if err := dec.Decode(&in.RNodeAttr); err != nil {
+		log.Printf("decode attr error: err=%+v", err)
+		return err
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////

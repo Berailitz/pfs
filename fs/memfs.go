@@ -104,6 +104,14 @@ func NewFServer(fs *MemFS) fuse.Server {
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
+func (fs *MemFS) Lock() {
+	fs.mu.Lock()
+}
+
+func (fs *MemFS) Unlock() {
+	fs.mu.Unlock()
+}
+
 func (fs *MemFS) checkInvariants() {
 	// Check reserved inodes.
 	for i := 0; i < fuseops.RootInodeID; i++ {

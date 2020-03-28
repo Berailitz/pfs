@@ -14,6 +14,12 @@ service RemoteTree {
     rpc ReadDir(NodeId) returns (ReadDirReply) {}
     rpc ReadFile(NodeId) returns (ReadFileReply) {}
     rpc ReadAttr(NodeId) returns (ReadAttrReply) {}
+
+    rpc QueryOwner(NodeId) returns (Addr) {}
+    rpc Allocate(OwnerId) returns (NodeId) {}
+    rpc Deallocate(NodeId) returns (IsOK) {}
+    rpc RegisterOwner(Addr) returns (OwnerId) {}
+    rpc RemoveOwner(OwnerId) returns (IsOK) {}
 }
 
 message Chunk {
@@ -96,4 +102,16 @@ message Error {
 
 message NodeId {
     uint64 id = 1;
+}
+
+message OwnerId {
+    uint64 id = 1;
+}
+
+message Addr {
+    string addr = 1;
+}
+
+message IsOK {
+    bool ok = 1;
 }

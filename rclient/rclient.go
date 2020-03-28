@@ -6,22 +6,15 @@ import (
 	"context"
 	"log"
 
-	"github.com/Berailitz/pfs/manager"
 	"github.com/Berailitz/pfs/remotetree"
 	pb "github.com/Berailitz/pfs/remotetree"
 	"google.golang.org/grpc"
 )
 
-type Client interface {
-	manager.Manager
-}
-
 type RClient struct {
 	ID      uint64
 	GClient remotetree.RemoteTreeClient
 }
-
-var _ = (Client)((*RClient)(nil))
 
 func (c *RClient) QueryOwner(nodeID uint64) string {
 	ctx := context.Background()
@@ -35,15 +28,17 @@ func (c *RClient) QueryOwner(nodeID uint64) string {
 	return addr.Addr
 }
 
-func (c *RClient) Allocate(ownerID uint64) uint64 {
+func (c *RClient) Allocate() uint64 {
 	ctx := context.Background()
+	log.Printf("allocate node")
 	nodeID, err := c.GClient.Allocate(ctx, &remotetree.OwnerId{
-		Id: ownerID,
+		Id: c.ID,
 	})
 	if err != nil {
-		log.Printf("allocate error: ownerID=%v, err=%+v", ownerID, err)
+		log.Printf("allocate error: ownerID=%v, err=%+v", c.ID, err)
 		return 0
 	}
+	log.Printf("allocate node success: nodeID=%v", nodeID.Id)
 	return nodeID.Id
 }
 

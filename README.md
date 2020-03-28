@@ -65,6 +65,13 @@ Private workspace for Golang.
 1. translate system calls
 1. invoke client's methods
 
+# Boot Order
+1. Manager (skeleton in network)
+1. RServer, on 
+    1. FBackEnd, on
+        1. RClient (skeleton on node, depending on Manager)
+1. LFS
+
 # Plan
 1. rpc proto
 1. rpc client

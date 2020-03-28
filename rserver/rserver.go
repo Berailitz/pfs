@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+
+	"github.com/jacobsa/fuse/fuseops"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,8 +28,24 @@ type RServer struct {
 }
 
 func (s *RServer) Create(ctx context.Context, req *pb.CreateRequest) (*pb.CreateReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Create not implemented")
+	s.Filesystem.Lock()
+	defer s.Filesystem.Unlock()
+
+	entry, err := s.Filesystem.DoCreateFile(fuseops.InodeID(req.Parent), req.Name, os.FileMode(req.Dt))
+	if err != nil {
+		return &pb.CreateReply{
+			Err: &pb.Error{
+				Status: 1,
+				Msg:    err.Error(),
+			},
+		}, nil
+	}
+	return &pb.CreateReply{
+		Child: uint64(entry.Child),
+		Err:   nil,
+	}, nil
 }
+
 func (s *RServer) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
 }

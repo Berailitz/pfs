@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Berailitz/pfs/fs"
+	"github.com/Berailitz/pfs/lfs"
 
 	"github.com/Berailitz/pfs/fbackend"
 
@@ -82,7 +82,7 @@ func main() {
 		cfg.OpContext = ctx
 	}
 
-	fsvr := fs.NewFServer(fs.NewMemFS(currentUid(), currentGid()))
+	fsvr := lfs.NewLFSServer(lfs.NewLFS(currentUid(), currentGid()))
 	// Mount the file system.
 	mfs, err := fuse.Mount(dir, fsvr, &cfg)
 	if err != nil {

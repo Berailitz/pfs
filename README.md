@@ -16,6 +16,15 @@ Private workspace for Golang.
         1. next++, never recycle ids
     1. delete/deallocate
         1. remove from owner table
+    1. transfer node (and child nodes) between owners
+        1. src -> Master: mark node as transferring
+            1. lock node node
+            1. update transferring node table
+        1. src -> dst: transfer data
+        1. dst -> Master: mark node as transferred
+            1. update owner table
+            1. unlock node
+            1. dst remove node
 
 ## Data plane
 ### Client

@@ -22,6 +22,7 @@ type RCliCfg struct {
 	GOpts  []grpc.DialOption
 }
 
+// QueryOwner fetch owner'addr of a node
 func (c *RClient) QueryOwner(nodeID uint64) string {
 	ctx := context.Background()
 	addr, err := c.GClient.QueryOwner(ctx, &remotetree.NodeId{
@@ -82,6 +83,20 @@ func (c *RClient) RemoveOwner(ownerID uint64) bool {
 		log.Printf("remove owner error: ownerID=%v, err=%+v", ownerID, err)
 		return false
 	}
+	return out.Ok
+}
+
+func (c *RClient) AllocateRoot(ownerID uint64) bool {
+	ctx := context.Background()
+	log.Printf("allocate root: ownerID=%v", ownerID)
+	out, err := c.GClient.AllocateRoot(ctx, &remotetree.OwnerId{
+		Id: ownerID,
+	})
+	if err != nil {
+		log.Printf("allocate root error: ownerID=%v, err=%+v", ownerID, err)
+		return false
+	}
+	log.Printf("allocate root success: ownerID=%v", ownerID)
 	return out.Ok
 }
 

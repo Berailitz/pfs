@@ -93,7 +93,7 @@ func NewMemFS(
 	return fs
 }
 
-func NewFSServer(fs *MemFS) fuse.Server {
+func NewFServer(fs *MemFS) fuse.Server {
 	if fs == nil {
 		return nil
 	}

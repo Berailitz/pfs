@@ -71,104 +71,685 @@ func (m *Chunk) GetData() []byte {
 	return nil
 }
 
-type ReadRequest struct {
-	Path                 *Path    `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Start                int64    `protobuf:"varint,2,opt,name=start,proto3" json:"start,omitempty"`
-	Length               int64    `protobuf:"varint,3,opt,name=length,proto3" json:"length,omitempty"`
+type CreateRequest struct {
+	Parent               uint64   `protobuf:"varint,1,opt,name=parent,proto3" json:"parent,omitempty"`
+	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Dt                   uint32   `protobuf:"varint,3,opt,name=dt,proto3" json:"dt,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ReadRequest) Reset()         { *m = ReadRequest{} }
-func (m *ReadRequest) String() string { return proto.CompactTextString(m) }
-func (*ReadRequest) ProtoMessage()    {}
-func (*ReadRequest) Descriptor() ([]byte, []int) {
+func (m *CreateRequest) Reset()         { *m = CreateRequest{} }
+func (m *CreateRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateRequest) ProtoMessage()    {}
+func (*CreateRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f8de7cc35295e1fb, []int{1}
 }
 
-func (m *ReadRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ReadRequest.Unmarshal(m, b)
+func (m *CreateRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CreateRequest.Unmarshal(m, b)
 }
-func (m *ReadRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ReadRequest.Marshal(b, m, deterministic)
+func (m *CreateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CreateRequest.Marshal(b, m, deterministic)
 }
-func (m *ReadRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ReadRequest.Merge(m, src)
+func (m *CreateRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateRequest.Merge(m, src)
 }
-func (m *ReadRequest) XXX_Size() int {
-	return xxx_messageInfo_ReadRequest.Size(m)
+func (m *CreateRequest) XXX_Size() int {
+	return xxx_messageInfo_CreateRequest.Size(m)
 }
-func (m *ReadRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_ReadRequest.DiscardUnknown(m)
+func (m *CreateRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ReadRequest proto.InternalMessageInfo
+var xxx_messageInfo_CreateRequest proto.InternalMessageInfo
 
-func (m *ReadRequest) GetPath() *Path {
+func (m *CreateRequest) GetParent() uint64 {
 	if m != nil {
-		return m.Path
-	}
-	return nil
-}
-
-func (m *ReadRequest) GetStart() int64 {
-	if m != nil {
-		return m.Start
+		return m.Parent
 	}
 	return 0
 }
 
-func (m *ReadRequest) GetLength() int64 {
+func (m *CreateRequest) GetName() string {
 	if m != nil {
-		return m.Length
+		return m.Name
+	}
+	return ""
+}
+
+func (m *CreateRequest) GetDt() uint32 {
+	if m != nil {
+		return m.Dt
 	}
 	return 0
 }
 
-type Path struct {
-	Names                []string `protobuf:"bytes,1,rep,name=names,proto3" json:"names,omitempty"`
+type CreateReply struct {
+	Err                  *Error   `protobuf:"bytes,1,opt,name=err,proto3" json:"err,omitempty"`
+	Child                uint64   `protobuf:"varint,2,opt,name=child,proto3" json:"child,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Path) Reset()         { *m = Path{} }
-func (m *Path) String() string { return proto.CompactTextString(m) }
-func (*Path) ProtoMessage()    {}
-func (*Path) Descriptor() ([]byte, []int) {
+func (m *CreateReply) Reset()         { *m = CreateReply{} }
+func (m *CreateReply) String() string { return proto.CompactTextString(m) }
+func (*CreateReply) ProtoMessage()    {}
+func (*CreateReply) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f8de7cc35295e1fb, []int{2}
 }
 
-func (m *Path) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Path.Unmarshal(m, b)
+func (m *CreateReply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CreateReply.Unmarshal(m, b)
 }
-func (m *Path) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Path.Marshal(b, m, deterministic)
+func (m *CreateReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CreateReply.Marshal(b, m, deterministic)
 }
-func (m *Path) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Path.Merge(m, src)
+func (m *CreateReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateReply.Merge(m, src)
 }
-func (m *Path) XXX_Size() int {
-	return xxx_messageInfo_Path.Size(m)
+func (m *CreateReply) XXX_Size() int {
+	return xxx_messageInfo_CreateReply.Size(m)
 }
-func (m *Path) XXX_DiscardUnknown() {
-	xxx_messageInfo_Path.DiscardUnknown(m)
+func (m *CreateReply) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateReply.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_Path proto.InternalMessageInfo
+var xxx_messageInfo_CreateReply proto.InternalMessageInfo
 
-func (m *Path) GetNames() []string {
+func (m *CreateReply) GetErr() *Error {
 	if m != nil {
-		return m.Names
+		return m.Err
 	}
 	return nil
+}
+
+func (m *CreateReply) GetChild() uint64 {
+	if m != nil {
+		return m.Child
+	}
+	return 0
+}
+
+type DeleteRequest struct {
+	Parent               uint64   `protobuf:"varint,1,opt,name=parent,proto3" json:"parent,omitempty"`
+	Name                 string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DeleteRequest) Reset()         { *m = DeleteRequest{} }
+func (m *DeleteRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteRequest) ProtoMessage()    {}
+func (*DeleteRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{3}
+}
+
+func (m *DeleteRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DeleteRequest.Unmarshal(m, b)
+}
+func (m *DeleteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DeleteRequest.Marshal(b, m, deterministic)
+}
+func (m *DeleteRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteRequest.Merge(m, src)
+}
+func (m *DeleteRequest) XXX_Size() int {
+	return xxx_messageInfo_DeleteRequest.Size(m)
+}
+func (m *DeleteRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteRequest proto.InternalMessageInfo
+
+func (m *DeleteRequest) GetParent() uint64 {
+	if m != nil {
+		return m.Parent
+	}
+	return 0
+}
+
+func (m *DeleteRequest) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+type DeleteReply struct {
+	Err                  *Error   `protobuf:"bytes,1,opt,name=err,proto3" json:"err,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DeleteReply) Reset()         { *m = DeleteReply{} }
+func (m *DeleteReply) String() string { return proto.CompactTextString(m) }
+func (*DeleteReply) ProtoMessage()    {}
+func (*DeleteReply) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{4}
+}
+
+func (m *DeleteReply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DeleteReply.Unmarshal(m, b)
+}
+func (m *DeleteReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DeleteReply.Marshal(b, m, deterministic)
+}
+func (m *DeleteReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteReply.Merge(m, src)
+}
+func (m *DeleteReply) XXX_Size() int {
+	return xxx_messageInfo_DeleteReply.Size(m)
+}
+func (m *DeleteReply) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteReply.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteReply proto.InternalMessageInfo
+
+func (m *DeleteReply) GetErr() *Error {
+	if m != nil {
+		return m.Err
+	}
+	return nil
+}
+
+type WriteFileRequest struct {
+	Id                   uint64   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Chunk                *Chunk   `protobuf:"bytes,2,opt,name=chunk,proto3" json:"chunk,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *WriteFileRequest) Reset()         { *m = WriteFileRequest{} }
+func (m *WriteFileRequest) String() string { return proto.CompactTextString(m) }
+func (*WriteFileRequest) ProtoMessage()    {}
+func (*WriteFileRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{5}
+}
+
+func (m *WriteFileRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_WriteFileRequest.Unmarshal(m, b)
+}
+func (m *WriteFileRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_WriteFileRequest.Marshal(b, m, deterministic)
+}
+func (m *WriteFileRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WriteFileRequest.Merge(m, src)
+}
+func (m *WriteFileRequest) XXX_Size() int {
+	return xxx_messageInfo_WriteFileRequest.Size(m)
+}
+func (m *WriteFileRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_WriteFileRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WriteFileRequest proto.InternalMessageInfo
+
+func (m *WriteFileRequest) GetId() uint64 {
+	if m != nil {
+		return m.Id
+	}
+	return 0
+}
+
+func (m *WriteFileRequest) GetChunk() *Chunk {
+	if m != nil {
+		return m.Chunk
+	}
+	return nil
+}
+
+type WriteFileReply struct {
+	Err                  *Error   `protobuf:"bytes,1,opt,name=err,proto3" json:"err,omitempty"`
+	Size                 int64    `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *WriteFileReply) Reset()         { *m = WriteFileReply{} }
+func (m *WriteFileReply) String() string { return proto.CompactTextString(m) }
+func (*WriteFileReply) ProtoMessage()    {}
+func (*WriteFileReply) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{6}
+}
+
+func (m *WriteFileReply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_WriteFileReply.Unmarshal(m, b)
+}
+func (m *WriteFileReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_WriteFileReply.Marshal(b, m, deterministic)
+}
+func (m *WriteFileReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WriteFileReply.Merge(m, src)
+}
+func (m *WriteFileReply) XXX_Size() int {
+	return xxx_messageInfo_WriteFileReply.Size(m)
+}
+func (m *WriteFileReply) XXX_DiscardUnknown() {
+	xxx_messageInfo_WriteFileReply.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WriteFileReply proto.InternalMessageInfo
+
+func (m *WriteFileReply) GetErr() *Error {
+	if m != nil {
+		return m.Err
+	}
+	return nil
+}
+
+func (m *WriteFileReply) GetSize() int64 {
+	if m != nil {
+		return m.Size
+	}
+	return 0
+}
+
+type WriteAttrRequest struct {
+	Id                   uint64   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Attr                 []byte   `protobuf:"bytes,2,opt,name=attr,proto3" json:"attr,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *WriteAttrRequest) Reset()         { *m = WriteAttrRequest{} }
+func (m *WriteAttrRequest) String() string { return proto.CompactTextString(m) }
+func (*WriteAttrRequest) ProtoMessage()    {}
+func (*WriteAttrRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{7}
+}
+
+func (m *WriteAttrRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_WriteAttrRequest.Unmarshal(m, b)
+}
+func (m *WriteAttrRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_WriteAttrRequest.Marshal(b, m, deterministic)
+}
+func (m *WriteAttrRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WriteAttrRequest.Merge(m, src)
+}
+func (m *WriteAttrRequest) XXX_Size() int {
+	return xxx_messageInfo_WriteAttrRequest.Size(m)
+}
+func (m *WriteAttrRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_WriteAttrRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WriteAttrRequest proto.InternalMessageInfo
+
+func (m *WriteAttrRequest) GetId() uint64 {
+	if m != nil {
+		return m.Id
+	}
+	return 0
+}
+
+func (m *WriteAttrRequest) GetAttr() []byte {
+	if m != nil {
+		return m.Attr
+	}
+	return nil
+}
+
+type WriteAttrReply struct {
+	Err                  *Error   `protobuf:"bytes,1,opt,name=err,proto3" json:"err,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *WriteAttrReply) Reset()         { *m = WriteAttrReply{} }
+func (m *WriteAttrReply) String() string { return proto.CompactTextString(m) }
+func (*WriteAttrReply) ProtoMessage()    {}
+func (*WriteAttrReply) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{8}
+}
+
+func (m *WriteAttrReply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_WriteAttrReply.Unmarshal(m, b)
+}
+func (m *WriteAttrReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_WriteAttrReply.Marshal(b, m, deterministic)
+}
+func (m *WriteAttrReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WriteAttrReply.Merge(m, src)
+}
+func (m *WriteAttrReply) XXX_Size() int {
+	return xxx_messageInfo_WriteAttrReply.Size(m)
+}
+func (m *WriteAttrReply) XXX_DiscardUnknown() {
+	xxx_messageInfo_WriteAttrReply.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WriteAttrReply proto.InternalMessageInfo
+
+func (m *WriteAttrReply) GetErr() *Error {
+	if m != nil {
+		return m.Err
+	}
+	return nil
+}
+
+type ReadFileReply struct {
+	Rrr                  *Error   `protobuf:"bytes,1,opt,name=rrr,proto3" json:"rrr,omitempty"`
+	Content              []byte   `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ReadFileReply) Reset()         { *m = ReadFileReply{} }
+func (m *ReadFileReply) String() string { return proto.CompactTextString(m) }
+func (*ReadFileReply) ProtoMessage()    {}
+func (*ReadFileReply) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{9}
+}
+
+func (m *ReadFileReply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ReadFileReply.Unmarshal(m, b)
+}
+func (m *ReadFileReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ReadFileReply.Marshal(b, m, deterministic)
+}
+func (m *ReadFileReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReadFileReply.Merge(m, src)
+}
+func (m *ReadFileReply) XXX_Size() int {
+	return xxx_messageInfo_ReadFileReply.Size(m)
+}
+func (m *ReadFileReply) XXX_DiscardUnknown() {
+	xxx_messageInfo_ReadFileReply.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ReadFileReply proto.InternalMessageInfo
+
+func (m *ReadFileReply) GetRrr() *Error {
+	if m != nil {
+		return m.Rrr
+	}
+	return nil
+}
+
+func (m *ReadFileReply) GetContent() []byte {
+	if m != nil {
+		return m.Content
+	}
+	return nil
+}
+
+type ReadDirReply struct {
+	Err                  *Error    `protobuf:"bytes,1,opt,name=err,proto3" json:"err,omitempty"`
+	Dirents              []*Dirent `protobuf:"bytes,2,rep,name=dirents,proto3" json:"dirents,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *ReadDirReply) Reset()         { *m = ReadDirReply{} }
+func (m *ReadDirReply) String() string { return proto.CompactTextString(m) }
+func (*ReadDirReply) ProtoMessage()    {}
+func (*ReadDirReply) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{10}
+}
+
+func (m *ReadDirReply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ReadDirReply.Unmarshal(m, b)
+}
+func (m *ReadDirReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ReadDirReply.Marshal(b, m, deterministic)
+}
+func (m *ReadDirReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReadDirReply.Merge(m, src)
+}
+func (m *ReadDirReply) XXX_Size() int {
+	return xxx_messageInfo_ReadDirReply.Size(m)
+}
+func (m *ReadDirReply) XXX_DiscardUnknown() {
+	xxx_messageInfo_ReadDirReply.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ReadDirReply proto.InternalMessageInfo
+
+func (m *ReadDirReply) GetErr() *Error {
+	if m != nil {
+		return m.Err
+	}
+	return nil
+}
+
+func (m *ReadDirReply) GetDirents() []*Dirent {
+	if m != nil {
+		return m.Dirents
+	}
+	return nil
+}
+
+type ReadAttrReply struct {
+	Err                  *Error   `protobuf:"bytes,1,opt,name=err,proto3" json:"err,omitempty"`
+	Attr                 []byte   `protobuf:"bytes,2,opt,name=attr,proto3" json:"attr,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ReadAttrReply) Reset()         { *m = ReadAttrReply{} }
+func (m *ReadAttrReply) String() string { return proto.CompactTextString(m) }
+func (*ReadAttrReply) ProtoMessage()    {}
+func (*ReadAttrReply) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{11}
+}
+
+func (m *ReadAttrReply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ReadAttrReply.Unmarshal(m, b)
+}
+func (m *ReadAttrReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ReadAttrReply.Marshal(b, m, deterministic)
+}
+func (m *ReadAttrReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReadAttrReply.Merge(m, src)
+}
+func (m *ReadAttrReply) XXX_Size() int {
+	return xxx_messageInfo_ReadAttrReply.Size(m)
+}
+func (m *ReadAttrReply) XXX_DiscardUnknown() {
+	xxx_messageInfo_ReadAttrReply.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ReadAttrReply proto.InternalMessageInfo
+
+func (m *ReadAttrReply) GetErr() *Error {
+	if m != nil {
+		return m.Err
+	}
+	return nil
+}
+
+func (m *ReadAttrReply) GetAttr() []byte {
+	if m != nil {
+		return m.Attr
+	}
+	return nil
+}
+
+type Dirent struct {
+	// The (opaque) offset within the directory file of the entry following this
+	// one. See notes on fuseops.ReadDirOp.Offset for details.
+	Offset uint64 `protobuf:"varint,1,opt,name=offset,proto3" json:"offset,omitempty"`
+	// The inode of the child file or directory, and its name within the parent.
+	Inode uint64 `protobuf:"varint,2,opt,name=inode,proto3" json:"inode,omitempty"`
+	Name  string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// The type of the child. The zero value (DT_Unknown) is legal, but means
+	// that the kernel will need to call GetAttr when the type is needed.
+	Type                 uint32   `protobuf:"varint,4,opt,name=type,proto3" json:"type,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Dirent) Reset()         { *m = Dirent{} }
+func (m *Dirent) String() string { return proto.CompactTextString(m) }
+func (*Dirent) ProtoMessage()    {}
+func (*Dirent) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{12}
+}
+
+func (m *Dirent) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Dirent.Unmarshal(m, b)
+}
+func (m *Dirent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Dirent.Marshal(b, m, deterministic)
+}
+func (m *Dirent) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Dirent.Merge(m, src)
+}
+func (m *Dirent) XXX_Size() int {
+	return xxx_messageInfo_Dirent.Size(m)
+}
+func (m *Dirent) XXX_DiscardUnknown() {
+	xxx_messageInfo_Dirent.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Dirent proto.InternalMessageInfo
+
+func (m *Dirent) GetOffset() uint64 {
+	if m != nil {
+		return m.Offset
+	}
+	return 0
+}
+
+func (m *Dirent) GetInode() uint64 {
+	if m != nil {
+		return m.Inode
+	}
+	return 0
+}
+
+func (m *Dirent) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *Dirent) GetType() uint32 {
+	if m != nil {
+		return m.Type
+	}
+	return 0
+}
+
+type Error struct {
+	Status               int64    `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
+	Msg                  string   `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Error) Reset()         { *m = Error{} }
+func (m *Error) String() string { return proto.CompactTextString(m) }
+func (*Error) ProtoMessage()    {}
+func (*Error) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{13}
+}
+
+func (m *Error) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Error.Unmarshal(m, b)
+}
+func (m *Error) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Error.Marshal(b, m, deterministic)
+}
+func (m *Error) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Error.Merge(m, src)
+}
+func (m *Error) XXX_Size() int {
+	return xxx_messageInfo_Error.Size(m)
+}
+func (m *Error) XXX_DiscardUnknown() {
+	xxx_messageInfo_Error.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Error proto.InternalMessageInfo
+
+func (m *Error) GetStatus() int64 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+func (m *Error) GetMsg() string {
+	if m != nil {
+		return m.Msg
+	}
+	return ""
+}
+
+type NodeId struct {
+	Id                   uint64   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *NodeId) Reset()         { *m = NodeId{} }
+func (m *NodeId) String() string { return proto.CompactTextString(m) }
+func (*NodeId) ProtoMessage()    {}
+func (*NodeId) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f8de7cc35295e1fb, []int{14}
+}
+
+func (m *NodeId) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_NodeId.Unmarshal(m, b)
+}
+func (m *NodeId) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_NodeId.Marshal(b, m, deterministic)
+}
+func (m *NodeId) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeId.Merge(m, src)
+}
+func (m *NodeId) XXX_Size() int {
+	return xxx_messageInfo_NodeId.Size(m)
+}
+func (m *NodeId) XXX_DiscardUnknown() {
+	xxx_messageInfo_NodeId.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NodeId proto.InternalMessageInfo
+
+func (m *NodeId) GetId() uint64 {
+	if m != nil {
+		return m.Id
+	}
+	return 0
 }
 
 func init() {
 	proto.RegisterType((*Chunk)(nil), "remotetree.Chunk")
-	proto.RegisterType((*ReadRequest)(nil), "remotetree.ReadRequest")
-	proto.RegisterType((*Path)(nil), "remotetree.Path")
+	proto.RegisterType((*CreateRequest)(nil), "remotetree.CreateRequest")
+	proto.RegisterType((*CreateReply)(nil), "remotetree.CreateReply")
+	proto.RegisterType((*DeleteRequest)(nil), "remotetree.DeleteRequest")
+	proto.RegisterType((*DeleteReply)(nil), "remotetree.DeleteReply")
+	proto.RegisterType((*WriteFileRequest)(nil), "remotetree.WriteFileRequest")
+	proto.RegisterType((*WriteFileReply)(nil), "remotetree.WriteFileReply")
+	proto.RegisterType((*WriteAttrRequest)(nil), "remotetree.WriteAttrRequest")
+	proto.RegisterType((*WriteAttrReply)(nil), "remotetree.WriteAttrReply")
+	proto.RegisterType((*ReadFileReply)(nil), "remotetree.ReadFileReply")
+	proto.RegisterType((*ReadDirReply)(nil), "remotetree.ReadDirReply")
+	proto.RegisterType((*ReadAttrReply)(nil), "remotetree.ReadAttrReply")
+	proto.RegisterType((*Dirent)(nil), "remotetree.Dirent")
+	proto.RegisterType((*Error)(nil), "remotetree.Error")
+	proto.RegisterType((*NodeId)(nil), "remotetree.NodeId")
 }
 
 func init() {
@@ -176,20 +757,42 @@ func init() {
 }
 
 var fileDescriptor_f8de7cc35295e1fb = []byte{
-	// 202 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x50, 0xcb, 0x4a, 0xc5, 0x30,
-	0x10, 0x35, 0x6d, 0x5a, 0x70, 0xea, 0xa2, 0x06, 0xd1, 0x20, 0x2e, 0x4a, 0x70, 0xd1, 0x55, 0xd1,
-	0x0a, 0xfe, 0x80, 0x7e, 0x40, 0x09, 0xfe, 0xc0, 0x48, 0x07, 0x03, 0xde, 0x3e, 0x6e, 0x3a, 0xfd,
-	0xff, 0xcb, 0x4d, 0x0b, 0xcd, 0x2e, 0xe7, 0x1c, 0xce, 0x23, 0x03, 0xa5, 0xa7, 0x61, 0x62, 0x62,
-	0x4f, 0xd4, 0xcc, 0x7e, 0xe2, 0x49, 0xc1, 0xc1, 0x98, 0x77, 0xc8, 0xbe, 0xdc, 0x3a, 0xfe, 0xab,
-	0x07, 0xc8, 0x16, 0x46, 0xcf, 0x5a, 0x54, 0xa2, 0x4e, 0xed, 0x06, 0x94, 0x02, 0xd9, 0x23, 0xa3,
-	0x4e, 0x2a, 0x51, 0xdf, 0xd9, 0xf0, 0x36, 0x08, 0x85, 0x25, 0xec, 0x2d, 0x9d, 0x57, 0x5a, 0x58,
-	0xbd, 0x82, 0x9c, 0x91, 0x5d, 0xf0, 0x15, 0x6d, 0xd9, 0x44, 0x75, 0x1d, 0xb2, 0xb3, 0x41, 0x3d,
-	0xe2, 0x93, 0x38, 0xfe, 0x11, 0xf2, 0x13, 0x8d, 0x7f, 0xec, 0x74, 0x1a, 0xe8, 0x1d, 0x99, 0x17,
-	0x90, 0xdd, 0xee, 0x1a, 0x71, 0xa0, 0x45, 0x8b, 0x2a, 0xad, 0x6f, 0xed, 0x06, 0xda, 0x6f, 0x00,
-	0x1b, 0x4a, 0x7e, 0x3c, 0x91, 0xfa, 0x04, 0x79, 0x9d, 0xa3, 0x9e, 0xe2, 0xe6, 0x68, 0xe0, 0xf3,
-	0x7d, 0x2c, 0x84, 0xcf, 0x9a, 0x9b, 0x37, 0xf1, 0x9b, 0x87, 0x63, 0x7c, 0x5c, 0x02, 0x00, 0x00,
-	0xff, 0xff, 0xea, 0xf5, 0x47, 0xff, 0x20, 0x01, 0x00, 0x00,
+	// 550 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x54, 0x51, 0x6f, 0xd3, 0x3c,
+	0x14, 0x6d, 0x93, 0xac, 0xfd, 0x76, 0xbb, 0x56, 0xfd, 0xae, 0x10, 0x64, 0x15, 0x0f, 0x95, 0x79,
+	0xa0, 0x0f, 0x68, 0x12, 0x45, 0x20, 0xa1, 0x49, 0x48, 0x68, 0x05, 0x36, 0x4d, 0xda, 0x83, 0x85,
+	0xc4, 0x1b, 0x92, 0x99, 0xef, 0x58, 0xb4, 0x34, 0x09, 0x8e, 0xfb, 0x50, 0xfe, 0x26, 0x7f, 0x08,
+	0xd9, 0x4e, 0x82, 0x53, 0x65, 0xa8, 0xe3, 0xed, 0xde, 0xd8, 0xe7, 0xf8, 0xd8, 0xf7, 0x9c, 0xc0,
+	0x54, 0xd1, 0x3a, 0xd7, 0xa4, 0x15, 0xd1, 0x49, 0xa1, 0x72, 0x9d, 0x23, 0xfc, 0xf9, 0xc2, 0x5e,
+	0xc2, 0xc1, 0xd9, 0xed, 0x26, 0xbb, 0xc3, 0x47, 0x70, 0x50, 0x6a, 0xa1, 0x74, 0xdc, 0x9f, 0xf7,
+	0x17, 0x21, 0x77, 0x0d, 0x22, 0x44, 0x52, 0x68, 0x11, 0x07, 0xf3, 0xfe, 0xe2, 0x88, 0xdb, 0x9a,
+	0x5d, 0xc2, 0xf8, 0x4c, 0x91, 0xd0, 0xc4, 0xe9, 0xc7, 0x86, 0x4a, 0x8d, 0x8f, 0x61, 0x50, 0x08,
+	0x45, 0x99, 0xc3, 0x46, 0xbc, 0xea, 0x0c, 0x38, 0x13, 0x6b, 0xb2, 0xe0, 0x43, 0x6e, 0x6b, 0x9c,
+	0x40, 0x20, 0x75, 0x1c, 0xce, 0xfb, 0x8b, 0x31, 0x0f, 0xa4, 0x66, 0xe7, 0x30, 0xaa, 0xc9, 0x8a,
+	0x74, 0x8b, 0xcf, 0x20, 0x24, 0xa5, 0x2c, 0xcf, 0x68, 0xf9, 0xff, 0x89, 0x27, 0xfd, 0x83, 0x52,
+	0xb9, 0xe2, 0x66, 0xd5, 0x48, 0xbd, 0xbe, 0x4d, 0x52, 0x69, 0x89, 0x23, 0xee, 0x1a, 0x76, 0x0a,
+	0xe3, 0x15, 0xa5, 0xf4, 0x4f, 0xb2, 0xd8, 0x12, 0x46, 0x35, 0x78, 0x5f, 0x19, 0xec, 0x12, 0xa6,
+	0x5f, 0x54, 0xa2, 0xe9, 0x63, 0x92, 0x36, 0x67, 0x4e, 0x20, 0x48, 0x64, 0x75, 0x5e, 0x90, 0x48,
+	0x7c, 0x6e, 0xa4, 0x6e, 0xb2, 0x3b, 0x7b, 0xd8, 0x0e, 0x95, 0x7d, 0x77, 0xee, 0xd6, 0xd9, 0x05,
+	0x4c, 0x3c, 0xb2, 0xbd, 0x9f, 0x02, 0x21, 0x2a, 0x93, 0x9f, 0xee, 0x2e, 0x21, 0xb7, 0x35, 0x7b,
+	0x53, 0xe9, 0x7a, 0xaf, 0xb5, 0xba, 0x4f, 0x17, 0x42, 0x24, 0xb4, 0x56, 0xf5, 0x5c, 0x4d, 0xcd,
+	0x5e, 0x57, 0x12, 0x1c, 0x6e, 0xef, 0x67, 0xb8, 0x82, 0x31, 0x27, 0x21, 0x5b, 0xc2, 0xd5, 0x5f,
+	0x51, 0x4a, 0x29, 0x8c, 0x61, 0x78, 0x9d, 0x67, 0xda, 0x4c, 0xc7, 0x69, 0xa8, 0x5b, 0x26, 0xe0,
+	0xc8, 0xf0, 0xad, 0x92, 0x07, 0x88, 0xc0, 0x17, 0x30, 0x94, 0x89, 0x99, 0x6e, 0x19, 0x07, 0xf3,
+	0x70, 0x31, 0x5a, 0xa2, 0xbf, 0x71, 0x65, 0x97, 0x78, 0xbd, 0x85, 0x9d, 0x3b, 0xc9, 0x0f, 0xbb,
+	0x68, 0xe7, 0x9b, 0x7d, 0x85, 0x81, 0x23, 0x37, 0x6e, 0xcb, 0x6f, 0x6e, 0x4a, 0x6a, 0xdc, 0xe6,
+	0x3a, 0x63, 0xd6, 0x24, 0xcb, 0x25, 0xd5, 0x66, 0xb5, 0x4d, 0xe3, 0xc1, 0xd0, 0x8b, 0x06, 0x42,
+	0xa4, 0xb7, 0x05, 0xc5, 0x91, 0x0d, 0x87, 0xad, 0x4d, 0x3c, 0xad, 0x02, 0x43, 0x5f, 0x6a, 0xa1,
+	0x37, 0x65, 0x95, 0xcf, 0xaa, 0xc3, 0x29, 0x84, 0xeb, 0xf2, 0x7b, 0xe5, 0x65, 0x53, 0xb2, 0x18,
+	0x06, 0x57, 0xb9, 0xa4, 0x0b, 0xb9, 0x3b, 0xf4, 0xe5, 0xaf, 0x10, 0x80, 0xdb, 0xab, 0x7d, 0x56,
+	0x44, 0xf8, 0x0e, 0x06, 0x2e, 0x7a, 0x78, 0xdc, 0xb2, 0xa5, 0x9f, 0xed, 0xd9, 0x93, 0xae, 0xa5,
+	0x22, 0xdd, 0xb2, 0x9e, 0xc1, 0xbb, 0xcc, 0xb4, 0xf1, 0xad, 0x10, 0xb6, 0xf1, 0x5e, 0xc4, 0x58,
+	0x0f, 0x3f, 0xc1, 0x61, 0x63, 0x79, 0x7c, 0xea, 0xef, 0xdb, 0x8d, 0xd5, 0x6c, 0x76, 0xcf, 0x6a,
+	0x9b, 0xc8, 0xcc, 0xb3, 0x83, 0xc8, 0xcb, 0x41, 0x07, 0x51, 0x63, 0x02, 0xd6, 0xc3, 0xb7, 0x30,
+	0xac, 0xac, 0x87, 0x2d, 0xff, 0xb8, 0xf7, 0x9c, 0xc5, 0xfe, 0x37, 0xdf, 0xa3, 0xac, 0x87, 0xa7,
+	0xf0, 0x5f, 0x9d, 0x82, 0x4e, 0xec, 0xf1, 0x2e, 0xd6, 0xbf, 0x40, 0x05, 0xb6, 0xfa, 0xf7, 0x02,
+	0x7b, 0xa2, 0xbf, 0x0d, 0xec, 0x4f, 0xfd, 0xd5, 0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0xcc, 0x33,
+	0x1a, 0x5a, 0xe8, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -204,7 +807,17 @@ const _ = grpc.SupportPackageIsVersion6
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type RemoteTreeClient interface {
-	Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (RemoteTree_ReadClient, error)
+	//rpc RLock(NodeId) returns (StatusReply) {}
+	//rpc WLock(NodeId) returns (StatusReply) {}
+	//rpc RUnlock(NodeId) returns (StatusReply) {}
+	//rpc WUnlock(NodeId) returns (StatusReply) {}
+	Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateReply, error)
+	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteReply, error)
+	WriteFile(ctx context.Context, in *WriteFileRequest, opts ...grpc.CallOption) (*WriteFileReply, error)
+	WriteAttr(ctx context.Context, in *WriteAttrRequest, opts ...grpc.CallOption) (*WriteAttrReply, error)
+	ReadDir(ctx context.Context, in *NodeId, opts ...grpc.CallOption) (*ReadDirReply, error)
+	ReadFile(ctx context.Context, in *NodeId, opts ...grpc.CallOption) (*ReadFileReply, error)
+	ReadAttr(ctx context.Context, in *NodeId, opts ...grpc.CallOption) (*ReadAttrReply, error)
 }
 
 type remoteTreeClient struct {
@@ -215,86 +828,273 @@ func NewRemoteTreeClient(cc grpc.ClientConnInterface) RemoteTreeClient {
 	return &remoteTreeClient{cc}
 }
 
-func (c *remoteTreeClient) Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (RemoteTree_ReadClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RemoteTree_serviceDesc.Streams[0], "/remotetree.RemoteTree/Read", opts...)
+func (c *remoteTreeClient) Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateReply, error) {
+	out := new(CreateReply)
+	err := c.cc.Invoke(ctx, "/remotetree.RemoteTree/Create", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &remoteTreeReadClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type RemoteTree_ReadClient interface {
-	Recv() (*Chunk, error)
-	grpc.ClientStream
-}
-
-type remoteTreeReadClient struct {
-	grpc.ClientStream
-}
-
-func (x *remoteTreeReadClient) Recv() (*Chunk, error) {
-	m := new(Chunk)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
+func (c *remoteTreeClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteReply, error) {
+	out := new(DeleteReply)
+	err := c.cc.Invoke(ctx, "/remotetree.RemoteTree/Delete", in, out, opts...)
+	if err != nil {
 		return nil, err
 	}
-	return m, nil
+	return out, nil
+}
+
+func (c *remoteTreeClient) WriteFile(ctx context.Context, in *WriteFileRequest, opts ...grpc.CallOption) (*WriteFileReply, error) {
+	out := new(WriteFileReply)
+	err := c.cc.Invoke(ctx, "/remotetree.RemoteTree/WriteFile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *remoteTreeClient) WriteAttr(ctx context.Context, in *WriteAttrRequest, opts ...grpc.CallOption) (*WriteAttrReply, error) {
+	out := new(WriteAttrReply)
+	err := c.cc.Invoke(ctx, "/remotetree.RemoteTree/WriteAttr", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *remoteTreeClient) ReadDir(ctx context.Context, in *NodeId, opts ...grpc.CallOption) (*ReadDirReply, error) {
+	out := new(ReadDirReply)
+	err := c.cc.Invoke(ctx, "/remotetree.RemoteTree/ReadDir", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *remoteTreeClient) ReadFile(ctx context.Context, in *NodeId, opts ...grpc.CallOption) (*ReadFileReply, error) {
+	out := new(ReadFileReply)
+	err := c.cc.Invoke(ctx, "/remotetree.RemoteTree/ReadFile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *remoteTreeClient) ReadAttr(ctx context.Context, in *NodeId, opts ...grpc.CallOption) (*ReadAttrReply, error) {
+	out := new(ReadAttrReply)
+	err := c.cc.Invoke(ctx, "/remotetree.RemoteTree/ReadAttr", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // RemoteTreeServer is the server API for RemoteTree service.
 type RemoteTreeServer interface {
-	Read(*ReadRequest, RemoteTree_ReadServer) error
+	//rpc RLock(NodeId) returns (StatusReply) {}
+	//rpc WLock(NodeId) returns (StatusReply) {}
+	//rpc RUnlock(NodeId) returns (StatusReply) {}
+	//rpc WUnlock(NodeId) returns (StatusReply) {}
+	Create(context.Context, *CreateRequest) (*CreateReply, error)
+	Delete(context.Context, *DeleteRequest) (*DeleteReply, error)
+	WriteFile(context.Context, *WriteFileRequest) (*WriteFileReply, error)
+	WriteAttr(context.Context, *WriteAttrRequest) (*WriteAttrReply, error)
+	ReadDir(context.Context, *NodeId) (*ReadDirReply, error)
+	ReadFile(context.Context, *NodeId) (*ReadFileReply, error)
+	ReadAttr(context.Context, *NodeId) (*ReadAttrReply, error)
 }
 
 // UnimplementedRemoteTreeServer can be embedded to have forward compatible implementations.
 type UnimplementedRemoteTreeServer struct {
 }
 
-func (*UnimplementedRemoteTreeServer) Read(req *ReadRequest, srv RemoteTree_ReadServer) error {
-	return status.Errorf(codes.Unimplemented, "method Read not implemented")
+func (*UnimplementedRemoteTreeServer) Create(ctx context.Context, req *CreateRequest) (*CreateReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Create not implemented")
+}
+func (*UnimplementedRemoteTreeServer) Delete(ctx context.Context, req *DeleteRequest) (*DeleteReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+}
+func (*UnimplementedRemoteTreeServer) WriteFile(ctx context.Context, req *WriteFileRequest) (*WriteFileReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WriteFile not implemented")
+}
+func (*UnimplementedRemoteTreeServer) WriteAttr(ctx context.Context, req *WriteAttrRequest) (*WriteAttrReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WriteAttr not implemented")
+}
+func (*UnimplementedRemoteTreeServer) ReadDir(ctx context.Context, req *NodeId) (*ReadDirReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadDir not implemented")
+}
+func (*UnimplementedRemoteTreeServer) ReadFile(ctx context.Context, req *NodeId) (*ReadFileReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadFile not implemented")
+}
+func (*UnimplementedRemoteTreeServer) ReadAttr(ctx context.Context, req *NodeId) (*ReadAttrReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadAttr not implemented")
 }
 
 func RegisterRemoteTreeServer(s *grpc.Server, srv RemoteTreeServer) {
 	s.RegisterService(&_RemoteTree_serviceDesc, srv)
 }
 
-func _RemoteTree_Read_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ReadRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _RemoteTree_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(RemoteTreeServer).Read(m, &remoteTreeReadServer{stream})
+	if interceptor == nil {
+		return srv.(RemoteTreeServer).Create(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remotetree.RemoteTree/Create",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteTreeServer).Create(ctx, req.(*CreateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type RemoteTree_ReadServer interface {
-	Send(*Chunk) error
-	grpc.ServerStream
+func _RemoteTree_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RemoteTreeServer).Delete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remotetree.RemoteTree/Delete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteTreeServer).Delete(ctx, req.(*DeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type remoteTreeReadServer struct {
-	grpc.ServerStream
+func _RemoteTree_WriteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WriteFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RemoteTreeServer).WriteFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remotetree.RemoteTree/WriteFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteTreeServer).WriteFile(ctx, req.(*WriteFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func (x *remoteTreeReadServer) Send(m *Chunk) error {
-	return x.ServerStream.SendMsg(m)
+func _RemoteTree_WriteAttr_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WriteAttrRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RemoteTreeServer).WriteAttr(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remotetree.RemoteTree/WriteAttr",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteTreeServer).WriteAttr(ctx, req.(*WriteAttrRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RemoteTree_ReadDir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeId)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RemoteTreeServer).ReadDir(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remotetree.RemoteTree/ReadDir",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteTreeServer).ReadDir(ctx, req.(*NodeId))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RemoteTree_ReadFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeId)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RemoteTreeServer).ReadFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remotetree.RemoteTree/ReadFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteTreeServer).ReadFile(ctx, req.(*NodeId))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RemoteTree_ReadAttr_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeId)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RemoteTreeServer).ReadAttr(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/remotetree.RemoteTree/ReadAttr",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RemoteTreeServer).ReadAttr(ctx, req.(*NodeId))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _RemoteTree_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "remotetree.RemoteTree",
 	HandlerType: (*RemoteTreeServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams: []grpc.StreamDesc{
+	Methods: []grpc.MethodDesc{
 		{
-			StreamName:    "Read",
-			Handler:       _RemoteTree_Read_Handler,
-			ServerStreams: true,
+			MethodName: "Create",
+			Handler:    _RemoteTree_Create_Handler,
+		},
+		{
+			MethodName: "Delete",
+			Handler:    _RemoteTree_Delete_Handler,
+		},
+		{
+			MethodName: "WriteFile",
+			Handler:    _RemoteTree_WriteFile_Handler,
+		},
+		{
+			MethodName: "WriteAttr",
+			Handler:    _RemoteTree_WriteAttr_Handler,
+		},
+		{
+			MethodName: "ReadDir",
+			Handler:    _RemoteTree_ReadDir_Handler,
+		},
+		{
+			MethodName: "ReadFile",
+			Handler:    _RemoteTree_ReadFile_Handler,
+		},
+		{
+			MethodName: "ReadAttr",
+			Handler:    _RemoteTree_ReadAttr_Handler,
 		},
 	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "remotetree.proto",
 }

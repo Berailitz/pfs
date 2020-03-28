@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"log"
 	"sync"
 	"sync/atomic"
 
@@ -8,9 +9,9 @@ import (
 )
 
 const (
-	InitialNextNodeID  = fuseops.RootInodeID
-	InitialNextOwnerID = 1
-	MaxOwnerID         = 200
+	RootNodeID   uint64 = fuseops.RootInodeID
+	FirstOwnerID uint64 = 1
+	MaxOwnerID   uint64 = 200
 )
 
 type Manager interface {
@@ -19,6 +20,7 @@ type Manager interface {
 	Deallocate(nodeID uint64) bool
 	RegisterOwner(addr string) uint64
 	RemoveOwner(ownerID uint64) bool
+	AllocateRoot(ownerID uint64) bool
 }
 
 type RManager struct {
@@ -90,10 +92,22 @@ func (m *RManager) RemoveOwner(ownerID uint64) bool {
 	return false
 }
 
+// AllocateRoot returns true if ownerID acquires the root node, false otherwise.
+// Note that AllocateRoot returns false if ownID is invalid.
+func (m *RManager) AllocateRoot(ownerID uint64) bool {
+	if _, ok := m.Owners.Load(ownerID); ok {
+		if _, loaded := m.NodeOwner.LoadOrStore(RootNodeID, ownerID); !loaded {
+			log.Printf("root allocated: ownerID=%v", ownerID)
+			return true
+		}
+	}
+	return false
+}
+
 // NewRManager do not register or allocate
 func NewRManager() *RManager {
 	return &RManager{
-		NextNodeID:  InitialNextNodeID,
-		NextOwnerID: InitialNextOwnerID,
+		NextNodeID:  RootNodeID + 1, // since root is assigned by AllocateRoot, not allocated
+		NextOwnerID: FirstOwnerID,
 	}
 }

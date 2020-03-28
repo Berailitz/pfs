@@ -159,7 +159,7 @@ func (fs *MemFS) checkInvariants() {
 // Find the given RNode. Panic if it doesn't exist.
 //
 // LOCKS_REQUIRED(fs.mu)
-func (fs *MemFS) getInodeOrDie(id fuseops.InodeID) *RNode {
+func (fs *MemFS) GetInodeOrDie(id fuseops.InodeID) *RNode {
 	// TODO: lock remote RNode
 	RNode := fs.inodes[id]
 	if RNode == nil {
@@ -215,7 +215,7 @@ func (fs *MemFS) LookUpInode(
 	defer fs.mu.Unlock()
 
 	// Grab the parent directory.
-	RNode := fs.getInodeOrDie(op.Parent)
+	RNode := fs.GetInodeOrDie(op.Parent)
 
 	// Does the directory have an entry with the given name?
 	childID, _, ok := RNode.LookUpChild(op.Name)
@@ -224,7 +224,7 @@ func (fs *MemFS) LookUpInode(
 	}
 
 	// Grab the child.
-	child := fs.getInodeOrDie(childID)
+	child := fs.GetInodeOrDie(childID)
 
 	// Fill in the response.
 	op.Entry.Child = childID
@@ -245,7 +245,7 @@ func (fs *MemFS) GetInodeAttributes(
 	defer fs.mu.Unlock()
 
 	// Grab the RNode.
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	// Fill in the response.
 	op.Attributes = RNode.Attrs()
@@ -271,7 +271,7 @@ func (fs *MemFS) SetInodeAttributes(
 	}
 
 	// Grab the RNode.
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	// Handle the request.
 	RNode.SetAttributes(op.Size, op.Mode, op.Mtime)
@@ -293,7 +293,7 @@ func (fs *MemFS) MkDir(
 	defer fs.mu.Unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent := fs.getInodeOrDie(op.Parent)
+	parent := fs.GetInodeOrDie(op.Parent)
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
 	// duplicate.
@@ -345,7 +345,7 @@ func (fs *MemFS) createFile(
 	name string,
 	mode os.FileMode) (fuseops.ChildInodeEntry, error) {
 	// Grab the parent, which we will update shortly.
-	parent := fs.getInodeOrDie(parentID)
+	parent := fs.GetInodeOrDie(parentID)
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
 	// duplicate.
@@ -404,7 +404,7 @@ func (fs *MemFS) CreateSymlink(
 	defer fs.mu.Unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent := fs.getInodeOrDie(op.Parent)
+	parent := fs.GetInodeOrDie(op.Parent)
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
 	// duplicate.
@@ -454,7 +454,7 @@ func (fs *MemFS) CreateLink(
 	defer fs.mu.Unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent := fs.getInodeOrDie(op.Parent)
+	parent := fs.GetInodeOrDie(op.Parent)
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
 	// duplicate.
@@ -464,7 +464,7 @@ func (fs *MemFS) CreateLink(
 	}
 
 	// Get the target RNode to be linked
-	target := fs.getInodeOrDie(op.Target)
+	target := fs.GetInodeOrDie(op.Target)
 
 	// Update the attributes
 	now := time.Now()
@@ -495,7 +495,7 @@ func (fs *MemFS) Rename(
 	defer fs.mu.Unlock()
 
 	// Ask the old parent for the child's RNode ID and type.
-	oldParent := fs.getInodeOrDie(op.OldParent)
+	oldParent := fs.GetInodeOrDie(op.OldParent)
 	childID, childType, ok := oldParent.LookUpChild(op.OldName)
 
 	if !ok {
@@ -504,10 +504,10 @@ func (fs *MemFS) Rename(
 
 	// If the new name exists already in the new parent, make sure it's not a
 	// non-empty directory, then delete it.
-	newParent := fs.getInodeOrDie(op.NewParent)
+	newParent := fs.GetInodeOrDie(op.NewParent)
 	existingID, _, ok := newParent.LookUpChild(op.NewName)
 	if ok {
-		existing := fs.getInodeOrDie(existingID)
+		existing := fs.GetInodeOrDie(existingID)
 
 		var buf [4096]byte
 		if existing.isDir() && existing.ReadDir(buf[:], 0) > 0 {
@@ -536,7 +536,7 @@ func (fs *MemFS) RmDir(
 	defer fs.mu.Unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent := fs.getInodeOrDie(op.Parent)
+	parent := fs.GetInodeOrDie(op.Parent)
 
 	// Find the child within the parent.
 	childID, _, ok := parent.LookUpChild(op.Name)
@@ -545,7 +545,7 @@ func (fs *MemFS) RmDir(
 	}
 
 	// Grab the child.
-	child := fs.getInodeOrDie(childID)
+	child := fs.GetInodeOrDie(childID)
 
 	// Make sure the child is empty.
 	if child.Len() != 0 {
@@ -570,7 +570,7 @@ func (fs *MemFS) Unlink(
 	defer fs.mu.Unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent := fs.getInodeOrDie(op.Parent)
+	parent := fs.GetInodeOrDie(op.Parent)
 
 	// Find the child within the parent.
 	childID, _, ok := parent.LookUpChild(op.Name)
@@ -579,7 +579,7 @@ func (fs *MemFS) Unlink(
 	}
 
 	// Grab the child.
-	child := fs.getInodeOrDie(childID)
+	child := fs.GetInodeOrDie(childID)
 
 	// Remove the entry within the parent.
 	parent.RemoveChild(op.Name)
@@ -601,7 +601,7 @@ func (fs *MemFS) OpenDir(
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	if !RNode.isDir() {
 		panic("Found non-dir.")
@@ -617,7 +617,7 @@ func (fs *MemFS) ReadDir(
 	defer fs.mu.Unlock()
 
 	// Grab the directory.
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	// Serve the request.
 	op.BytesRead = RNode.ReadDir(op.Dst, int(op.Offset))
@@ -634,7 +634,7 @@ func (fs *MemFS) OpenFile(
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	if !RNode.isFile() {
 		panic("Found non-file.")
@@ -650,7 +650,7 @@ func (fs *MemFS) ReadFile(
 	defer fs.mu.Unlock()
 
 	// Find the RNode in question.
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	// Serve the request.
 	var err error
@@ -671,7 +671,7 @@ func (fs *MemFS) WriteFile(
 	defer fs.mu.Unlock()
 
 	// Find the RNode in question.
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	// Serve the request.
 	_, err := RNode.WriteAt(op.Data, op.Offset)
@@ -686,7 +686,7 @@ func (fs *MemFS) ReadSymlink(
 	defer fs.mu.Unlock()
 
 	// Find the RNode in question.
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	// Serve the request.
 	op.Target = RNode.Target()
@@ -699,7 +699,7 @@ func (fs *MemFS) GetXattr(ctx context.Context,
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 	if value, ok := RNode.Xattrs()[op.Name]; ok {
 		op.BytesRead = len(value)
 		if len(op.Dst) >= len(value) {
@@ -719,7 +719,7 @@ func (fs *MemFS) ListXattr(ctx context.Context,
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	dst := op.Dst[:]
 	for key := range RNode.Xattrs() {
@@ -741,7 +741,7 @@ func (fs *MemFS) RemoveXattr(ctx context.Context,
 	op *fuseops.RemoveXattrOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	if _, ok := RNode.Xattrs()[op.Name]; ok {
 		xattrs := RNode.Xattrs()
@@ -757,7 +757,7 @@ func (fs *MemFS) SetXattr(ctx context.Context,
 	op *fuseops.SetXattrOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 
 	_, ok := RNode.Xattrs()[op.Name]
 
@@ -784,7 +784,7 @@ func (fs *MemFS) Fallocate(ctx context.Context,
 	op *fuseops.FallocateOp) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	RNode := fs.getInodeOrDie(op.Inode)
+	RNode := fs.GetInodeOrDie(op.Inode)
 	RNode.Fallocate(op.Mode, op.Length, op.Length)
 	return nil
 }

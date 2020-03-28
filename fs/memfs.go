@@ -52,7 +52,7 @@ type MemFS struct {
 	// INVARIANT: len(inodes) > fuseops.RootInodeID
 	// INVARIANT: For all i < fuseops.RootInodeID, inodes[i] == nil
 	// INVARIANT: inodes[fuseops.RootInodeID] != nil
-	// INVARIANT: inodes[fuseops.RootInodeID].isDir()
+	// INVARIANT: inodes[fuseops.RootInodeID].IsDir()
 	inodes []*RNode // GUARDED_BY(mu)
 
 	// A list of RNode IDs within inodes available for reuse, not including the
@@ -121,7 +121,7 @@ func (fs *MemFS) checkInvariants() {
 	}
 
 	// Check the root RNode.
-	if !fs.inodes[fuseops.RootInodeID].isDir() {
+	if !fs.inodes[fuseops.RootInodeID].IsDir() {
 		panic("Expected root to be a directory.")
 	}
 
@@ -524,7 +524,7 @@ func (fs *MemFS) Rename(
 		existing := fs.GetInodeOrDie(existingID)
 
 		var buf [4096]byte
-		if existing.isDir() && existing.ReadDir(buf[:], 0) > 0 {
+		if existing.IsDir() && existing.ReadDir(buf[:], 0) > 0 {
 			return fuse.ENOTEMPTY
 		}
 
@@ -617,7 +617,7 @@ func (fs *MemFS) OpenDir(
 	// cache invalidation, etc.).
 	RNode := fs.GetInodeOrDie(op.Inode)
 
-	if !RNode.isDir() {
+	if !RNode.IsDir() {
 		panic("Found non-dir.")
 	}
 
@@ -650,7 +650,7 @@ func (fs *MemFS) OpenFile(
 	// cache invalidation, etc.).
 	RNode := fs.GetInodeOrDie(op.Inode)
 
-	if !RNode.isFile() {
+	if !RNode.IsFile() {
 		panic("Found non-file.")
 	}
 

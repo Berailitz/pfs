@@ -36,13 +36,13 @@ type RNodeAttr struct {
 	// The current attributes of this RNode.
 	//
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
-	// INVARIANT: !(isDir() && isSymlink())
+	// INVARIANT: !(IsDir() && IsSymlink())
 	// INVARIANT: attrs.Size == len(contents)
 	NAttr fuseops.InodeAttributes
 
 	// For symlinks, the target of the symlink.
 	//
-	// INVARIANT: If !isSymlink(), len(target) == 0
+	// INVARIANT: If !IsSymlink(), len(target) == 0
 	NTarget string
 
 	// extended attributes and values
@@ -64,14 +64,14 @@ type RNode struct {
 	// might be calling readdir in a loop while concurrently modifying the
 	// directory. Unused entries can, however, be reused.
 	//
-	// INVARIANT: If !isDir(), len(entries) == 0
+	// INVARIANT: If !IsDir(), len(entries) == 0
 	// INVARIANT: For each i, entries[i].Offset == i+1
 	// INVARIANT: Contains no duplicate names in used entries.
 	NEntries []fuseutil.Dirent
 
 	// For files, the current contents of the file.
 	//
-	// INVARIANT: If !isFile(), len(contents) == 0
+	// INVARIANT: If !IsFile(), len(contents) == 0
 	NContents []byte
 }
 
@@ -175,8 +175,8 @@ func (in *RNode) CheckInvariants() {
 		panic(fmt.Sprintf("Unexpected mode: %v", in.Attrs().Mode))
 	}
 
-	// INVARIANT: !(isDir() && isSymlink())
-	if in.isDir() && in.isSymlink() {
+	// INVARIANT: !(IsDir() && IsSymlink())
+	if in.IsDir() && in.IsSymlink() {
 		panic(fmt.Sprintf("Unexpected mode: %v", in.Attrs().Mode))
 	}
 
@@ -188,8 +188,8 @@ func (in *RNode) CheckInvariants() {
 			len(in.Contents())))
 	}
 
-	// INVARIANT: If !isDir(), len(entries) == 0
-	if !in.isDir() && len(in.Entries()) != 0 {
+	// INVARIANT: If !IsDir(), len(entries) == 0
+	if !in.IsDir() && len(in.Entries()) != 0 {
 		panic(fmt.Sprintf("Unexpected entries length: %d", len(in.Entries())))
 	}
 
@@ -212,36 +212,36 @@ func (in *RNode) CheckInvariants() {
 		}
 	}
 
-	// INVARIANT: If !isFile(), len(contents) == 0
-	if !in.isFile() && len(in.Contents()) != 0 {
+	// INVARIANT: If !IsFile(), len(contents) == 0
+	if !in.IsFile() && len(in.Contents()) != 0 {
 		panic(fmt.Sprintf("Unexpected length: %d", len(in.Contents())))
 	}
 
-	// INVARIANT: If !isSymlink(), len(target) == 0
-	if !in.isSymlink() && len(in.Target()) != 0 {
+	// INVARIANT: If !IsSymlink(), len(target) == 0
+	if !in.IsSymlink() && len(in.Target()) != 0 {
 		panic(fmt.Sprintf("Unexpected target length: %d", len(in.Target())))
 	}
 
 	return
 }
 
-func (in *RNode) isDir() bool {
+func (in *RNode) IsDir() bool {
 	return in.Attrs().Mode&os.ModeDir != 0
 }
 
-func (in *RNode) isSymlink() bool {
+func (in *RNode) IsSymlink() bool {
 	return in.Attrs().Mode&os.ModeSymlink != 0
 }
 
-func (in *RNode) isFile() bool {
-	return !(in.isDir() || in.isSymlink())
+func (in *RNode) IsFile() bool {
+	return !(in.IsDir() || in.IsSymlink())
 }
 
 // Return the index of the child within in.Entries(), if it exists.
 //
-// REQUIRES: in.isDir()
+// REQUIRES: in.IsDir()
 func (in *RNode) findChild(name string) (i int, ok bool) {
-	if !in.isDir() {
+	if !in.IsDir() {
 		panic("findChild called on non-directory.")
 	}
 
@@ -261,7 +261,7 @@ func (in *RNode) findChild(name string) (i int, ok bool) {
 
 // Return the number of children of the directory.
 //
-// REQUIRES: in.isDir()
+// REQUIRES: in.IsDir()
 func (in *RNode) Len() int {
 	var n int
 	for _, e := range in.Entries() {
@@ -275,7 +275,7 @@ func (in *RNode) Len() int {
 
 // Find an entry for the given child name and return its RNode ID.
 //
-// REQUIRES: in.isDir()
+// REQUIRES: in.IsDir()
 func (in *RNode) LookUpChild(name string) (
 	// TODO: lock remote children
 	id fuseops.InodeID,
@@ -292,7 +292,7 @@ func (in *RNode) LookUpChild(name string) (
 
 // Add an entry for a child.
 //
-// REQUIRES: in.isDir()
+// REQUIRES: in.IsDir()
 // REQUIRES: dt != fuseutil.DT_Unknown
 func (in *RNode) AddChild(
 	// TODO: add remote child
@@ -338,7 +338,7 @@ func (in *RNode) AddChild(
 
 // Remove an entry for a child.
 //
-// REQUIRES: in.isDir()
+// REQUIRES: in.IsDir()
 // REQUIRES: An entry for the given name exists.
 func (in *RNode) RemoveChild(name string) {
 	// TODO: remove remote child
@@ -364,10 +364,10 @@ func (in *RNode) RemoveChild(name string) {
 
 // Serve a ReadDir request.
 //
-// REQUIRES: in.isDir()
+// REQUIRES: in.IsDir()
 func (in *RNode) ReadDir(p []byte, offset int) int {
 	// TODO: fetch remote dir
-	if !in.isDir() {
+	if !in.IsDir() {
 		panic("ReadDir called on non-directory.")
 	}
 
@@ -393,10 +393,10 @@ func (in *RNode) ReadDir(p []byte, offset int) int {
 
 // Read from the file's contents. See documentation for ioutil.ReaderAt.
 //
-// REQUIRES: in.isFile()
+// REQUIRES: in.IsFile()
 func (in *RNode) ReadAt(p []byte, off int64) (int, error) {
 	// TODO: read remote content
-	if !in.isFile() {
+	if !in.IsFile() {
 		panic("ReadAt called on non-file.")
 	}
 
@@ -416,10 +416,10 @@ func (in *RNode) ReadAt(p []byte, off int64) (int, error) {
 
 // Write to the file's contents. See documentation for ioutil.WriterAt.
 //
-// REQUIRES: in.isFile()
+// REQUIRES: in.IsFile()
 func (in *RNode) WriteAt(p []byte, off int64) (int, error) {
 	// TODO: write remote content
-	if !in.isFile() {
+	if !in.IsFile() {
 		panic("WriteAt called on non-file.")
 	}
 

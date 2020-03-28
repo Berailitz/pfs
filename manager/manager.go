@@ -1,25 +1,38 @@
 package manager
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
 
-const InitialNext = 2
+	"github.com/jacobsa/fuse/fuseops"
+)
+
+const (
+	InitialNextNodeID  = fuseops.RootInodeID
+	InitialNextOwnerID = 1
+	MaxOwnerID         = 200
+)
 
 type Manager interface {
-	Owner(id uint64) string
-	Allocate(owner uint64) uint64
-	Deallocate(id uint64) bool
+	QueryOwner(nodeID uint64) string
+	Allocate(ownerID uint64) uint64
+	Deallocate(nodeID uint64) bool
+	RegisterOwner(addr string) uint64
+	RemoveOwner(ownerID uint64) bool
 }
 
 type RManager struct {
-	NodeOwner sync.Map // [uint64]uint64
-	Owners    sync.Map // [uint64]string
-	next      uint64
+	NodeOwner    sync.Map // [uint64]uint64
+	Owners       sync.Map // [uint64]string
+	OwnerCounter [MaxOwnerID]uint64
+	NextNodeID   uint64
+	NextOwnerID  uint64
 }
 
 var _ = (Manager)((*RManager)(nil))
 
-func (m *RManager) Owner(id uint64) string {
-	if ownerOut, ok := m.NodeOwner.Load(id); ok {
+func (m *RManager) QueryOwner(nodeID uint64) string {
+	if ownerOut, ok := m.NodeOwner.Load(nodeID); ok {
 		if owner, ok := ownerOut.(uint64); ok {
 			return m.QueryAddr(owner)
 		}
@@ -36,26 +49,51 @@ func (m *RManager) QueryAddr(ownerID uint64) string {
 	return ""
 }
 
-func (m *RManager) Allocate(owner uint64) uint64 {
-	if _, ok := m.Owners.Load(owner); ok {
-		id := m.next
-		m.next++
-		m.NodeOwner.Store(id, owner)
+func (m *RManager) Allocate(ownerID uint64) uint64 {
+	if _, ok := m.Owners.Load(ownerID); ok {
+		id := m.NextNodeID
+		atomic.AddUint64(&m.OwnerCounter[ownerID], 1)
+		m.NextNodeID++
+		m.NodeOwner.Store(id, ownerID)
 		return id
 	}
 	return 0
 }
 
-func (m *RManager) Deallocate(id uint64) bool {
-	if _, ok := m.NodeOwner.Load(id); ok {
-		m.NodeOwner.Delete(id)
+func (m *RManager) Deallocate(nodeID uint64) bool {
+	if out, ok := m.NodeOwner.Load(nodeID); ok {
+		if ownerID, ok := out.(uint64); ok {
+			m.NodeOwner.Delete(nodeID)
+			atomic.AddUint64(&m.OwnerCounter[ownerID], ^uint64(0))
+			return true
+		}
+	}
+	return false
+}
+
+// RegisterOwner return 0 if err
+func (m *RManager) RegisterOwner(addr string) uint64 {
+	ownerID := m.NextOwnerID
+	if ownerID <= MaxOwnerID {
+		m.Owners.Store(ownerID, addr)
+		m.NextOwnerID++
+		return ownerID
+	}
+	return 0
+}
+
+func (m *RManager) RemoveOwner(ownerID uint64) bool {
+	if atomic.LoadUint64(&m.OwnerCounter[ownerID]) == 0 {
+		m.Owners.Delete(ownerID)
 		return true
 	}
 	return false
 }
 
+// NewRManager do not register or allocate
 func NewRManager() *RManager {
 	return &RManager{
-		next: InitialNext,
+		NextNodeID:  InitialNextNodeID,
+		NextOwnerID: InitialNextOwnerID,
 	}
 }

@@ -7,14 +7,25 @@ import (
 	"os"
 	"os/user"
 	"strconv"
+	"time"
 
 	"github.com/Berailitz/pfs/fs"
+
+	"github.com/Berailitz/pfs/fbackend"
+
+	"google.golang.org/grpc"
+
+	"github.com/Berailitz/pfs/rclient"
+
 	"github.com/Berailitz/pfs/rserver"
 
 	"github.com/jacobsa/fuse"
 )
 
-const dir = "x"
+const (
+	dir              = "x"
+	rServerStartTime = time.Second * 3
+)
 
 func currentUid() uint32 {
 	user, err := user.Current()
@@ -50,28 +61,33 @@ func main() {
 	port := flag.Int("port", 10000, "The server port")
 	flag.Parse()
 	ctx := context.Background()
+
+	rsvr := rserver.NewRServer()
+	go func() {
+		rsvr.Start(*port)
+	}()
+	time.Sleep(rServerStartTime) // wait for the server to start
+	fb := fbackend.NewFBackEnd(currentUid(), currentGid(), rclient.RCliCfg{
+		Master: "localhost:10000",
+		Local:  "localhost:10000",
+		GOpts:  []grpc.DialOption{grpc.WithBlock()},
+	})
+	rsvr.RegisterFBackEnd(fb)
+
 	cfg := fuse.MountConfig{}
 	if *debug {
 		cfg.DebugLogger = log.New(os.Stderr, "fuse: ", 0)
 	}
-	filesystem := fs.NewMemFS(currentUid(), currentGid())
-	fsvr := fs.NewFServer(filesystem)
-	rsvr := rserver.NewRServer(filesystem)
 	if cfg.OpContext == nil {
 		cfg.OpContext = ctx
 	}
 
-	// Set up a temporary directory.
-	var err error
-
+	fsvr := fs.NewFServer(fs.NewMemFS(currentUid(), currentGid()))
 	// Mount the file system.
 	mfs, err := fuse.Mount(dir, fsvr, &cfg)
 	if err != nil {
 		log.Fatalf("Mount: %v", err)
 	}
-	go func() {
-		rsvr.Start(*port)
-	}()
 	mfs.Join(ctx)
 	rsvr.Stop()
 }

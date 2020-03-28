@@ -23,7 +23,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Berailitz/pfs/fs"
+	"github.com/Berailitz/pfs/rnode"
 
 	"github.com/Berailitz/pfs/rclient"
 
@@ -35,7 +35,7 @@ import (
 
 type FBackEnd struct {
 	fuseutil.NotImplementedFileSystem
-	// The UID and GID that every fs.RNode receives.
+	// The UID and GID that every rnode.RNode receives.
 	uid uint32
 	gid uint32
 
@@ -44,13 +44,13 @@ type FBackEnd struct {
 	/////////////////////////
 	mu sync.RWMutex
 
-	nodes sync.Map // [fuseops.InodeID]*fs.RNode
+	nodes sync.Map // [fuseops.InodeID]*rnode.RNode
 	rcli  *rclient.RClient
 }
 
 // Create a file system that stores data and metadata in memory.
 //
-// The supplied UID/GID pair will own the root fs.RNode. This file system does no
+// The supplied UID/GID pair will own the root rnode.RNode. This file system does no
 // permissions checking, and should therefore be mounted with the
 // default_permissions option.
 func NewFBackEnd(
@@ -64,7 +64,7 @@ func NewFBackEnd(
 		rcli: rclient.NewRClient(rCliCfg),
 	}
 
-	// Set up the root fs.RNode.
+	// Set up the root rnode.RNode.
 	fb.MakeRoot()
 
 	return fb
@@ -74,16 +74,16 @@ func NewFBackEnd(
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
-func (fb *FBackEnd) LoadNode(id fuseops.InodeID) (*fs.RNode, bool) {
+func (fb *FBackEnd) LoadNode(id fuseops.InodeID) (*rnode.RNode, bool) {
 	if out, exist := fb.nodes.Load(id); exist {
-		if node, ok := out.(*fs.RNode); ok {
+		if node, ok := out.(*rnode.RNode); ok {
 			return node, true
 		}
 	}
 	return nil, false
 }
 
-func (fb *FBackEnd) StoreNode(id fuseops.InodeID, node *fs.RNode) {
+func (fb *FBackEnd) StoreNode(id fuseops.InodeID, node *rnode.RNode) {
 	fb.nodes.Store(id, node)
 }
 
@@ -100,7 +100,7 @@ func (fb *FBackEnd) MakeRoot() {
 			Uid:  fb.uid,
 			Gid:  fb.gid,
 		}
-		fb.StoreNode(fuseops.InodeID(fuseops.RootInodeID), fs.NewRNode(rootAttrs, fuseops.RootInodeID))
+		fb.StoreNode(fuseops.InodeID(fuseops.RootInodeID), rnode.NewRNode(rootAttrs, fuseops.RootInodeID))
 	}
 }
 
@@ -112,27 +112,27 @@ func (fb *FBackEnd) Unlock() {
 	fb.mu.Unlock()
 }
 
-// Find the given fs.RNode. Panic if it doesn't exist.
+// Find the given rnode.RNode. Panic if it doesn't exist.
 //
 // LOCKS_REQUIRED(fb.mu)
-func (fb *FBackEnd) MustLoadInode(id fuseops.InodeID) *fs.RNode {
-	// TODO: lock remote fs.RNode
+func (fb *FBackEnd) MustLoadInode(id fuseops.InodeID) *rnode.RNode {
+	// TODO: lock remote rnode.RNode
 	if node, ok := fb.LoadNode(id); ok {
 		return node
 	}
-	log.Fatalf("Unknown fs.RNode: %v", id)
+	log.Fatalf("Unknown rnode.RNode: %v", id)
 	return nil
 }
 
-// Allocate a new fs.RNode, assigning it an ID that is not in use.
+// Allocate a new rnode.RNode, assigning it an ID that is not in use.
 //
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) allocateInode(
-	attrs fuseops.InodeAttributes) (fuseops.InodeID, *fs.RNode) {
-	// Create the fs.RNode.
+	attrs fuseops.InodeAttributes) (fuseops.InodeID, *rnode.RNode) {
+	// Create the rnode.RNode.
 	id := fb.rcli.Allocate()
 	if id > 0 {
-		node := fs.NewRNode(attrs, id)
+		node := rnode.NewRNode(attrs, id)
 		fb.StoreNode(id, node)
 		return id, node
 	}
@@ -195,7 +195,7 @@ func (fb *FBackEnd) GetInodeAttributes(
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 
-	// Grab the fs.RNode.
+	// Grab the rnode.RNode.
 	node := fb.MustLoadInode(op.Inode)
 
 	// Fill in the response.
@@ -221,7 +221,7 @@ func (fb *FBackEnd) SetInodeAttributes(
 		err = syscall.EBADF
 	}
 
-	// Grab the fs.RNode.
+	// Grab the rnode.RNode.
 	node := fb.MustLoadInode(op.Inode)
 
 	// Handle the request.
@@ -414,7 +414,7 @@ func (fb *FBackEnd) CreateLink(
 		return fuse.EEXIST
 	}
 
-	// Get the target fs.RNode to be linked
+	// Get the target rnode.RNode to be linked
 	target := fb.MustLoadInode(op.Target)
 
 	// Update the attributes
@@ -445,7 +445,7 @@ func (fb *FBackEnd) Rename(
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 
-	// Ask the old parent for the child's fs.RNode ID and type.
+	// Ask the old parent for the child's rnode.RNode ID and type.
 	oldParent := fb.MustLoadInode(op.OldParent)
 	childID, childType, ok := oldParent.LookUpChild(op.OldName)
 
@@ -550,7 +550,7 @@ func (fb *FBackEnd) OpenDir(
 	defer fb.mu.Unlock()
 
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
-	// fs.RNode that doesn't exist, something screwed up earlier (a lookup, a
+	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
 	node := fb.MustLoadInode(op.Inode)
 
@@ -583,7 +583,7 @@ func (fb *FBackEnd) OpenFile(
 	defer fb.mu.Unlock()
 
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
-	// fs.RNode that doesn't exist, something screwed up earlier (a lookup, a
+	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
 	node := fb.MustLoadInode(op.Inode)
 
@@ -600,7 +600,7 @@ func (fb *FBackEnd) ReadFile(
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 
-	// Find the fs.RNode in question.
+	// Find the rnode.RNode in question.
 	node := fb.MustLoadInode(op.Inode)
 
 	// Serve the request.
@@ -621,7 +621,7 @@ func (fb *FBackEnd) WriteFile(
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 
-	// Find the fs.RNode in question.
+	// Find the rnode.RNode in question.
 	node := fb.MustLoadInode(op.Inode)
 
 	// Serve the request.
@@ -636,7 +636,7 @@ func (fb *FBackEnd) ReadSymlink(
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 
-	// Find the fs.RNode in question.
+	// Find the rnode.RNode in question.
 	node := fb.MustLoadInode(op.Inode)
 
 	// Serve the request.

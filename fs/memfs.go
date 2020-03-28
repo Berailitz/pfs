@@ -22,6 +22,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Berailitz/pfs/rnode"
+
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
@@ -53,7 +55,7 @@ type MemFS struct {
 	// INVARIANT: For all i < fuseops.RootInodeID, inodes[i] == nil
 	// INVARIANT: inodes[fuseops.RootInodeID] != nil
 	// INVARIANT: inodes[fuseops.RootInodeID].IsDir()
-	inodes []*RNode // GUARDED_BY(mu)
+	inodes []*rnode.RNode // GUARDED_BY(mu)
 
 	// A list of RNode IDs within inodes available for reuse, not including the
 	// reserved IDs less than fuseops.RootInodeID.
@@ -73,7 +75,7 @@ func NewMemFS(
 	gid uint32) *MemFS {
 	// Set up the basic struct.
 	fs := &MemFS{
-		inodes: make([]*RNode, fuseops.RootInodeID+1),
+		inodes: make([]*rnode.RNode, fuseops.RootInodeID+1),
 		uid:    uid,
 		gid:    gid,
 	}
@@ -85,7 +87,7 @@ func NewMemFS(
 		Gid:  gid,
 	}
 
-	fs.inodes[fuseops.RootInodeID] = NewRNode(rootAttrs, fuseops.RootInodeID)
+	fs.inodes[fuseops.RootInodeID] = rnode.NewRNode(rootAttrs, fuseops.RootInodeID)
 
 	// Set up invariant checking.
 	fs.mu = syncutil.NewInvariantMutex(fs.checkInvariants)
@@ -159,7 +161,7 @@ func (fs *MemFS) checkInvariants() {
 // Find the given RNode. Panic if it doesn't exist.
 //
 // LOCKS_REQUIRED(fs.mu)
-func (fs *MemFS) GetInodeOrDie(id fuseops.InodeID) *RNode {
+func (fs *MemFS) GetInodeOrDie(id fuseops.InodeID) *rnode.RNode {
 	// TODO: lock remote RNode
 	RNode := fs.inodes[id]
 	if RNode == nil {
@@ -172,7 +174,7 @@ func (fs *MemFS) GetInodeOrDie(id fuseops.InodeID) *RNode {
 // Find the given RNode. Return nil if it doesn't exist.
 //
 // LOCKS_REQUIRED(fs.mu)
-func (fs *MemFS) GetInode(id fuseops.InodeID) *RNode {
+func (fs *MemFS) GetInode(id fuseops.InodeID) *rnode.RNode {
 	// TODO: lock remote RNode
 	RNode := fs.inodes[id]
 	if RNode == nil {
@@ -187,19 +189,19 @@ func (fs *MemFS) GetInode(id fuseops.InodeID) *RNode {
 //
 // LOCKS_REQUIRED(fs.mu)
 func (fs *MemFS) allocateInode(
-	attrs fuseops.InodeAttributes) (id fuseops.InodeID, RNode *RNode) {
+	attrs fuseops.InodeAttributes) (id fuseops.InodeID, RNode *rnode.RNode) {
 	// Create the RNode.
 
 	// Re-use a free ID if possible. Otherwise mint a new one.
 	numFree := len(fs.freeInodes)
 	if numFree != 0 {
 		id = fs.freeInodes[numFree-1]
-		RNode = NewRNode(attrs, id)
+		RNode = rnode.NewRNode(attrs, id)
 		fs.freeInodes = fs.freeInodes[:numFree-1]
 		fs.inodes[id] = RNode
 	} else {
 		id = fuseops.InodeID(len(fs.inodes))
-		RNode = NewRNode(attrs, id)
+		RNode = rnode.NewRNode(attrs, id)
 		fs.inodes = append(fs.inodes, RNode)
 	}
 

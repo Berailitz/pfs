@@ -153,7 +153,7 @@ func (in *RNode) SetRNodeAttrBytes(data []byte) error {
 
 // Create a new RNode with the supplied attributes, which need not contain
 // time-related information (the RNode object will take care of that).
-func newInode(attrs fuseops.InodeAttributes, id fuseops.InodeID) *RNode {
+func NewRNode(attrs fuseops.InodeAttributes, id fuseops.InodeID) *RNode {
 	// Update time info.
 	now := time.Now()
 	attrs.Mtime = now

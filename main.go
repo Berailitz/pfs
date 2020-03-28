@@ -45,6 +45,7 @@ func currentGid() uint32 {
 }
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	debug := flag.Bool("debug", false, "print debugging messages.")
 	port := flag.Int("port", 10000, "The server port")
 	flag.Parse()

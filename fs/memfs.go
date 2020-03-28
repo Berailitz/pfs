@@ -169,6 +169,20 @@ func (fs *MemFS) GetInodeOrDie(id fuseops.InodeID) *RNode {
 	return RNode
 }
 
+// Find the given RNode. Return nil if it doesn't exist.
+//
+// LOCKS_REQUIRED(fs.mu)
+func (fs *MemFS) GetInode(id fuseops.InodeID) *RNode {
+	// TODO: lock remote RNode
+	RNode := fs.inodes[id]
+	if RNode == nil {
+		fmt.Printf("Unknown RNode: %v", id)
+		return nil
+	}
+
+	return RNode
+}
+
 // Allocate a new RNode, assigning it an ID that is not in use.
 //
 // LOCKS_REQUIRED(fs.mu)

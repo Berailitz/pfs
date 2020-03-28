@@ -40,6 +40,11 @@ Private workspace for Golang.
 
 ### Server
 1. preserve node map `map[uint64]*RNode`
+1. check root node
+    1. if no root node
+        1. local is 1st owner
+        1. ask to allocate one
+    1. create a local one
 1. invoked by `RServer`
 1. acquire local lock
     1. read

@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/Berailitz/pfs/utility"
+
 	"github.com/jacobsa/fuse/fuseops"
 
 	"github.com/Berailitz/pfs/manager"
@@ -28,30 +30,6 @@ type RServer struct {
 	ma     *manager.RManager
 }
 
-func toPbAttr(attr fuseops.InodeAttributes) *pb.InodeAttributes {
-	return &pb.InodeAttributes{
-		Size:   attr.Size,
-		Nlink:  attr.Nlink,
-		Mode:   uint32(attr.Mode),
-		Atime:  attr.Atime.Unix(),
-		Mtime:  attr.Mtime.Unix(),
-		Ctime:  attr.Ctime.Unix(),
-		Crtime: attr.Crtime.Unix(),
-		Uid:    attr.Uid,
-		Gid:    attr.Gid,
-	}
-}
-
-func toPbEntry(entry fuseops.ChildInodeEntry) *pb.ChildInodeEntry {
-	return &pb.ChildInodeEntry{
-		Child:                uint64(entry.Child),
-		Generation:           uint64(entry.Generation),
-		Attributes:           toPbAttr(entry.Attributes),
-		AttributesExpiration: entry.AttributesExpiration.Unix(),
-		EntryExpiration:      entry.EntryExpiration.Unix(),
-	}
-}
-
 func (s *RServer) LookUpInode(ctx context.Context, req *pb.LookUpInodeRequest) (*pb.LookUpInodeReply, error) {
 	id, attr, err := s.fb.LookUpInode(ctx, req.ParentID, req.Name)
 	var perr *pb.Error = nil
@@ -63,7 +41,7 @@ func (s *RServer) LookUpInode(ctx context.Context, req *pb.LookUpInodeRequest) (
 	}
 	return &pb.LookUpInodeReply{
 		Id:   id,
-		Attr: toPbAttr(attr),
+		Attr: utility.ToPbAttr(attr),
 		Err:  perr,
 	}, nil
 }
@@ -79,7 +57,7 @@ func (s *RServer) GetInodeAttributes(ctx context.Context, req *pb.NodeId) (*pb.G
 	}
 	return &pb.GetInodeAttributesReply{
 		Err:  perr,
-		Attr: toPbAttr(attr),
+		Attr: utility.ToPbAttr(attr),
 	}, nil
 }
 
@@ -101,7 +79,7 @@ func (s *RServer) SetInodeAttributes(ctx context.Context, req *pb.SetInodeAttrib
 	}
 	return &pb.SetInodeAttributesReply{
 		Err:  perr,
-		Attr: toPbAttr(attr),
+		Attr: utility.ToPbAttr(attr),
 	}, nil
 }
 
@@ -117,7 +95,7 @@ func (s *RServer) MkDir(ctx context.Context, req *pb.MkDirRequest) (*pb.MkDirRep
 	return &pb.MkDirReply{
 		Id:   id,
 		Err:  perr,
-		Attr: toPbAttr(attr),
+		Attr: utility.ToPbAttr(attr),
 	}, nil
 }
 
@@ -131,7 +109,7 @@ func (s *RServer) CreateNode(ctx context.Context, req *pb.CreateNodeRequest) (*p
 		}
 	}
 	return &pb.CreateNodeReply{
-		Entry: toPbEntry(entry),
+		Entry: utility.ToPbEntry(entry),
 		Err:   perr,
 	}, nil
 }
@@ -146,7 +124,7 @@ func (s *RServer) CreateSymlink(ctx context.Context, req *pb.CreateSymlinkReques
 		}
 	}
 	return &pb.CreateSymlinkReply{
-		Attr: toPbAttr(attr),
+		Attr: utility.ToPbAttr(attr),
 		Id:   id,
 		Err:  perr,
 	}, nil
@@ -162,7 +140,7 @@ func (s *RServer) CreateLink(ctx context.Context, req *pb.CreateLinkRequest) (*p
 		}
 	}
 	return &pb.CreateLinkReply{
-		Attr: toPbAttr(attr),
+		Attr: utility.ToPbAttr(attr),
 		Err:  perr,
 	}, nil
 }

@@ -295,7 +295,6 @@ func (in *RNode) LookUpChild(name string) (
 // REQUIRES: in.IsDir()
 // REQUIRES: dt != fuseutil.DT_Unknown
 func (in *RNode) AddChild(
-	// TODO: add remote child
 	id uint64,
 	name string,
 	dt fuseutil.DirentType) {
@@ -341,7 +340,6 @@ func (in *RNode) AddChild(
 // REQUIRES: in.IsDir()
 // REQUIRES: An entry for the given name exists.
 func (in *RNode) RemoveChild(name string) {
-	// TODO: remove remote child
 	// Update the modification time.
 	attrs := in.Attrs()
 	attrs.Mtime = time.Now()
@@ -366,7 +364,6 @@ func (in *RNode) RemoveChild(name string) {
 //
 // REQUIRES: in.IsDir()
 func (in *RNode) ReadDir(p []byte, offset int) int {
-	// TODO: fetch remote dir
 	if !in.IsDir() {
 		panic("ReadDir called on non-directory.")
 	}
@@ -395,7 +392,6 @@ func (in *RNode) ReadDir(p []byte, offset int) int {
 //
 // REQUIRES: in.IsFile()
 func (in *RNode) ReadAt(p []byte, off int64) (int, error) {
-	// TODO: read remote content
 	if !in.IsFile() {
 		panic("ReadAt called on non-file.")
 	}
@@ -418,7 +414,6 @@ func (in *RNode) ReadAt(p []byte, off int64) (int, error) {
 //
 // REQUIRES: in.IsFile()
 func (in *RNode) WriteAt(p []byte, off int64) (int, error) {
-	// TODO: write remote content
 	if !in.IsFile() {
 		panic("WriteAt called on non-file.")
 	}

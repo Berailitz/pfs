@@ -12,8 +12,8 @@ import (
 )
 
 type RClient struct {
-	ID      uint64
-	GClient remotetree.RemoteTreeClient
+	id   uint64
+	gcli remotetree.RemoteTreeClient
 }
 
 type RCliCfg struct {
@@ -25,7 +25,7 @@ type RCliCfg struct {
 // QueryOwner fetch owner'addr of a node
 func (c *RClient) QueryOwner(nodeID uint64) string {
 	ctx := context.Background()
-	addr, err := c.GClient.QueryOwner(ctx, &remotetree.NodeId{
+	addr, err := c.gcli.QueryOwner(ctx, &remotetree.NodeId{
 		Id: uint64(nodeID),
 	})
 	if err != nil {
@@ -38,11 +38,11 @@ func (c *RClient) QueryOwner(nodeID uint64) string {
 func (c *RClient) Allocate() uint64 {
 	ctx := context.Background()
 	log.Printf("allocate node")
-	nodeID, err := c.GClient.Allocate(ctx, &remotetree.OwnerId{
-		Id: c.ID,
+	nodeID, err := c.gcli.Allocate(ctx, &remotetree.OwnerId{
+		Id: c.id,
 	})
 	if err != nil {
-		log.Printf("allocate error: ownerID=%v, err=%+v", c.ID, err)
+		log.Printf("allocate error: ownerID=%v, err=%+v", c.id, err)
 		return 0
 	}
 	log.Printf("allocate node success: nodeID=%v", nodeID.Id)
@@ -51,7 +51,7 @@ func (c *RClient) Allocate() uint64 {
 
 func (c *RClient) Deallocate(nodeID uint64) bool {
 	ctx := context.Background()
-	out, err := c.GClient.Deallocate(ctx, &remotetree.NodeId{
+	out, err := c.gcli.Deallocate(ctx, &remotetree.NodeId{
 		Id: uint64(nodeID),
 	})
 	if err != nil {
@@ -64,7 +64,7 @@ func (c *RClient) Deallocate(nodeID uint64) bool {
 // RegisterOwner return 0 if err
 func (c *RClient) RegisterOwner(addr string) uint64 {
 	ctx := context.Background()
-	out, err := c.GClient.RegisterOwner(ctx, &remotetree.Addr{
+	out, err := c.gcli.RegisterOwner(ctx, &remotetree.Addr{
 		Addr: addr,
 	})
 	if err != nil {
@@ -76,7 +76,7 @@ func (c *RClient) RegisterOwner(addr string) uint64 {
 
 func (c *RClient) RemoveOwner(ownerID uint64) bool {
 	ctx := context.Background()
-	out, err := c.GClient.RemoveOwner(ctx, &remotetree.OwnerId{
+	out, err := c.gcli.RemoveOwner(ctx, &remotetree.OwnerId{
 		Id: ownerID,
 	})
 	if err != nil {
@@ -89,7 +89,7 @@ func (c *RClient) RemoveOwner(ownerID uint64) bool {
 func (c *RClient) AllocateRoot(ownerID uint64) bool {
 	ctx := context.Background()
 	log.Printf("allocate root: ownerID=%v", ownerID)
-	out, err := c.GClient.AllocateRoot(ctx, &remotetree.OwnerId{
+	out, err := c.gcli.AllocateRoot(ctx, &remotetree.OwnerId{
 		Id: ownerID,
 	})
 	if err != nil {
@@ -102,14 +102,14 @@ func (c *RClient) AllocateRoot(ownerID uint64) bool {
 
 // RegisterSelf is called only at initialization
 func (c *RClient) RegisterSelf(addr string) bool {
-	if c.ID > 0 {
+	if c.id > 0 {
 		log.Printf("duplicate register error: addr=%v", addr)
 		return false
 	}
 
 	localID := c.RegisterOwner(addr)
 	if localID > 0 {
-		c.ID = localID
+		c.id = localID
 		log.Printf("register success: addr=%v, localID=%v", addr, localID)
 		return true
 	}
@@ -129,7 +129,7 @@ func NewRClient(cfg RCliCfg) *RClient {
 		return nil
 	}
 	rcli := &RClient{
-		GClient: pb.NewRemoteTreeClient(conn),
+		gcli: pb.NewRemoteTreeClient(conn),
 	}
 	log.Printf("new rcli success: master=%v, local=%v", cfg.Master, cfg.Local)
 	return rcli

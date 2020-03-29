@@ -195,7 +195,7 @@ func (lfs *LFS) MkNode(
 	op *fuseops.MkNodeOp) error {
 	log.Printf("mknode: parent=%v, name=%v, mode=%v",
 		op.Parent, op.Name, op.Mode)
-	entry, err := lfs.fb.DoCreateFile(op.Parent, op.Name, op.Mode)
+	entry, err := lfs.fb.CreateNode(op.Parent, op.Name, op.Mode)
 	if err != nil {
 		log.Printf("mknode error: parent=%v, name=%v, mode=%v, err=%+v",
 			op.Parent, op.Name, op.Mode, err)
@@ -211,7 +211,7 @@ func (lfs *LFS) MkNode(
 func (lfs *LFS) CreateFile(
 	ctx context.Context,
 	op *fuseops.CreateFileOp) error {
-	entry, err := lfs.fb.DoCreateFile(op.Parent, op.Name, op.Mode)
+	entry, err := lfs.fb.CreateNode(op.Parent, op.Name, op.Mode)
 	log.Printf("create file: parent=%v, name=%v, mode=%v",
 		op.Parent, op.Name, op.Mode)
 	if err != nil {

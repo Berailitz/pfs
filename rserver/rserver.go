@@ -34,7 +34,7 @@ func (s *RServer) Create(ctx context.Context, req *pb.CreateRequest) (*pb.Create
 	s.FB.Lock()
 	defer s.FB.Unlock()
 
-	entry, err := s.FB.DoCreateFile(fuseops.InodeID(req.Parent), req.Name, os.FileMode(req.Dt))
+	entry, err := s.FB.CreateNode(fuseops.InodeID(req.Parent), req.Name, os.FileMode(req.Dt))
 	if err != nil {
 		return &pb.CreateReply{
 			Err: &pb.Error{

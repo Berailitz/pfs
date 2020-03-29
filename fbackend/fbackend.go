@@ -312,7 +312,7 @@ func (fb *FBackEnd) MkDir(
 }
 
 // LOCKS_REQUIRED(fb.mu)
-func (fb *FBackEnd) DoCreateFile(
+func (fb *FBackEnd) CreateNode(
 	parentID fuseops.InodeID,
 	name string,
 	mode os.FileMode) (fuseops.ChildInodeEntry, error) {

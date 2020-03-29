@@ -46,7 +46,7 @@ type FBackEnd struct {
 	mu sync.RWMutex
 
 	nodes sync.Map // [uint64]*rnode.RNode
-	rcli  *rclient.RClient
+	mcli  *rclient.RClient
 }
 
 type FBackEndErr struct {
@@ -80,15 +80,15 @@ func NewFBackEnd(
 	gid uint32,
 	rCliCfg rclient.RCliCfg) *FBackEnd {
 	// Set up the basic struct.
-	rcli := rclient.NewRClient(rCliCfg)
-	if rcli == nil {
+	mcli := rclient.NewRClient(rCliCfg)
+	if mcli == nil {
 		log.Fatalf("nil ecli error")
 	}
-	rcli.RegisterSelf(rCliCfg.Local)
+	mcli.RegisterSelf(rCliCfg.Local)
 	fb := &FBackEnd{
 		uid:  uid,
 		gid:  gid,
-		rcli: rcli,
+		mcli: mcli,
 	}
 
 	// Set up the root rnode.RNode.
@@ -121,7 +121,7 @@ func (fb *FBackEnd) deleteNode(id uint64) {
 
 // MakeRoot should only be called at new
 func (fb *FBackEnd) MakeRoot() {
-	ok := fb.rcli.AllocateRoot(fuseops.RootInodeID)
+	ok := fb.mcli.AllocateRoot(fuseops.RootInodeID)
 	if ok {
 		rootAttrs := fuseops.InodeAttributes{
 			Mode: 0700 | os.ModeDir,
@@ -158,7 +158,7 @@ func (fb *FBackEnd) mustLoadInode(id uint64) *rnode.RNode {
 func (fb *FBackEnd) allocateInode(
 	attrs fuseops.InodeAttributes) (uint64, *rnode.RNode) {
 	// Create the rnode.RNode.
-	id := fb.rcli.Allocate()
+	id := fb.mcli.Allocate()
 	if id > 0 {
 		node := rnode.NewRNode(attrs, id)
 		fb.storeNode(id, node)
@@ -170,7 +170,7 @@ func (fb *FBackEnd) allocateInode(
 
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) deallocateInode(id uint64) {
-	ok := fb.rcli.Deallocate(id)
+	ok := fb.mcli.Deallocate(id)
 	if ok {
 		fb.deleteNode(id)
 	}

@@ -24,6 +24,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Berailitz/pfs/utility"
+
+	"google.golang.org/grpc"
+
 	"github.com/Berailitz/pfs/rnode"
 
 	"github.com/Berailitz/pfs/rclient"
@@ -78,13 +82,22 @@ type SetInodeAttributesParam struct {
 func NewFBackEnd(
 	uid uint32,
 	gid uint32,
-	rCliCfg rclient.RCliCfg) *FBackEnd {
-	// Set up the basic struct.
-	mcli := rclient.NewRClient(rCliCfg)
-	if mcli == nil {
-		log.Fatalf("nil ecli error")
+	masterAddr string,
+	localAddr string,
+	gopts []grpc.DialOption) *FBackEnd {
+	gcli, err := utility.BuildGCli(masterAddr, gopts)
+	if err != nil {
+		log.Fatalf("new rcli fial error: master=%v, opts=%+v, err=%+V",
+			masterAddr, gopts, err)
+		return nil
 	}
-	mcli.RegisterSelf(rCliCfg.Local)
+
+	mcli := rclient.NewRClient(gcli)
+	if mcli == nil {
+		log.Fatalf("nil mcli error")
+	}
+
+	mcli.RegisterSelf(localAddr)
 	fb := &FBackEnd{
 		uid:  uid,
 		gid:  gid,

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/user"
@@ -14,8 +15,6 @@ import (
 	"github.com/Berailitz/pfs/fbackend"
 
 	"google.golang.org/grpc"
-
-	"github.com/Berailitz/pfs/rclient"
 
 	"github.com/Berailitz/pfs/rserver"
 
@@ -59,19 +58,22 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	debug := flag.Bool("debug", false, "print debugging messages.")
 	port := flag.Int("port", 10000, "The server port")
+	host := flag.String("host", "127.0.0.1", "The server host")
+	master := flag.String("master", "127.0.0.1:10000", "The master server addr")
 	flag.Parse()
 	ctx := context.Background()
+
+	localAddr := fmt.Sprintf("%s:%d", *host, *port)
+	gopts := []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
 
 	rsvr := rserver.NewRServer()
 	go func() {
 		rsvr.Start(*port)
 	}()
 	time.Sleep(rServerStartTime) // wait for the server to start
-	fb := fbackend.NewFBackEnd(currentUid(), currentGid(), rclient.RCliCfg{
-		Master: "localhost:10000",
-		Local:  "localhost:10000",
-		GOpts:  []grpc.DialOption{grpc.WithBlock()},
-	})
+
+	fb := fbackend.NewFBackEnd(currentUid(), currentGid(),
+		*master, localAddr, gopts)
 	rsvr.RegisterFBackEnd(fb)
 
 	cfg := fuse.MountConfig{}

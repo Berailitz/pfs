@@ -7,19 +7,11 @@ import (
 	"log"
 
 	"github.com/Berailitz/pfs/remotetree"
-	pb "github.com/Berailitz/pfs/remotetree"
-	"google.golang.org/grpc"
 )
 
 type RClient struct {
 	id   uint64
 	gcli remotetree.RemoteTreeClient
-}
-
-type RCliCfg struct {
-	Master string
-	Local  string
-	GOpts  []grpc.DialOption
 }
 
 // QueryOwner fetch owner'addr of a node
@@ -125,19 +117,8 @@ func (c *RClient) AssignID(id uint64) {
 	c.id = id
 }
 
-func NewRClient(cfg RCliCfg) *RClient {
-	// TODO: add tls support
-	log.Printf("new rcli: master=%v, local=%v, opts=%#v", cfg.Master, cfg.Local, cfg.GOpts)
-	cfg.GOpts = append(cfg.GOpts, grpc.WithInsecure())
-	conn, err := grpc.Dial(cfg.Master, cfg.GOpts...)
-	if err != nil {
-		log.Fatalf("new rcli fial error: master=%v, local=%v, opts=%+v, err=%+V",
-			cfg.Master, cfg.Local, cfg.GOpts, err)
-		return nil
+func NewRClient(gcli remotetree.RemoteTreeClient) *RClient {
+	return &RClient{
+		gcli: gcli,
 	}
-	rcli := &RClient{
-		gcli: pb.NewRemoteTreeClient(conn),
-	}
-	log.Printf("new rcli success: master=%v, local=%v", cfg.Master, cfg.Local)
-	return rcli
 }

@@ -55,6 +55,21 @@ type FBackEndErr struct {
 
 var _ = (error)((*FBackEndErr)(nil))
 
+type internalSetInodeAttributesParam struct {
+	Size  *uint64
+	Mode  *os.FileMode
+	Mtime *time.Time
+}
+
+type SetInodeAttributesParam struct {
+	Size     uint64
+	Mode     os.FileMode
+	Mtime    time.Time
+	HasSize  bool
+	HasMode  bool
+	HasMtime bool
+}
+
 // Create a file system that stores data and metadata in memory.
 //
 // The supplied UID/GID pair will own the root rnode.RNode. This file system does no
@@ -225,9 +240,7 @@ func (fb *FBackEnd) GetInodeAttributes(
 func (fb *FBackEnd) SetInodeAttributes(
 	ctx context.Context,
 	id fuseops.InodeID,
-	size *uint64,
-	mode *os.FileMode,
-	mtime *time.Time) (fuseops.InodeAttributes, error) {
+	param SetInodeAttributesParam) (fuseops.InodeAttributes, error) {
 	fb.Lock()
 	defer fb.Unlock()
 
@@ -240,7 +253,17 @@ func (fb *FBackEnd) SetInodeAttributes(
 	}
 
 	// Handle the request.
-	node.SetAttributes(size, mode, mtime)
+	internalParam := internalSetInodeAttributesParam{}
+	if param.HasMtime {
+		internalParam.Mtime = &param.Mtime
+	}
+	if param.HasMode {
+		internalParam.Mode = &param.Mode
+	}
+	if param.HasSize {
+		internalParam.Size = &param.Size
+	}
+	node.SetAttributes(internalParam.Size, internalParam.Mode, internalParam.Mtime)
 
 	// Fill in the response.
 	return node.Attrs(), nil

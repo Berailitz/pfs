@@ -130,7 +130,20 @@ func (lfs *LFS) SetInodeAttributes(
 	}
 
 	// Grab the RNode.
-	attr, err := lfs.fb.SetInodeAttributes(ctx, op.Inode, op.Size, op.Mode, op.Mtime)
+	param := fbackend.SetInodeAttributesParam{}
+	if op.Size != nil {
+		param.HasSize = true
+		param.Size = *op.Size
+	}
+	if op.Mtime != nil {
+		param.HasMtime = true
+		param.Mtime = *op.Mtime
+	}
+	if op.Mode != nil {
+		param.HasMode = true
+		param.Mode = *op.Mode
+	}
+	attr, err := lfs.fb.SetInodeAttributes(ctx, op.Inode, param)
 	if err != nil {
 		log.Printf("set inode attr error: id=%v, size=%v, mode=%v, mtime=%v, err=%+v",
 			op.Inode, op.Size, op.Mode, op.Mtime, err)

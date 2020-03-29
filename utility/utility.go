@@ -5,6 +5,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/Berailitz/pfs/rnode"
+
+	"github.com/jacobsa/fuse/fuseutil"
+
 	"github.com/jacobsa/fuse/fuseops"
 
 	pb "github.com/Berailitz/pfs/remotetree"
@@ -67,5 +71,63 @@ func FromPbEntry(entry pb.ChildInodeEntry) fuseops.ChildInodeEntry {
 		Attributes:           FromPbAttr(*entry.Attributes),
 		AttributesExpiration: time.Unix(entry.AttributesExpiration, 0),
 		EntryExpiration:      time.Unix(entry.EntryExpiration, 0),
+	}
+}
+
+func ToPbDirent(dirent fuseutil.Dirent) *pb.Dirent {
+	return &pb.Dirent{
+		Offset: uint64(dirent.Offset),
+		Inode:  uint64(dirent.Inode),
+		Name:   dirent.Name,
+		Type:   uint32(dirent.Type),
+	}
+}
+
+func FromPbDirent(dirent pb.Dirent) fuseutil.Dirent {
+	return fuseutil.Dirent{
+		Offset: fuseops.DirOffset(dirent.Offset),
+		Inode:  fuseops.InodeID(dirent.Inode),
+		Name:   dirent.Name,
+		Type:   fuseutil.DirentType(dirent.Type),
+	}
+}
+
+func ToPbDirents(dirents []fuseutil.Dirent) []*pb.Dirent {
+	r := make([]*pb.Dirent, len(dirents))
+	for i, d := range dirents {
+		r[i] = ToPbDirent(d)
+	}
+	return r
+}
+
+func FromPbDirents(dirents []*pb.Dirent) []fuseutil.Dirent {
+	r := make([]fuseutil.Dirent, len(dirents))
+	for i, d := range dirents {
+		r[i] = FromPbDirent(*d)
+	}
+	return r
+}
+
+func ToPbNode(node *rnode.RNode) *pb.Node {
+	return &pb.Node{
+		NID:       node.NID,
+		NAttr:     ToPbAttr(node.NAttr),
+		NTarget:   node.NTarget,
+		NXattrs:   node.NXattrs,
+		NEntries:  ToPbDirents(node.NEntries),
+		NContents: node.NContents,
+	}
+}
+
+func FromPbNode(node *pb.Node) *rnode.RNode {
+	return &rnode.RNode{
+		NID: node.NID,
+		RNodeAttr: rnode.RNodeAttr{
+			NAttr:   FromPbAttr(*node.NAttr),
+			NTarget: node.NTarget,
+			NXattrs: node.NXattrs,
+		},
+		NEntries:  FromPbDirents(node.NEntries),
+		NContents: node.NContents,
 	}
 }

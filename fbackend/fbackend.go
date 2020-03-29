@@ -24,6 +24,10 @@ import (
 	"syscall"
 	"time"
 
+	pb "github.com/Berailitz/pfs/remotetree"
+
+	"github.com/Berailitz/pfs/gclipool"
+
 	"github.com/Berailitz/pfs/utility"
 
 	"google.golang.org/grpc"
@@ -51,6 +55,7 @@ type FBackEnd struct {
 
 	nodes sync.Map // [uint64]*rnode.RNode
 	mcli  *rclient.RClient
+	pool  *gclipool.GCliPool
 }
 
 type FBackEndErr struct {
@@ -102,6 +107,7 @@ func NewFBackEnd(
 		uid:  uid,
 		gid:  gid,
 		mcli: mcli,
+		pool: gclipool.NewGCliPool(gopts),
 	}
 
 	// Set up the root rnode.RNode.
@@ -113,12 +119,39 @@ func NewFBackEnd(
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
-
 func (fb *FBackEnd) LoadNode(id uint64) (*rnode.RNode, bool) {
 	if out, exist := fb.nodes.Load(id); exist {
 		if node, ok := out.(*rnode.RNode); ok {
 			return node, true
 		}
+	}
+	log.Printf("load node error: id=%v", id)
+	return nil, false
+}
+
+func (fb *FBackEnd) LoadNodeForRead(id uint64) (*rnode.RNode, bool) {
+	if out, exist := fb.nodes.Load(id); exist {
+		if node, ok := out.(*rnode.RNode); ok {
+			return node, true
+		}
+	} else {
+		addr := fb.mcli.QueryOwner(id)
+		gcli := fb.pool.Load(addr)
+		if gcli == nil {
+			return nil, false
+		}
+
+		ctx := context.Background()
+		node, err := gcli.FetchNode(ctx, &pb.NodeId{
+			Id: id,
+		})
+		if err != nil {
+			log.Printf("rpc fetch node error: id=%v, err=%+v",
+				id, err)
+			return nil, false
+		}
+
+		return utility.FromPbNode(node), true
 	}
 	log.Printf("load node error: id=%v", id)
 	return nil, false
@@ -208,7 +241,7 @@ func (fb *FBackEnd) LookUpInode(
 	defer fb.unlock()
 
 	// Grab the parent directory.
-	parent, ok := fb.LoadNode(parentID)
+	parent, ok := fb.LoadNodeForRead(parentID)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("look up node parent not found error: id=%v", parentID)}
 		log.Printf(err.Error())
@@ -222,7 +255,7 @@ func (fb *FBackEnd) LookUpInode(
 	}
 
 	// Grab the child.
-	child, ok := fb.LoadNode(childID)
+	child, ok := fb.LoadNodeForRead(childID)
 	// TODO: handle remote child node, by GetInodeAttributes
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("look up node child not found error: id=%v", childID)}
@@ -240,7 +273,7 @@ func (fb *FBackEnd) GetInodeAttributes(
 	defer fb.unlock()
 
 	// Grab the rnode.RNode.
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.LoadNodeForRead(id)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("get node attr not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -629,7 +662,7 @@ func (fb *FBackEnd) OpenDir(
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.LoadNodeForRead(id)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("open dir not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -654,7 +687,7 @@ func (fb *FBackEnd) ReadDir(
 	defer fb.unlock()
 
 	// Grab the directory.
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.LoadNodeForRead(id)
 	if !ok {
 		err = &FBackEndErr{msg: fmt.Sprintf("read dir not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -677,7 +710,7 @@ func (fb *FBackEnd) OpenFile(
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.LoadNodeForRead(id)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("open file not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -702,7 +735,7 @@ func (fb *FBackEnd) ReadFile(
 	defer fb.unlock()
 
 	// Find the rnode.RNode in question.
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.LoadNodeForRead(id)
 	if !ok {
 		err = &FBackEndErr{msg: fmt.Sprintf("read file not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -762,7 +795,7 @@ func (fb *FBackEnd) ReadSymlink(
 	defer fb.unlock()
 
 	// Find the rnode.RNode in question.
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.LoadNodeForRead(id)
 	if !ok {
 		err = &FBackEndErr{msg: fmt.Sprintf("read symlink not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -782,7 +815,7 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.LoadNodeForRead(id)
 	if !ok {
 		err = &FBackEndErr{msg: fmt.Sprintf("get xattr not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -812,7 +845,7 @@ func (fb *FBackEnd) ListXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.LoadNodeForRead(id)
 	if !ok {
 		err = &FBackEndErr{msg: fmt.Sprintf("get xattr not found error: id=%v", id)}
 		log.Printf(err.Error())

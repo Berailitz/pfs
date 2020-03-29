@@ -73,11 +73,8 @@ Private workspace for Golang.
 1. LFS
 
 # Plan
-1. rpc proto
-1. rpc client
-1. rpc server
-1. always run rpc server
-1. master flag
+1. read remote node
+1. transfer node
 1. remote lock
 1. read/write lock
 1. mirror a dir

@@ -122,7 +122,7 @@ func (c *RClient) RegisterSelf(addr string) bool {
 
 func NewRClient(cfg RCliCfg) *RClient {
 	// TODO: add tls support
-	log.Printf("new rcli: master=%v, local=%v, opts=%+v", cfg.Master, cfg.Local, cfg.GOpts)
+	log.Printf("new rcli: master=%v, local=%v, opts=%#v", cfg.Master, cfg.Local, cfg.GOpts)
 	cfg.GOpts = append(cfg.GOpts, grpc.WithInsecure())
 	conn, err := grpc.Dial(cfg.Master, cfg.GOpts...)
 	if err != nil {

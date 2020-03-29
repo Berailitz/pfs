@@ -50,7 +50,7 @@ type RNodeAttr struct {
 }
 
 type RNode struct {
-	_id uint64
+	NID uint64
 	/////////////////////////
 	// Mutable state
 	/////////////////////////
@@ -76,7 +76,7 @@ type RNode struct {
 }
 
 func (in *RNode) ID() uint64 {
-	return in._id
+	return in.NID
 }
 
 func (in *RNodeAttr) Attrs() fuseops.InodeAttributes {
@@ -161,7 +161,7 @@ func NewRNode(attrs fuseops.InodeAttributes, id uint64) *RNode {
 
 	// Create the object.
 	return &RNode{
-		_id: id,
+		NID: id,
 		RNodeAttr: RNodeAttr{
 			NAttr:   attrs,
 			NXattrs: make(map[string][]byte),

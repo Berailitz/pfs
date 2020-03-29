@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"syscall"
 	"time"
@@ -227,6 +228,7 @@ func (lfs *LFS) StatFS(
 func (lfs *LFS) LookUpInode(
 	ctx context.Context,
 	op *fuseops.LookUpInodeOp) error {
+	log.Printf("look up inode: parent=%v, name=%v", op.Parent, op.Name)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -251,12 +253,14 @@ func (lfs *LFS) LookUpInode(
 	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
 
+	log.Printf("look up inode success: parent=%v, name=%v", op.Parent, op.Name)
 	return nil
 }
 
 func (lfs *LFS) GetInodeAttributes(
 	ctx context.Context,
 	op *fuseops.GetInodeAttributesOp) error {
+	log.Printf("get inode attr: id=%v", op.Inode)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -270,12 +274,15 @@ func (lfs *LFS) GetInodeAttributes(
 	// (since it also handles invalidation).
 	op.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 
+	log.Printf("get inode attr success: id=%v", op.Inode)
 	return nil
 }
 
 func (lfs *LFS) SetInodeAttributes(
 	ctx context.Context,
 	op *fuseops.SetInodeAttributesOp) error {
+	log.Printf("set inode attr: id=%v, size=%v, mode=%v, mtime=%v",
+		op.Inode, op.Size, op.Mode, op.Mtime)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -299,12 +306,16 @@ func (lfs *LFS) SetInodeAttributes(
 	// (since it also handles invalidation).
 	op.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 
+	log.Printf("set inode attr success: id=%v, size=%v, mode=%v, mtime=%v",
+		op.Inode, op.Size, op.Mode, op.Mtime)
 	return err
 }
 
 func (lfs *LFS) MkDir(
 	ctx context.Context,
 	op *fuseops.MkDirOp) error {
+	log.Printf("mkdir: parent=%v, name=%v, mode=%v",
+		op.Parent, op.Name, op.Mode)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -341,17 +352,23 @@ func (lfs *LFS) MkDir(
 	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
 
+	log.Printf("mkdir success: parent=%v, name=%v, mode=%v",
+		op.Parent, op.Name, op.Mode)
 	return nil
 }
 
 func (lfs *LFS) MkNode(
 	ctx context.Context,
 	op *fuseops.MkNodeOp) error {
+	log.Printf("mknode: parent=%v, name=%v, mode=%v",
+		op.Parent, op.Name, op.Mode)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
 	var err error
 	op.Entry, err = lfs.DoCreateFile(op.Parent, op.Name, op.Mode)
+	log.Printf("mknode success: parent=%v, name=%v, mode=%v",
+		op.Parent, op.Name, op.Mode)
 	return err
 }
 
@@ -405,17 +422,22 @@ func (lfs *LFS) DoCreateFile(
 func (lfs *LFS) CreateFile(
 	ctx context.Context,
 	op *fuseops.CreateFileOp) error {
+	log.Printf("create file: parent=%v, name=%v, mode=%v",
+		op.Parent, op.Name, op.Mode)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
 	var err error
 	op.Entry, err = lfs.DoCreateFile(op.Parent, op.Name, op.Mode)
+	log.Printf("create file success: op=%#v", op)
 	return err
 }
 
 func (lfs *LFS) CreateSymlink(
 	ctx context.Context,
 	op *fuseops.CreateSymlinkOp) error {
+	log.Printf("create symlink: parent=%v, name=%v, target=%v",
+		op.Parent, op.Name, op.Target)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -460,12 +482,16 @@ func (lfs *LFS) CreateSymlink(
 	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
 
+	log.Printf("create symlink success: parent=%v, name=%v, target=%v",
+		op.Parent, op.Name, op.Target)
 	return nil
 }
 
 func (lfs *LFS) CreateLink(
 	ctx context.Context,
 	op *fuseops.CreateLinkOp) error {
+	log.Printf("create link: parent=%v, name=%v, target=%v",
+		op.Parent, op.Name, op.Target)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -501,12 +527,15 @@ func (lfs *LFS) CreateLink(
 	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
 
+	log.Printf("create link success: parent=%v, name=%v, target=%v",
+		op.Parent, op.Name, op.Target)
 	return nil
 }
 
 func (lfs *LFS) Rename(
 	ctx context.Context,
 	op *fuseops.RenameOp) error {
+	log.Printf("rename: op=%#v", op)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -542,12 +571,14 @@ func (lfs *LFS) Rename(
 	// Finally, remove the old name from the old parent.
 	oldParent.RemoveChild(op.OldName)
 
+	log.Printf("rename success: op=%#v", op)
 	return nil
 }
 
 func (lfs *LFS) RmDir(
 	ctx context.Context,
 	op *fuseops.RmDirOp) error {
+	log.Printf("rmdir: op=%#v", op)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -576,12 +607,14 @@ func (lfs *LFS) RmDir(
 	attrs.Nlink--
 	child.SetAttrs(attrs)
 
+	log.Printf("rmdir success: op=%#v", op)
 	return nil
 }
 
 func (lfs *LFS) Unlink(
 	ctx context.Context,
 	op *fuseops.UnlinkOp) error {
+	log.Printf("unlink: op=%#v", op)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -605,12 +638,14 @@ func (lfs *LFS) Unlink(
 	attrs.Nlink--
 	child.SetAttrs(attrs)
 
+	log.Printf("unlink success: op=%#v", op)
 	return nil
 }
 
 func (lfs *LFS) OpenDir(
 	ctx context.Context,
 	op *fuseops.OpenDirOp) error {
+	log.Printf("opendir: id=%v", op.Inode)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -623,12 +658,15 @@ func (lfs *LFS) OpenDir(
 		panic("Found non-dir.")
 	}
 
+	log.Printf("opendir success: id=%v", op.Inode)
 	return nil
 }
 
 func (lfs *LFS) ReadDir(
 	ctx context.Context,
 	op *fuseops.ReadDirOp) error {
+	log.Printf("readdir: id=%v, len=%v, offset=%v",
+		op.Inode, len(op.Dst), op.Offset)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -638,12 +676,15 @@ func (lfs *LFS) ReadDir(
 	// Serve the request.
 	op.BytesRead = RNode.ReadDir(op.Dst, int(op.Offset))
 
+	log.Printf("readdir success: id=%v, len=%v, offset=%v, bytesRead=%v, dst=%X",
+		op.Inode, len(op.Dst), op.Offset, op.BytesRead, op.Dst[:op.BytesRead])
 	return nil
 }
 
 func (lfs *LFS) OpenFile(
 	ctx context.Context,
 	op *fuseops.OpenFileOp) error {
+	log.Printf("openfile: id=%v", op.Inode)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -656,12 +697,14 @@ func (lfs *LFS) OpenFile(
 		panic("Found non-file.")
 	}
 
+	log.Printf("openfile success: id=%v", op.Inode)
 	return nil
 }
 
 func (lfs *LFS) ReadFile(
 	ctx context.Context,
 	op *fuseops.ReadFileOp) error {
+	log.Printf("readfile success: id=%v, offset=%v", op.Inode, op.Offset)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -677,12 +720,15 @@ func (lfs *LFS) ReadFile(
 		return nil
 	}
 
+	log.Printf("readfile success: id=%v, offset=%v, bytesread=%v, dst=%X",
+		op.Inode, op.Offset, op.BytesRead, op.Dst[:op.BytesRead])
 	return err
 }
 
 func (lfs *LFS) WriteFile(
 	ctx context.Context,
 	op *fuseops.WriteFileOp) error {
+	log.Printf("write file: id=%v, offset=%v", op.Inode, op.Offset)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -690,14 +736,16 @@ func (lfs *LFS) WriteFile(
 	RNode := lfs.GetInodeOrDie(op.Inode)
 
 	// Serve the request.
-	_, err := RNode.WriteAt(op.Data, op.Offset)
+	bytesWrite, err := RNode.WriteAt(op.Data, op.Offset)
 
+	log.Printf("write file success: id=%v, offset=%v, bytesWrite=%v", op.Inode, op.Offset, bytesWrite)
 	return err
 }
 
 func (lfs *LFS) ReadSymlink(
 	ctx context.Context,
 	op *fuseops.ReadSymlinkOp) error {
+	log.Printf("read symlink: id=%v", op.Inode)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -707,11 +755,14 @@ func (lfs *LFS) ReadSymlink(
 	// Serve the request.
 	op.Target = RNode.Target()
 
+	log.Printf("read symlink success: id=%v, target=%v", op.Inode, op.Target)
 	return nil
 }
 
 func (lfs *LFS) GetXattr(ctx context.Context,
 	op *fuseops.GetXattrOp) error {
+	log.Printf("get xattr: id=%v, name=%v, length=%v",
+		op.Inode, op.Name, len(op.Dst))
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -727,11 +778,15 @@ func (lfs *LFS) GetXattr(ctx context.Context,
 		return fuse.ENOATTR
 	}
 
+	log.Printf("get xattr success: id=%v, name=%v, length=%v, bytesRead=%v",
+		op.Inode, op.Name, len(op.Dst), op.BytesRead)
 	return nil
 }
 
 func (lfs *LFS) ListXattr(ctx context.Context,
 	op *fuseops.ListXattrOp) error {
+	log.Printf("list xattr: id=%v, length=%v",
+		op.Inode, len(op.Dst))
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 
@@ -750,11 +805,14 @@ func (lfs *LFS) ListXattr(ctx context.Context,
 		op.BytesRead += keyLen
 	}
 
+	log.Printf("list xattr success: id=%v, length=%v, bytesRead=%v",
+		op.Inode, len(op.Dst), op.BytesRead)
 	return nil
 }
 
 func (lfs *LFS) RemoveXattr(ctx context.Context,
 	op *fuseops.RemoveXattrOp) error {
+	log.Printf("rm xattr: id=%v, name=%v", op.Inode, op.Name)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 	RNode := lfs.GetInodeOrDie(op.Inode)
@@ -766,11 +824,13 @@ func (lfs *LFS) RemoveXattr(ctx context.Context,
 	} else {
 		return fuse.ENOATTR
 	}
+	log.Printf("rm xattr success: id=%v, name=%v", op.Inode, op.Name)
 	return nil
 }
 
 func (lfs *LFS) SetXattr(ctx context.Context,
 	op *fuseops.SetXattrOp) error {
+	log.Printf("set xattr: op=%#v", op)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 	RNode := lfs.GetInodeOrDie(op.Inode)
@@ -793,14 +853,17 @@ func (lfs *LFS) SetXattr(ctx context.Context,
 	xattrs := RNode.Xattrs()
 	xattrs[op.Name] = value
 	RNode.SetXattrs(xattrs)
+	log.Printf("set xattr success: op=%#v", op)
 	return nil
 }
 
 func (lfs *LFS) Fallocate(ctx context.Context,
 	op *fuseops.FallocateOp) error {
+	log.Printf("fallocate: op=%#v", op)
 	lfs.mu.Lock()
 	defer lfs.mu.Unlock()
 	RNode := lfs.GetInodeOrDie(op.Inode)
 	RNode.Fallocate(op.Mode, op.Length, op.Length)
+	log.Printf("fallocate success: op=%#v", op)
 	return nil
 }

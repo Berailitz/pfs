@@ -58,10 +58,15 @@ func NewFBackEnd(
 	gid uint32,
 	rCliCfg rclient.RCliCfg) *FBackEnd {
 	// Set up the basic struct.
+	rcli := rclient.NewRClient(rCliCfg)
+	if rcli == nil {
+		log.Fatalf("nil ecli error")
+	}
+	rcli.RegisterSelf(rCliCfg.Local)
 	fb := &FBackEnd{
 		uid:  uid,
 		gid:  gid,
-		rcli: rclient.NewRClient(rCliCfg),
+		rcli: rcli,
 	}
 
 	// Set up the root rnode.RNode.

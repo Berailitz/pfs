@@ -133,10 +133,6 @@ func NewRClient(cfg RCliCfg) *RClient {
 	rcli := &RClient{
 		GClient: pb.NewRemoteTreeClient(conn),
 	}
-	if !rcli.RegisterSelf(cfg.Local) {
-		log.Fatalf("new rcli register self error: master=%v, local=%v", cfg.Master, cfg.Local)
-		return nil
-	}
 	log.Printf("new rcli success: master=%v, local=%v", cfg.Master, cfg.Local)
 	return rcli
 }

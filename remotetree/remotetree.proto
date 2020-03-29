@@ -8,6 +8,8 @@ service RemoteTree {
     //rpc RUnlock(NodeId) returns (StatusReply) {}
     //rpc WUnlock(NodeId) returns (StatusReply) {}
 
+    rpc FetchNode(NodeId) returns (Node) {}
+
     rpc LookUpInode(LookUpInodeRequest) returns (LookUpInodeReply) {}
     rpc GetInodeAttributes(NodeId) returns (GetInodeAttributesReply) {}
     rpc SetInodeAttributes(SetInodeAttributesRequest) returns (SetInodeAttributesReply) {}
@@ -36,6 +38,15 @@ service RemoteTree {
     rpc RegisterOwner(Addr) returns (OwnerId) {}
     rpc RemoveOwner(OwnerId) returns (IsOK) {}
     rpc AllocateRoot(OwnerId) returns (IsOK) {}
+}
+
+message Node {
+    uint64 NID = 1;
+    InodeAttributes NAttr = 2;
+    string NTarget = 3;
+    map<string, bytes> NXattrs = 4;
+    repeated Dirent NEntries = 5;
+    bytes NContents = 6;
 }
 
 message LookUpInodeRequest {

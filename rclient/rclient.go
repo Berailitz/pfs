@@ -14,6 +14,12 @@ type RClient struct {
 	gcli pb.RemoteTreeClient
 }
 
+func (c *RClient) mustHaveID() {
+	if c.id <= 0 {
+		log.Fatalf("rcli has no id.")
+	}
+}
+
 // QueryOwner fetch owner'addr of a node
 func (c *RClient) QueryOwner(nodeID uint64) string {
 	ctx := context.Background()
@@ -29,6 +35,7 @@ func (c *RClient) QueryOwner(nodeID uint64) string {
 
 func (c *RClient) Allocate() uint64 {
 	ctx := context.Background()
+	c.mustHaveID()
 	log.Printf("allocate node")
 	nodeID, err := c.gcli.Allocate(ctx, &pb.OwnerId{
 		Id: c.id,
@@ -80,6 +87,7 @@ func (c *RClient) RemoveOwner(ownerID uint64) bool {
 
 func (c *RClient) AllocateRoot() bool {
 	ctx := context.Background()
+	c.mustHaveID()
 	log.Printf("allocate root: ownerID=%v", c.id)
 	out, err := c.gcli.AllocateRoot(ctx, &pb.OwnerId{
 		Id: c.id,

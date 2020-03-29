@@ -101,7 +101,7 @@ func NewFBackEnd(
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
-func (fb *FBackEnd) LoadNode(id uint64) (*rnode.RNode, bool) {
+func (fb *FBackEnd) loadNode(id uint64) (*rnode.RNode, bool) {
 	if out, exist := fb.nodes.Load(id); exist {
 		if node, ok := out.(*rnode.RNode); ok {
 			return node, true
@@ -111,11 +111,11 @@ func (fb *FBackEnd) LoadNode(id uint64) (*rnode.RNode, bool) {
 	return nil, false
 }
 
-func (fb *FBackEnd) StoreNode(id uint64, node *rnode.RNode) {
+func (fb *FBackEnd) storeNode(id uint64, node *rnode.RNode) {
 	fb.nodes.Store(id, node)
 }
 
-func (fb *FBackEnd) DeleteNode(id uint64) {
+func (fb *FBackEnd) deleteNode(id uint64) {
 	fb.nodes.Delete(id)
 }
 
@@ -128,24 +128,24 @@ func (fb *FBackEnd) MakeRoot() {
 			Uid:  fb.uid,
 			Gid:  fb.gid,
 		}
-		fb.StoreNode(uint64(fuseops.RootInodeID), rnode.NewRNode(rootAttrs, fuseops.RootInodeID))
+		fb.storeNode(uint64(fuseops.RootInodeID), rnode.NewRNode(rootAttrs, fuseops.RootInodeID))
 	}
 }
 
-func (fb *FBackEnd) Lock() {
+func (fb *FBackEnd) lock() {
 	fb.mu.Lock()
 }
 
-func (fb *FBackEnd) Unlock() {
+func (fb *FBackEnd) unlock() {
 	fb.mu.Unlock()
 }
 
 // Find the given rnode.RNode. Panic if it doesn't exist.
 //
 // LOCKS_REQUIRED(fb.mu)
-func (fb *FBackEnd) MustLoadInode(id uint64) *rnode.RNode {
+func (fb *FBackEnd) mustLoadInode(id uint64) *rnode.RNode {
 	// TODO: lock remote rnode.RNode
-	if node, ok := fb.LoadNode(id); ok {
+	if node, ok := fb.loadNode(id); ok {
 		return node
 	}
 	log.Fatalf("Unknown rnode.RNode: %v", id)
@@ -161,7 +161,7 @@ func (fb *FBackEnd) allocateInode(
 	id := fb.rcli.Allocate()
 	if id > 0 {
 		node := rnode.NewRNode(attrs, id)
-		fb.StoreNode(id, node)
+		fb.storeNode(id, node)
 		return id, node
 	}
 
@@ -172,7 +172,7 @@ func (fb *FBackEnd) allocateInode(
 func (fb *FBackEnd) deallocateInode(id uint64) {
 	ok := fb.rcli.Deallocate(id)
 	if ok {
-		fb.DeleteNode(id)
+		fb.deleteNode(id)
 	}
 	log.Fatalf("deallocate error")
 }
@@ -191,11 +191,11 @@ func (fb *FBackEnd) LookUpInode(
 	ctx context.Context,
 	parentID uint64,
 	name string) (uint64, fuseops.InodeAttributes, error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Grab the parent directory.
-	parent, ok := fb.LoadNode(parentID)
+	parent, ok := fb.loadNode(parentID)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("look up node parent not found error: id=%v", parentID)}
 		log.Printf(err.Error())
@@ -209,7 +209,7 @@ func (fb *FBackEnd) LookUpInode(
 	}
 
 	// Grab the child.
-	child, ok := fb.LoadNode(childID)
+	child, ok := fb.loadNode(childID)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("look up node child not found error: id=%v", childID)}
 		log.Printf(err.Error())
@@ -222,11 +222,11 @@ func (fb *FBackEnd) LookUpInode(
 func (fb *FBackEnd) GetInodeAttributes(
 	ctx context.Context,
 	id uint64) (fuseops.InodeAttributes, error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Grab the rnode.RNode.
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("get node attr not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -241,11 +241,11 @@ func (fb *FBackEnd) SetInodeAttributes(
 	ctx context.Context,
 	id uint64,
 	param SetInodeAttributesParam) (fuseops.InodeAttributes, error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Grab the rnode.RNode.
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("set node attr not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -274,11 +274,11 @@ func (fb *FBackEnd) MkDir(
 	parentID uint64,
 	name string,
 	mode os.FileMode) (uint64, fuseops.InodeAttributes, error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, ok := fb.LoadNode(parentID)
+	parent, ok := fb.loadNode(parentID)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("mkdir parent not found error: parentID=%v, name=%v",
 			parentID, name)}
@@ -317,11 +317,11 @@ func (fb *FBackEnd) CreateNode(
 	parentID uint64,
 	name string,
 	mode os.FileMode) (fuseops.ChildInodeEntry, error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, ok := fb.LoadNode(parentID)
+	parent, ok := fb.loadNode(parentID)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("do create file parent not found error: parentID=%v, name=%v",
 			parentID, name)}
@@ -373,11 +373,11 @@ func (fb *FBackEnd) CreateSymlink(
 	parentID uint64,
 	name string,
 	target string) (uint64, fuseops.InodeAttributes, error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, ok := fb.LoadNode(parentID)
+	parent, ok := fb.loadNode(parentID)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("create symlink parent not found error: parentID=%v, name=%v",
 			parentID, name)}
@@ -423,11 +423,11 @@ func (fb *FBackEnd) CreateLink(
 	parentID uint64,
 	name string,
 	targetID uint64) (fuseops.InodeAttributes, error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, ok := fb.LoadNode(parentID)
+	parent, ok := fb.loadNode(parentID)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("create link parent not found error: parentID=%v, name=%v",
 			parentID, name)}
@@ -443,7 +443,7 @@ func (fb *FBackEnd) CreateLink(
 	}
 
 	// Get the target rnode.RNode to be linked
-	target, ok := fb.LoadNode(targetID)
+	target, ok := fb.loadNode(targetID)
 	if !ok {
 		err := &FBackEndErr{
 			msg: fmt.Sprintf("create link target not found error: parentID=%v, name=%v, targetID=%v",
@@ -470,8 +470,8 @@ func (fb *FBackEnd) CreateLink(
 func (fb *FBackEnd) Rename(
 	ctx context.Context,
 	op fuseops.RenameOp) (err error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 	defer func() {
 		if rout := recover(); rout != nil {
 			if derr, ok := rout.(error); ok {
@@ -484,7 +484,7 @@ func (fb *FBackEnd) Rename(
 	}()
 
 	// Ask the old parent for the child's rnode.RNode ID and type.
-	oldParent := fb.MustLoadInode(uint64(op.OldParent))
+	oldParent := fb.mustLoadInode(uint64(op.OldParent))
 	childID, childType, ok := oldParent.LookUpChild(op.OldName)
 
 	if !ok {
@@ -494,10 +494,10 @@ func (fb *FBackEnd) Rename(
 
 	// If the new name exists already in the new parent, make sure it's not a
 	// non-empty directory, then delete it.
-	newParent := fb.MustLoadInode(uint64(op.NewParent))
+	newParent := fb.mustLoadInode(uint64(op.NewParent))
 	existingID, _, ok := newParent.LookUpChild(op.NewName)
 	if ok {
-		existing := fb.MustLoadInode(existingID)
+		existing := fb.mustLoadInode(existingID)
 
 		var buf [4096]byte
 		if existing.IsDir() && existing.ReadDir(buf[:], 0) > 0 {
@@ -523,8 +523,8 @@ func (fb *FBackEnd) Rename(
 func (fb *FBackEnd) RmDir(
 	ctx context.Context,
 	op fuseops.RmDirOp) (err error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 	defer func() {
 		if rout := recover(); rout != nil {
 			if derr, ok := rout.(error); ok {
@@ -537,7 +537,7 @@ func (fb *FBackEnd) RmDir(
 	}()
 
 	// Grab the parent, which we will update shortly.
-	parent := fb.MustLoadInode(uint64(op.Parent))
+	parent := fb.mustLoadInode(uint64(op.Parent))
 
 	// Find the child within the parent.
 	childID, _, ok := parent.LookUpChild(op.Name)
@@ -547,7 +547,7 @@ func (fb *FBackEnd) RmDir(
 	}
 
 	// Grab the child.
-	child := fb.MustLoadInode(childID)
+	child := fb.mustLoadInode(childID)
 
 	// Make sure the child is empty.
 	if child.Len() != 0 {
@@ -569,8 +569,8 @@ func (fb *FBackEnd) RmDir(
 func (fb *FBackEnd) Unlink(
 	ctx context.Context,
 	op fuseops.UnlinkOp) (err error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 	defer func() {
 		if rout := recover(); rout != nil {
 			if derr, ok := rout.(error); ok {
@@ -583,7 +583,7 @@ func (fb *FBackEnd) Unlink(
 	}()
 
 	// Grab the parent, which we will update shortly.
-	parent := fb.MustLoadInode(uint64(op.Parent))
+	parent := fb.mustLoadInode(uint64(op.Parent))
 
 	// Find the child within the parent.
 	childID, _, ok := parent.LookUpChild(op.Name)
@@ -593,7 +593,7 @@ func (fb *FBackEnd) Unlink(
 	}
 
 	// Grab the child.
-	child := fb.MustLoadInode(childID)
+	child := fb.mustLoadInode(childID)
 
 	// Remove the entry within the parent.
 	parent.RemoveChild(op.Name)
@@ -609,13 +609,13 @@ func (fb *FBackEnd) Unlink(
 func (fb *FBackEnd) OpenDir(
 	ctx context.Context,
 	id uint64) error {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("open dir not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -636,11 +636,11 @@ func (fb *FBackEnd) ReadDir(
 	id uint64,
 	length uint64,
 	offset uint64) (bytesRead uint64, buf []byte, err error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Grab the directory.
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err = &FBackEndErr{msg: fmt.Sprintf("read dir not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -657,13 +657,13 @@ func (fb *FBackEnd) ReadDir(
 func (fb *FBackEnd) OpenFile(
 	ctx context.Context,
 	id uint64) error {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("open file not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -684,11 +684,11 @@ func (fb *FBackEnd) ReadFile(
 	id uint64,
 	length uint64,
 	offset uint64) (bytesRead uint64, buf []byte, err error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Find the rnode.RNode in question.
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err = &FBackEndErr{msg: fmt.Sprintf("read file not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -717,11 +717,11 @@ func (fb *FBackEnd) WriteFile(
 	id uint64,
 	offset uint64,
 	data []byte) (uint64, error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Find the rnode.RNode in question.
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("write file not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -744,11 +744,11 @@ func (fb *FBackEnd) WriteFile(
 func (fb *FBackEnd) ReadSymlink(
 	ctx context.Context,
 	id uint64) (target string, err error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
 	// Find the rnode.RNode in question.
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err = &FBackEndErr{msg: fmt.Sprintf("read symlink not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -765,10 +765,10 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 	id uint64,
 	name string,
 	length uint64) (bytesRead uint64, dst []byte, err error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err = &FBackEndErr{msg: fmt.Sprintf("get xattr not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -795,10 +795,10 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 func (fb *FBackEnd) ListXattr(ctx context.Context,
 	id uint64,
 	length uint64) (bytesRead uint64, dst []byte, err error) {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err = &FBackEndErr{msg: fmt.Sprintf("get xattr not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -826,10 +826,10 @@ func (fb *FBackEnd) ListXattr(ctx context.Context,
 func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 	id uint64,
 	name string) error {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("get xattr not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -848,10 +848,10 @@ func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 
 func (fb *FBackEnd) SetXattr(ctx context.Context,
 	op fuseops.SetXattrOp) error {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
-	node, hasNode := fb.LoadNode(uint64(op.Inode))
+	node, hasNode := fb.loadNode(uint64(op.Inode))
 	if !hasNode {
 		err := &FBackEndErr{msg: fmt.Sprintf("set xattr not found error: id=%v", op.Inode)}
 		log.Printf(err.Error())
@@ -883,10 +883,10 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 	id uint64,
 	mode uint32,
 	length uint64) error {
-	fb.Lock()
-	defer fb.Unlock()
+	fb.lock()
+	defer fb.unlock()
 
-	node, ok := fb.LoadNode(id)
+	node, ok := fb.loadNode(id)
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("fallocate not found error: id=%v", id)}
 		log.Printf(err.Error())
@@ -903,7 +903,7 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 }
 
 func (fb *FBackEnd) IsLocal(ctx context.Context, id uint64) bool {
-	_, ok := fb.LoadNode(id)
+	_, ok := fb.loadNode(id)
 	return ok
 }
 

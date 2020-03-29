@@ -12,7 +12,7 @@ func BuildGCli(addr string, gopts []grpc.DialOption) (remotetree.RemoteTreeClien
 	log.Printf("build gcli: addr=%v", addr)
 	conn, err := grpc.Dial(addr, gopts...)
 	if err != nil {
-		log.Fatalf("new rcli fial error: addr=%v, opts=%#v, err=%+V",
+		log.Printf("new rcli fial error: addr=%v, opts=%#v, err=%+V",
 			addr, gopts, err)
 		return nil, err
 	}

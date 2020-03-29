@@ -101,21 +101,21 @@ func (c *RClient) AllocateRoot() bool {
 }
 
 // RegisterSelf is called only at initialization
-func (c *RClient) RegisterSelf(addr string) bool {
+func (c *RClient) RegisterSelf(addr string) uint64 {
 	if c.id > 0 {
 		log.Printf("duplicate register error: addr=%v", addr)
-		return false
+		return 0
 	}
 
 	localID := c.RegisterOwner(addr)
 	if localID > 0 {
 		c.id = localID
 		log.Printf("register success: addr=%v, localID=%v", addr, localID)
-		return true
+		return localID
 	}
 
 	log.Printf("register error: addr=%v", addr)
-	return false
+	return 0
 }
 
 func NewRClient(cfg RCliCfg) *RClient {

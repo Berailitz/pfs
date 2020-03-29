@@ -8,13 +8,13 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
+
+	"github.com/jacobsa/fuse/fuseops"
 
 	"github.com/Berailitz/pfs/manager"
 
 	"github.com/Berailitz/pfs/fbackend"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"google.golang.org/grpc"
 
@@ -24,46 +24,352 @@ import (
 type RServer struct {
 	pb.UnimplementedRemoteTreeServer
 	Server *grpc.Server
-	FB     *fbackend.FBackEnd
+	fb     *fbackend.FBackEnd
 	ma     *manager.RManager
 }
 
-func (s *RServer) Create(ctx context.Context, req *pb.CreateRequest) (*pb.CreateReply, error) {
-	s.FB.Lock()
-	defer s.FB.Unlock()
-
-	entry, err := s.FB.CreateNode(ctx, req.Parent, req.Name, os.FileMode(req.Dt))
-	if err != nil {
-		return &pb.CreateReply{
-			Err: &pb.Error{
-				Status: 1,
-				Msg:    err.Error(),
-			},
-		}, nil
+func toPbAttr(attr fuseops.InodeAttributes) *pb.InodeAttributes {
+	return &pb.InodeAttributes{
+		Size:   attr.Size,
+		Nlink:  attr.Nlink,
+		Mode:   uint32(attr.Mode),
+		Atime:  attr.Atime.Unix(),
+		Mtime:  attr.Mtime.Unix(),
+		Ctime:  attr.Ctime.Unix(),
+		Crtime: attr.Crtime.Unix(),
+		Uid:    attr.Uid,
+		Gid:    attr.Gid,
 	}
-	return &pb.CreateReply{
-		Child: uint64(entry.Child),
-		Err:   nil,
+}
+
+func toPbEntry(entry fuseops.ChildInodeEntry) *pb.ChildInodeEntry {
+	return &pb.ChildInodeEntry{
+		Child:                uint64(entry.Child),
+		Generation:           uint64(entry.Generation),
+		Attributes:           toPbAttr(entry.Attributes),
+		AttributesExpiration: entry.AttributesExpiration.Unix(),
+		EntryExpiration:      entry.EntryExpiration.Unix(),
+	}
+}
+
+func (s *RServer) LookUpInode(ctx context.Context, req *pb.LookUpInodeRequest) (*pb.LookUpInodeReply, error) {
+	id, attr, err := s.fb.LookUpInode(ctx, req.ParentID, req.Name)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.LookUpInodeReply{
+		Id:   id,
+		Attr: toPbAttr(attr),
+		Err:  perr,
 	}, nil
 }
 
-func (s *RServer) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+func (s *RServer) GetInodeAttributes(ctx context.Context, req *pb.NodeId) (*pb.GetInodeAttributesReply, error) {
+	attr, err := s.fb.GetInodeAttributes(ctx, req.Id)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.GetInodeAttributesReply{
+		Err:  perr,
+		Attr: toPbAttr(attr),
+	}, nil
 }
-func (s *RServer) WriteFile(ctx context.Context, req *pb.WriteFileRequest) (*pb.WriteFileReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method WriteFile not implemented")
+
+func (s *RServer) SetInodeAttributes(ctx context.Context, req *pb.SetInodeAttributesRequest) (*pb.SetInodeAttributesReply, error) {
+	attr, err := s.fb.SetInodeAttributes(ctx, req.Id, fbackend.SetInodeAttributesParam{
+		Size:     req.Size,
+		Mode:     os.FileMode(req.Mode),
+		Mtime:    time.Unix(req.Mtime, 0),
+		HasSize:  req.HasSize,
+		HasMode:  req.HasMode,
+		HasMtime: req.HasMtime,
+	})
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.SetInodeAttributesReply{
+		Err:  perr,
+		Attr: toPbAttr(attr),
+	}, nil
 }
-func (s *RServer) WriteAttr(ctx context.Context, req *pb.WriteAttrRequest) (*pb.WriteAttrReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method WriteAttr not implemented")
+
+func (s *RServer) MkDir(ctx context.Context, req *pb.MkDirRequest) (*pb.MkDirReply, error) {
+	id, attr, err := s.fb.MkDir(ctx, req.Id, req.Name, os.FileMode(req.Mode))
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.MkDirReply{
+		Id:   id,
+		Err:  perr,
+		Attr: toPbAttr(attr),
+	}, nil
 }
-func (s *RServer) ReadDir(ctx context.Context, req *pb.NodeId) (*pb.ReadDirReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReadDir not implemented")
+
+func (s *RServer) CreateNode(ctx context.Context, req *pb.CreateNodeRequest) (*pb.CreateNodeReply, error) {
+	entry, err := s.fb.CreateNode(ctx, req.Id, req.Name, os.FileMode(req.Mode))
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.CreateNodeReply{
+		Entry: toPbEntry(entry),
+		Err:   perr,
+	}, nil
 }
-func (s *RServer) ReadFile(ctx context.Context, req *pb.NodeId) (*pb.ReadFileReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReadFile not implemented")
+
+func (s *RServer) CreateSymlink(ctx context.Context, req *pb.CreateSymlinkRequest) (*pb.CreateSymlinkReply, error) {
+	id, attr, err := s.fb.CreateSymlink(ctx, req.Id, req.Name, req.Target)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.CreateSymlinkReply{
+		Attr: toPbAttr(attr),
+		Id:   id,
+		Err:  perr,
+	}, nil
 }
-func (s *RServer) ReadAttr(ctx context.Context, req *pb.NodeId) (*pb.ReadAttrReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReadAttr not implemented")
+
+func (s *RServer) CreateLink(ctx context.Context, req *pb.CreateLinkRequest) (*pb.CreateLinkReply, error) {
+	attr, err := s.fb.CreateLink(ctx, req.Id, req.Name, req.TargetID)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.CreateLinkReply{
+		Attr: toPbAttr(attr),
+		Err:  perr,
+	}, nil
+}
+
+func (s *RServer) Rename(ctx context.Context, req *pb.RenameRequest) (*pb.Error, error) {
+	err := s.fb.Rename(ctx, fuseops.RenameOp{
+		OldParent: fuseops.InodeID(req.OldParent),
+		OldName:   req.OldName,
+		NewParent: fuseops.InodeID(req.NewParent),
+		NewName:   req.NewName,
+	})
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return perr, nil
+}
+
+func (s *RServer) RmDir(ctx context.Context, req *pb.RmDirRequest) (*pb.Error, error) {
+	err := s.fb.RmDir(ctx, fuseops.RmDirOp{
+		Parent: fuseops.InodeID(req.Parent),
+		Name:   req.Name,
+	})
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return perr, nil
+}
+
+func (s *RServer) Unlink(ctx context.Context, req *pb.UnlinkRequest) (*pb.Error, error) {
+	err := s.fb.Unlink(ctx, fuseops.UnlinkOp{
+		Parent: fuseops.InodeID(req.Parent),
+		Name:   req.Name,
+	})
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return perr, nil
+}
+
+func (s *RServer) OpenDir(ctx context.Context, req *pb.NodeId) (*pb.Error, error) {
+	err := s.fb.OpenDir(ctx, req.Id)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return perr, nil
+}
+func (s *RServer) ReadDir(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXReply, error) {
+	bytesRead, buf, err := s.fb.ReadDir(ctx, req.Id, req.Length, req.Offset)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.ReadXReply{
+		Err:       perr,
+		BytesRead: bytesRead,
+		Buf:       buf,
+	}, nil
+}
+
+func (s *RServer) OpenFile(ctx context.Context, req *pb.NodeId) (*pb.Error, error) {
+	err := s.fb.OpenFile(ctx, req.Id)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return perr, nil
+}
+
+func (s *RServer) ReadFile(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXReply, error) {
+	bytesRead, buf, err := s.fb.ReadFile(ctx, req.Id, req.Length, req.Offset)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.ReadXReply{
+		Err:       perr,
+		BytesRead: bytesRead,
+		Buf:       buf,
+	}, nil
+}
+
+func (s *RServer) WriteFile(ctx context.Context, req *pb.WriteXRequest) (*pb.WriteXReply, error) {
+	bytesWrite, err := s.fb.WriteFile(ctx, req.Id, req.Offset, req.Data)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.WriteXReply{
+		Err:        perr,
+		BytesWrite: bytesWrite,
+	}, nil
+}
+
+func (s *RServer) ReadSymlink(ctx context.Context, req *pb.NodeId) (*pb.ReadSymlinkReply, error) {
+	target, err := s.fb.ReadSymlink(ctx, req.Id)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.ReadSymlinkReply{
+		Err:    perr,
+		Target: target,
+	}, nil
+}
+
+func (s *RServer) GetXattr(ctx context.Context, req *pb.GetXattrRequest) (*pb.ReadXReply, error) {
+	bytesRead, buf, err := s.fb.GetXattr(ctx, req.Id, req.Name, req.Length)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.ReadXReply{
+		Err:       perr,
+		BytesRead: bytesRead,
+		Buf:       buf,
+	}, nil
+}
+
+func (s *RServer) ListXattr(ctx context.Context, req *pb.ListXattrRequest) (*pb.ReadXReply, error) {
+	bytesRead, buf, err := s.fb.ListXattr(ctx, req.Id, req.Length)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.ReadXReply{
+		Err:       perr,
+		BytesRead: bytesRead,
+		Buf:       buf,
+	}, nil
+}
+
+func (s *RServer) RemoveXattr(ctx context.Context, req *pb.RemoveXattrRequest) (*pb.Error, error) {
+	err := s.fb.RemoveXattr(ctx, req.Id, req.Name)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return perr, nil
+}
+
+func (s *RServer) SetXattr(ctx context.Context, req *pb.SetXattrRequest) (*pb.Error, error) {
+	err := s.fb.SetXattr(ctx, fuseops.SetXattrOp{
+		Inode: fuseops.InodeID(req.Id),
+		Name:  req.Name,
+		Value: req.Value,
+		Flags: req.Flag,
+	})
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return perr, nil
+}
+
+func (s *RServer) Fallocate(ctx context.Context, req *pb.FallocateRequest) (*pb.Error, error) {
+	err := s.fb.Fallocate(ctx, req.Id, req.Mode, req.Length)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return perr, nil
 }
 
 func (s *RServer) QueryOwner(ctx context.Context, req *pb.NodeId) (*pb.Addr, error) {
@@ -94,10 +400,10 @@ func (s *RServer) RegisterFBackEnd(fb *fbackend.FBackEnd) {
 	if fb == nil {
 		log.Fatalf("nil backend error")
 	}
-	if s.FB != nil {
+	if s.fb != nil {
 		log.Fatalf("duplicate backend error")
 	}
-	s.FB = fb
+	s.fb = fb
 }
 
 // NewRServer do NOT register backend

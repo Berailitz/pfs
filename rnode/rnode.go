@@ -50,7 +50,7 @@ type RNodeAttr struct {
 }
 
 type RNode struct {
-	_id fuseops.InodeID
+	_id uint64
 	/////////////////////////
 	// Mutable state
 	/////////////////////////
@@ -75,7 +75,7 @@ type RNode struct {
 	NContents []byte
 }
 
-func (in *RNode) ID() fuseops.InodeID {
+func (in *RNode) ID() uint64 {
 	return in._id
 }
 
@@ -153,7 +153,7 @@ func (in *RNode) SetRNodeAttrBytes(data []byte) error {
 
 // Create a new RNode with the supplied attributes, which need not contain
 // time-related information (the RNode object will take care of that).
-func NewRNode(attrs fuseops.InodeAttributes, id fuseops.InodeID) *RNode {
+func NewRNode(attrs fuseops.InodeAttributes, id uint64) *RNode {
 	// Update time info.
 	now := time.Now()
 	attrs.Mtime = now
@@ -278,12 +278,12 @@ func (in *RNode) Len() int {
 // REQUIRES: in.IsDir()
 func (in *RNode) LookUpChild(name string) (
 	// TODO: lock remote children
-	id fuseops.InodeID,
+	id uint64,
 	typ fuseutil.DirentType,
 	ok bool) {
 	index, ok := in.findChild(name)
 	if ok {
-		id = in.Entries()[index].Inode
+		id = uint64(in.Entries()[index].Inode)
 		typ = in.Entries()[index].Type
 	}
 
@@ -296,7 +296,7 @@ func (in *RNode) LookUpChild(name string) (
 // REQUIRES: dt != fuseutil.DT_Unknown
 func (in *RNode) AddChild(
 	// TODO: add remote child
-	id fuseops.InodeID,
+	id uint64,
 	name string,
 	dt fuseutil.DirentType) {
 	var index int
@@ -316,7 +316,7 @@ func (in *RNode) AddChild(
 
 	// Set up the entry.
 	e := fuseutil.Dirent{
-		Inode: id,
+		Inode: fuseops.InodeID(id),
 		Name:  name,
 		Type:  dt,
 	}

@@ -45,7 +45,7 @@ type FBackEnd struct {
 	/////////////////////////
 	mu sync.RWMutex
 
-	nodes sync.Map // [fuseops.InodeID]*rnode.RNode
+	nodes sync.Map // [uint64]*rnode.RNode
 	rcli  *rclient.RClient
 }
 
@@ -101,7 +101,7 @@ func NewFBackEnd(
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 
-func (fb *FBackEnd) LoadNode(id fuseops.InodeID) (*rnode.RNode, bool) {
+func (fb *FBackEnd) LoadNode(id uint64) (*rnode.RNode, bool) {
 	if out, exist := fb.nodes.Load(id); exist {
 		if node, ok := out.(*rnode.RNode); ok {
 			return node, true
@@ -111,11 +111,11 @@ func (fb *FBackEnd) LoadNode(id fuseops.InodeID) (*rnode.RNode, bool) {
 	return nil, false
 }
 
-func (fb *FBackEnd) StoreNode(id fuseops.InodeID, node *rnode.RNode) {
+func (fb *FBackEnd) StoreNode(id uint64, node *rnode.RNode) {
 	fb.nodes.Store(id, node)
 }
 
-func (fb *FBackEnd) DeleteNode(id fuseops.InodeID) {
+func (fb *FBackEnd) DeleteNode(id uint64) {
 	fb.nodes.Delete(id)
 }
 
@@ -128,7 +128,7 @@ func (fb *FBackEnd) MakeRoot() {
 			Uid:  fb.uid,
 			Gid:  fb.gid,
 		}
-		fb.StoreNode(fuseops.InodeID(fuseops.RootInodeID), rnode.NewRNode(rootAttrs, fuseops.RootInodeID))
+		fb.StoreNode(uint64(fuseops.RootInodeID), rnode.NewRNode(rootAttrs, fuseops.RootInodeID))
 	}
 }
 
@@ -143,7 +143,7 @@ func (fb *FBackEnd) Unlock() {
 // Find the given rnode.RNode. Panic if it doesn't exist.
 //
 // LOCKS_REQUIRED(fb.mu)
-func (fb *FBackEnd) MustLoadInode(id fuseops.InodeID) *rnode.RNode {
+func (fb *FBackEnd) MustLoadInode(id uint64) *rnode.RNode {
 	// TODO: lock remote rnode.RNode
 	if node, ok := fb.LoadNode(id); ok {
 		return node
@@ -156,7 +156,7 @@ func (fb *FBackEnd) MustLoadInode(id fuseops.InodeID) *rnode.RNode {
 //
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) allocateInode(
-	attrs fuseops.InodeAttributes) (fuseops.InodeID, *rnode.RNode) {
+	attrs fuseops.InodeAttributes) (uint64, *rnode.RNode) {
 	// Create the rnode.RNode.
 	id := fb.rcli.Allocate()
 	if id > 0 {
@@ -169,7 +169,7 @@ func (fb *FBackEnd) allocateInode(
 }
 
 // LOCKS_REQUIRED(fb.mu)
-func (fb *FBackEnd) deallocateInode(id fuseops.InodeID) {
+func (fb *FBackEnd) deallocateInode(id uint64) {
 	ok := fb.rcli.Deallocate(id)
 	if ok {
 		fb.DeleteNode(id)
@@ -189,8 +189,8 @@ func (fb *FBackEnd) StatFS(
 
 func (fb *FBackEnd) LookUpInode(
 	ctx context.Context,
-	parentID fuseops.InodeID,
-	name string) (fuseops.InodeID, fuseops.InodeAttributes, error) {
+	parentID uint64,
+	name string) (uint64, fuseops.InodeAttributes, error) {
 	fb.Lock()
 	defer fb.Unlock()
 
@@ -221,7 +221,7 @@ func (fb *FBackEnd) LookUpInode(
 
 func (fb *FBackEnd) GetInodeAttributes(
 	ctx context.Context,
-	id fuseops.InodeID) (fuseops.InodeAttributes, error) {
+	id uint64) (fuseops.InodeAttributes, error) {
 	fb.Lock()
 	defer fb.Unlock()
 
@@ -239,7 +239,7 @@ func (fb *FBackEnd) GetInodeAttributes(
 
 func (fb *FBackEnd) SetInodeAttributes(
 	ctx context.Context,
-	id fuseops.InodeID,
+	id uint64,
 	param SetInodeAttributesParam) (fuseops.InodeAttributes, error) {
 	fb.Lock()
 	defer fb.Unlock()
@@ -271,9 +271,9 @@ func (fb *FBackEnd) SetInodeAttributes(
 
 func (fb *FBackEnd) MkDir(
 	ctx context.Context,
-	parentID fuseops.InodeID,
+	parentID uint64,
 	name string,
-	mode os.FileMode) (fuseops.InodeID, fuseops.InodeAttributes, error) {
+	mode os.FileMode) (uint64, fuseops.InodeAttributes, error) {
 	fb.Lock()
 	defer fb.Unlock()
 
@@ -313,7 +313,8 @@ func (fb *FBackEnd) MkDir(
 
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) CreateNode(
-	parentID fuseops.InodeID,
+	ctx context.Context,
+	parentID uint64,
 	name string,
 	mode os.FileMode) (fuseops.ChildInodeEntry, error) {
 	fb.Lock()
@@ -356,7 +357,7 @@ func (fb *FBackEnd) CreateNode(
 
 	// Fill in the response entry.
 	var entry fuseops.ChildInodeEntry
-	entry.Child = childID
+	entry.Child = fuseops.InodeID(childID)
 	entry.Attributes = child.Attrs()
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
@@ -369,9 +370,9 @@ func (fb *FBackEnd) CreateNode(
 
 func (fb *FBackEnd) CreateSymlink(
 	ctx context.Context,
-	parentID fuseops.InodeID,
+	parentID uint64,
 	name string,
-	target string) (fuseops.InodeID, fuseops.InodeAttributes, error) {
+	target string) (uint64, fuseops.InodeAttributes, error) {
 	fb.Lock()
 	defer fb.Unlock()
 
@@ -419,9 +420,9 @@ func (fb *FBackEnd) CreateSymlink(
 
 func (fb *FBackEnd) CreateLink(
 	ctx context.Context,
-	parentID fuseops.InodeID,
+	parentID uint64,
 	name string,
-	targetID fuseops.InodeID) (fuseops.InodeAttributes, error) {
+	targetID uint64) (fuseops.InodeAttributes, error) {
 	fb.Lock()
 	defer fb.Unlock()
 
@@ -483,7 +484,7 @@ func (fb *FBackEnd) Rename(
 	}()
 
 	// Ask the old parent for the child's rnode.RNode ID and type.
-	oldParent := fb.MustLoadInode(op.OldParent)
+	oldParent := fb.MustLoadInode(uint64(op.OldParent))
 	childID, childType, ok := oldParent.LookUpChild(op.OldName)
 
 	if !ok {
@@ -493,7 +494,7 @@ func (fb *FBackEnd) Rename(
 
 	// If the new name exists already in the new parent, make sure it's not a
 	// non-empty directory, then delete it.
-	newParent := fb.MustLoadInode(op.NewParent)
+	newParent := fb.MustLoadInode(uint64(op.NewParent))
 	existingID, _, ok := newParent.LookUpChild(op.NewName)
 	if ok {
 		existing := fb.MustLoadInode(existingID)
@@ -536,7 +537,7 @@ func (fb *FBackEnd) RmDir(
 	}()
 
 	// Grab the parent, which we will update shortly.
-	parent := fb.MustLoadInode(op.Parent)
+	parent := fb.MustLoadInode(uint64(op.Parent))
 
 	// Find the child within the parent.
 	childID, _, ok := parent.LookUpChild(op.Name)
@@ -582,7 +583,7 @@ func (fb *FBackEnd) Unlink(
 	}()
 
 	// Grab the parent, which we will update shortly.
-	parent := fb.MustLoadInode(op.Parent)
+	parent := fb.MustLoadInode(uint64(op.Parent))
 
 	// Find the child within the parent.
 	childID, _, ok := parent.LookUpChild(op.Name)
@@ -607,7 +608,7 @@ func (fb *FBackEnd) Unlink(
 
 func (fb *FBackEnd) OpenDir(
 	ctx context.Context,
-	id fuseops.InodeID) error {
+	id uint64) error {
 	fb.Lock()
 	defer fb.Unlock()
 
@@ -632,7 +633,7 @@ func (fb *FBackEnd) OpenDir(
 
 func (fb *FBackEnd) ReadDir(
 	ctx context.Context,
-	id fuseops.InodeID,
+	id uint64,
 	length uint64,
 	offset uint64) (bytesRead uint64, buf []byte, err error) {
 	fb.Lock()
@@ -655,7 +656,7 @@ func (fb *FBackEnd) ReadDir(
 
 func (fb *FBackEnd) OpenFile(
 	ctx context.Context,
-	id fuseops.InodeID) error {
+	id uint64) error {
 	fb.Lock()
 	defer fb.Unlock()
 
@@ -680,7 +681,7 @@ func (fb *FBackEnd) OpenFile(
 
 func (fb *FBackEnd) ReadFile(
 	ctx context.Context,
-	id fuseops.InodeID,
+	id uint64,
 	length uint64,
 	offset uint64) (bytesRead uint64, buf []byte, err error) {
 	fb.Lock()
@@ -713,7 +714,7 @@ func (fb *FBackEnd) ReadFile(
 
 func (fb *FBackEnd) WriteFile(
 	ctx context.Context,
-	id fuseops.InodeID,
+	id uint64,
 	offset uint64,
 	data []byte) (uint64, error) {
 	fb.Lock()
@@ -742,7 +743,7 @@ func (fb *FBackEnd) WriteFile(
 
 func (fb *FBackEnd) ReadSymlink(
 	ctx context.Context,
-	id fuseops.InodeID) (target string, err error) {
+	id uint64) (target string, err error) {
 	fb.Lock()
 	defer fb.Unlock()
 
@@ -761,7 +762,7 @@ func (fb *FBackEnd) ReadSymlink(
 }
 
 func (fb *FBackEnd) GetXattr(ctx context.Context,
-	id fuseops.InodeID,
+	id uint64,
 	name string,
 	length uint64) (bytesRead uint64, dst []byte, err error) {
 	fb.Lock()
@@ -792,7 +793,7 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 }
 
 func (fb *FBackEnd) ListXattr(ctx context.Context,
-	id fuseops.InodeID,
+	id uint64,
 	length uint64) (bytesRead uint64, dst []byte, err error) {
 	fb.Lock()
 	defer fb.Unlock()
@@ -823,7 +824,7 @@ func (fb *FBackEnd) ListXattr(ctx context.Context,
 }
 
 func (fb *FBackEnd) RemoveXattr(ctx context.Context,
-	id fuseops.InodeID,
+	id uint64,
 	name string) error {
 	fb.Lock()
 	defer fb.Unlock()
@@ -850,7 +851,7 @@ func (fb *FBackEnd) SetXattr(ctx context.Context,
 	fb.Lock()
 	defer fb.Unlock()
 
-	node, hasNode := fb.LoadNode(op.Inode)
+	node, hasNode := fb.LoadNode(uint64(op.Inode))
 	if !hasNode {
 		err := &FBackEndErr{msg: fmt.Sprintf("set xattr not found error: id=%v", op.Inode)}
 		log.Printf(err.Error())
@@ -879,7 +880,7 @@ func (fb *FBackEnd) SetXattr(ctx context.Context,
 }
 
 func (fb *FBackEnd) Fallocate(ctx context.Context,
-	id fuseops.InodeID,
+	id uint64,
 	mode uint32,
 	length uint64) error {
 	fb.Lock()

@@ -77,14 +77,14 @@ func (lfs *LFS) LookUpInode(
 	ctx context.Context,
 	op *fuseops.LookUpInodeOp) error {
 	log.Printf("look up inode: parent=%v, name=%v", op.Parent, op.Name)
-	childID, attrs, err := lfs.fb.LookUpInode(ctx, op.Parent, op.Name)
+	childID, attrs, err := lfs.fb.LookUpInode(ctx, uint64(op.Parent), op.Name)
 	if err != nil {
 		log.Printf("look up inode error: parent=%v, name=%v, err=%+v", op.Parent, op.Name, err)
 		return err
 	}
 
 	// Fill in the response.
-	op.Entry.Child = childID
+	op.Entry.Child = fuseops.InodeID(childID)
 	op.Entry.Attributes = attrs
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
@@ -101,7 +101,7 @@ func (lfs *LFS) GetInodeAttributes(
 	op *fuseops.GetInodeAttributesOp) error {
 	log.Printf("get inode attr: id=%v", op.Inode)
 	// Grab the RNode.
-	attr, err := lfs.fb.GetInodeAttributes(ctx, op.Inode)
+	attr, err := lfs.fb.GetInodeAttributes(ctx, uint64(op.Inode))
 	if err != nil {
 		log.Printf("get inode attr error: id=%v, err=%+v", op.Inode, err)
 		return err
@@ -143,7 +143,7 @@ func (lfs *LFS) SetInodeAttributes(
 		param.HasMode = true
 		param.Mode = *op.Mode
 	}
-	attr, err := lfs.fb.SetInodeAttributes(ctx, op.Inode, param)
+	attr, err := lfs.fb.SetInodeAttributes(ctx, uint64(op.Inode), param)
 	if err != nil {
 		log.Printf("set inode attr error: id=%v, size=%v, mode=%v, mtime=%v, err=%+v",
 			op.Inode, op.Size, op.Mode, op.Mtime, err)
@@ -169,7 +169,7 @@ func (lfs *LFS) MkDir(
 		op.Parent, op.Name, op.Mode)
 
 	// Grab the parent, which we will update shortly.
-	childID, attr, err := lfs.fb.MkDir(ctx, op.Parent, op.Name, op.Mode)
+	childID, attr, err := lfs.fb.MkDir(ctx, uint64(op.Parent), op.Name, op.Mode)
 	if err != nil {
 		log.Printf("mkdir error: parent=%v, name=%v, mode=%v, err=%+v",
 			op.Parent, op.Name, op.Mode, err)
@@ -177,7 +177,7 @@ func (lfs *LFS) MkDir(
 	}
 
 	// Fill in the response.
-	op.Entry.Child = childID
+	op.Entry.Child = fuseops.InodeID(childID)
 	op.Entry.Attributes = attr
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
@@ -195,7 +195,7 @@ func (lfs *LFS) MkNode(
 	op *fuseops.MkNodeOp) error {
 	log.Printf("mknode: parent=%v, name=%v, mode=%v",
 		op.Parent, op.Name, op.Mode)
-	entry, err := lfs.fb.CreateNode(op.Parent, op.Name, op.Mode)
+	entry, err := lfs.fb.CreateNode(ctx, uint64(op.Parent), op.Name, op.Mode)
 	if err != nil {
 		log.Printf("mknode error: parent=%v, name=%v, mode=%v, err=%+v",
 			op.Parent, op.Name, op.Mode, err)
@@ -211,7 +211,7 @@ func (lfs *LFS) MkNode(
 func (lfs *LFS) CreateFile(
 	ctx context.Context,
 	op *fuseops.CreateFileOp) error {
-	entry, err := lfs.fb.CreateNode(op.Parent, op.Name, op.Mode)
+	entry, err := lfs.fb.CreateNode(ctx, uint64(op.Parent), op.Name, op.Mode)
 	log.Printf("create file: parent=%v, name=%v, mode=%v",
 		op.Parent, op.Name, op.Mode)
 	if err != nil {
@@ -231,7 +231,7 @@ func (lfs *LFS) CreateSymlink(
 	log.Printf("create symlink: parent=%v, name=%v, target=%v",
 		op.Parent, op.Name, op.Target)
 	// Grab the parent, which we will update shortly.
-	childID, attr, err := lfs.fb.CreateSymlink(ctx, op.Parent, op.Name, op.Target)
+	childID, attr, err := lfs.fb.CreateSymlink(ctx, uint64(op.Parent), op.Name, op.Target)
 	if err != nil {
 		log.Printf("create symlink error: parent=%v, name=%v, target=%v, err=%+v",
 			op.Parent, op.Name, op.Target, err)
@@ -239,7 +239,7 @@ func (lfs *LFS) CreateSymlink(
 	}
 
 	// Fill in the response entry.
-	op.Entry.Child = childID
+	op.Entry.Child = fuseops.InodeID(childID)
 	op.Entry.Attributes = attr
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
@@ -258,7 +258,7 @@ func (lfs *LFS) CreateLink(
 	log.Printf("create link: parent=%v, name=%v, target=%v",
 		op.Parent, op.Name, op.Target)
 	// Grab the parent, which we will update shortly.
-	attr, err := lfs.fb.CreateLink(ctx, op.Parent, op.Name, op.Target)
+	attr, err := lfs.fb.CreateLink(ctx, uint64(op.Parent), op.Name, uint64(op.Target))
 	if err != nil {
 		log.Printf("create link error: parent=%v, name=%v, target=%v, err=%+v",
 			op.Parent, op.Name, op.Target, err)
@@ -324,7 +324,7 @@ func (lfs *LFS) OpenDir(
 	ctx context.Context,
 	op *fuseops.OpenDirOp) error {
 	log.Printf("opendir: id=%v", op.Inode)
-	if err := lfs.fb.OpenDir(ctx, op.Inode); err != nil {
+	if err := lfs.fb.OpenDir(ctx, uint64(op.Inode)); err != nil {
 		log.Printf("opendir error: id=%v, err=%+v", op.Inode, err)
 		return err
 	}
@@ -338,7 +338,7 @@ func (lfs *LFS) ReadDir(
 	log.Printf("readdir: id=%v, len=%v, offset=%v",
 		op.Inode, len(op.Dst), op.Offset)
 	// Grab the directory.
-	bytesRead, dst, err := lfs.fb.ReadDir(ctx, op.Inode, uint64(len(op.Dst)), uint64(op.Offset))
+	bytesRead, dst, err := lfs.fb.ReadDir(ctx, uint64(op.Inode), uint64(len(op.Dst)), uint64(op.Offset))
 	if err != nil {
 		log.Printf("readdir error: id=%v, len=%v, offset=%v, err=%+v",
 			op.Inode, len(op.Dst), op.Offset, err)
@@ -357,7 +357,7 @@ func (lfs *LFS) OpenFile(
 	ctx context.Context,
 	op *fuseops.OpenFileOp) error {
 	log.Printf("openfile: id=%v", op.Inode)
-	if err := lfs.fb.OpenFile(ctx, op.Inode); err != nil {
+	if err := lfs.fb.OpenFile(ctx, uint64(op.Inode)); err != nil {
 		log.Printf("openfile error: op=%#v, err=%+v", op, err)
 		return err
 	}
@@ -370,7 +370,7 @@ func (lfs *LFS) ReadFile(
 	ctx context.Context,
 	op *fuseops.ReadFileOp) error {
 	log.Printf("readfile success: id=%v, offset=%v", op.Inode, op.Offset)
-	bytesRead, dst, err := lfs.fb.ReadFile(ctx, op.Inode, uint64(len(op.Dst)), uint64(op.Offset))
+	bytesRead, dst, err := lfs.fb.ReadFile(ctx, uint64(op.Inode), uint64(len(op.Dst)), uint64(op.Offset))
 
 	if err != nil {
 		log.Printf("readfile error: op=%#v, bytesRead=%v, err=%+v", op, bytesRead, err)
@@ -390,7 +390,7 @@ func (lfs *LFS) WriteFile(
 	ctx context.Context,
 	op *fuseops.WriteFileOp) error {
 	log.Printf("write file: id=%v, offset=%v", op.Inode, op.Offset)
-	bytesWrite, err := lfs.fb.WriteFile(ctx, op.Inode, uint64(op.Offset), op.Data)
+	bytesWrite, err := lfs.fb.WriteFile(ctx, uint64(op.Inode), uint64(op.Offset), op.Data)
 
 	if err != nil {
 		log.Printf("writefile error: id=%v, offset=%v, bytesWrite=%v, data=%v, err=%+v",
@@ -406,7 +406,7 @@ func (lfs *LFS) ReadSymlink(
 	ctx context.Context,
 	op *fuseops.ReadSymlinkOp) error {
 	log.Printf("read symlink: id=%v", op.Inode)
-	target, err := lfs.fb.ReadSymlink(ctx, op.Inode)
+	target, err := lfs.fb.ReadSymlink(ctx, uint64(op.Inode))
 
 	if err != nil {
 		log.Printf("read symlink error: id=%v, err=%+v", op.Inode, err)
@@ -424,7 +424,7 @@ func (lfs *LFS) GetXattr(ctx context.Context,
 	op *fuseops.GetXattrOp) error {
 	log.Printf("get xattr: id=%v, name=%v, length=%v",
 		op.Inode, op.Name, len(op.Dst))
-	bytesRead, dst, err := lfs.fb.GetXattr(ctx, op.Inode, op.Name, uint64(len(op.Dst)))
+	bytesRead, dst, err := lfs.fb.GetXattr(ctx, uint64(op.Inode), op.Name, uint64(len(op.Dst)))
 
 	if err != nil {
 		log.Printf("get xattr error: id=%v, name=%v, length=%v, bytesRead=%v, err=%+v",
@@ -444,7 +444,7 @@ func (lfs *LFS) ListXattr(ctx context.Context,
 	op *fuseops.ListXattrOp) error {
 	log.Printf("list xattr: id=%v, length=%v",
 		op.Inode, len(op.Dst))
-	bytesRead, dst, err := lfs.fb.ListXattr(ctx, op.Inode, uint64(len(op.Dst)))
+	bytesRead, dst, err := lfs.fb.ListXattr(ctx, uint64(op.Inode), uint64(len(op.Dst)))
 
 	if err != nil {
 		log.Printf("list xattr error: id=%v, length=%v, bytesRead=%v, err=%+v",
@@ -462,7 +462,7 @@ func (lfs *LFS) ListXattr(ctx context.Context,
 func (lfs *LFS) RemoveXattr(ctx context.Context,
 	op *fuseops.RemoveXattrOp) error {
 	log.Printf("rm xattr: id=%v, name=%v", op.Inode, op.Name)
-	err := lfs.fb.RemoveXattr(ctx, op.Inode, op.Name)
+	err := lfs.fb.RemoveXattr(ctx, uint64(op.Inode), op.Name)
 
 	if err != nil {
 		log.Printf("rm xattr error: id=%v, name=%v, err=%+v",
@@ -492,7 +492,7 @@ func (lfs *LFS) SetXattr(ctx context.Context,
 func (lfs *LFS) Fallocate(ctx context.Context,
 	op *fuseops.FallocateOp) error {
 	log.Printf("fallocate: op=%#v", op)
-	err := lfs.fb.Fallocate(ctx, op.Inode, op.Mode, op.Length)
+	err := lfs.fb.Fallocate(ctx, uint64(op.Inode), op.Mode, op.Length)
 	if err != nil {
 		log.Printf("fallocate error: id=%v, mode=%v, length=%v, err=%+v",
 			op.Inode, op.Mode, op.Length, err)

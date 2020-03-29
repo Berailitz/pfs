@@ -6,8 +6,6 @@ import (
 	"context"
 	"log"
 
-	"github.com/jacobsa/fuse/fuseops"
-
 	"github.com/Berailitz/pfs/remotetree"
 	pb "github.com/Berailitz/pfs/remotetree"
 	"google.golang.org/grpc"
@@ -25,7 +23,7 @@ type RCliCfg struct {
 }
 
 // QueryOwner fetch owner'addr of a node
-func (c *RClient) QueryOwner(nodeID fuseops.InodeID) string {
+func (c *RClient) QueryOwner(nodeID uint64) string {
 	ctx := context.Background()
 	addr, err := c.GClient.QueryOwner(ctx, &remotetree.NodeId{
 		Id: uint64(nodeID),
@@ -37,7 +35,7 @@ func (c *RClient) QueryOwner(nodeID fuseops.InodeID) string {
 	return addr.Addr
 }
 
-func (c *RClient) Allocate() fuseops.InodeID {
+func (c *RClient) Allocate() uint64 {
 	ctx := context.Background()
 	log.Printf("allocate node")
 	nodeID, err := c.GClient.Allocate(ctx, &remotetree.OwnerId{
@@ -48,10 +46,10 @@ func (c *RClient) Allocate() fuseops.InodeID {
 		return 0
 	}
 	log.Printf("allocate node success: nodeID=%v", nodeID.Id)
-	return fuseops.InodeID(nodeID.Id)
+	return uint64(nodeID.Id)
 }
 
-func (c *RClient) Deallocate(nodeID fuseops.InodeID) bool {
+func (c *RClient) Deallocate(nodeID uint64) bool {
 	ctx := context.Background()
 	out, err := c.GClient.Deallocate(ctx, &remotetree.NodeId{
 		Id: uint64(nodeID),

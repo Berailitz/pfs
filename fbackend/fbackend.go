@@ -223,6 +223,7 @@ func (fb *FBackEnd) LookUpInode(
 
 	// Grab the child.
 	child, ok := fb.LoadNode(childID)
+	// TODO: handle remote child node, by GetInodeAttributes
 	if !ok {
 		err := &FBackEndErr{msg: fmt.Sprintf("look up node child not found error: id=%v", childID)}
 		log.Printf(err.Error())

@@ -118,6 +118,13 @@ func (c *RClient) RegisterSelf(addr string) uint64 {
 	return 0
 }
 
+func (c *RClient) AssignID(id uint64) {
+	if c.id > 0 {
+		log.Printf("rcli get re-assigned id: id=%v", id)
+	}
+	c.id = id
+}
+
 func NewRClient(cfg RCliCfg) *RClient {
 	// TODO: add tls support
 	log.Printf("new rcli: master=%v, local=%v, opts=%#v", cfg.Master, cfg.Local, cfg.GOpts)

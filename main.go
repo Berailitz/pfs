@@ -82,7 +82,7 @@ func main() {
 		cfg.OpContext = ctx
 	}
 
-	fsvr := lfs.NewLFSServer(lfs.NewLFS(currentUid(), currentGid()))
+	fsvr := lfs.NewLFSServer(lfs.NewLFS(currentUid(), currentGid(), fb))
 	// Mount the file system.
 	mfs, err := fuse.Mount(dir, fsvr, &cfg)
 	if err != nil {

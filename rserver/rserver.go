@@ -30,6 +30,16 @@ type RServer struct {
 	ma     *manager.RManager
 }
 
+func (s *RServer) FetchNode(ctx context.Context, req *pb.NodeId) (*pb.Node, error) {
+	node, ok := s.fb.LoadNode(req.Id)
+	if !ok {
+		return &pb.Node{
+			NID: 0,
+		}, nil
+	}
+	return utility.ToPbNode(node), nil
+}
+
 func (s *RServer) LookUpInode(ctx context.Context, req *pb.LookUpInodeRequest) (*pb.LookUpInodeReply, error) {
 	id, attr, err := s.fb.LookUpInode(ctx, req.ParentID, req.Name)
 	var perr *pb.Error = nil

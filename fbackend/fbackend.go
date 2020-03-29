@@ -107,7 +107,7 @@ func NewFBackEnd(
 		uid:  uid,
 		gid:  gid,
 		mcli: mcli,
-		pool: gclipool.NewGCliPool(gopts),
+		pool: gclipool.NewGCliPool(gopts, localAddr),
 	}
 
 	// Set up the root rnode.RNode.

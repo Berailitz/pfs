@@ -13,9 +13,15 @@ import (
 type GCliPool struct {
 	cmap  sync.Map // [addr]remotetree.RemoteTreeClient
 	gopts []grpc.DialOption
+	local string
 }
 
 func (p *GCliPool) Load(addr string) pb.RemoteTreeClient {
+	if p.local != "" && addr == p.local {
+		log.Printf("gclipool load local cli error: addr=%v", addr)
+		return nil
+	}
+
 	if out, ok := p.cmap.Load(addr); ok {
 		if gcli, ok := out.(pb.RemoteTreeClient); ok {
 			return gcli
@@ -31,8 +37,9 @@ func (p *GCliPool) Load(addr string) pb.RemoteTreeClient {
 	return gcli
 }
 
-func NewGCliPool(gopts []grpc.DialOption) *GCliPool {
+func NewGCliPool(gopts []grpc.DialOption, local string) *GCliPool {
 	return &GCliPool{
 		gopts: gopts,
+		local: local,
 	}
 }

@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Berailitz/pfs/lfs"
+	"github.com/Berailitz/pfs/fproxy"
 
-	"github.com/Berailitz/pfs/fbackend"
+	"github.com/Berailitz/pfs/lfs"
 
 	"google.golang.org/grpc"
 
@@ -72,9 +72,8 @@ func main() {
 	}()
 	time.Sleep(rServerStartTime) // wait for the server to start
 
-	fb := fbackend.NewFBackEnd(currentUid(), currentGid(),
-		*master, localAddr, gopts)
-	rsvr.RegisterFBackEnd(fb)
+	fp := fproxy.NewFProxy(currentUid(), currentGid(), *master, localAddr, gopts)
+	rsvr.RegisterFProxy(fp)
 
 	cfg := fuse.MountConfig{}
 	if *debug {
@@ -84,7 +83,7 @@ func main() {
 		cfg.OpContext = ctx
 	}
 
-	fsvr := lfs.NewLFSServer(lfs.NewLFS(currentUid(), currentGid(), fb))
+	fsvr := lfs.NewLFSServer(lfs.NewLFS(currentUid(), currentGid(), fp))
 	// Mount the file system.
 	mfs, err := fuse.Mount(dir, fsvr, &cfg)
 	if err != nil {

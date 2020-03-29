@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/Berailitz/pfs/fproxy"
+
 	"github.com/Berailitz/pfs/utility"
 
 	"github.com/jacobsa/fuse/fuseops"
@@ -26,12 +28,12 @@ import (
 type RServer struct {
 	pb.UnimplementedRemoteTreeServer
 	Server *grpc.Server
-	fb     *fbackend.FBackEnd
+	fp     *fproxy.FProxy
 	ma     *manager.RManager
 }
 
 func (s *RServer) FetchNode(ctx context.Context, req *pb.NodeId) (*pb.Node, error) {
-	node, ok := s.fb.LoadNode(req.Id)
+	node, ok := s.fp.LoadNode(req.Id)
 	if !ok {
 		return &pb.Node{
 			NID: 0,
@@ -41,7 +43,7 @@ func (s *RServer) FetchNode(ctx context.Context, req *pb.NodeId) (*pb.Node, erro
 }
 
 func (s *RServer) LookUpInode(ctx context.Context, req *pb.LookUpInodeRequest) (*pb.LookUpInodeReply, error) {
-	id, attr, err := s.fb.LookUpInode(ctx, req.ParentID, req.Name)
+	id, attr, err := s.fp.LookUpInode(ctx, req.ParentID, req.Name)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -57,7 +59,7 @@ func (s *RServer) LookUpInode(ctx context.Context, req *pb.LookUpInodeRequest) (
 }
 
 func (s *RServer) GetInodeAttributes(ctx context.Context, req *pb.NodeId) (*pb.GetInodeAttributesReply, error) {
-	attr, err := s.fb.GetInodeAttributes(ctx, req.Id)
+	attr, err := s.fp.GetInodeAttributes(ctx, req.Id)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -72,7 +74,7 @@ func (s *RServer) GetInodeAttributes(ctx context.Context, req *pb.NodeId) (*pb.G
 }
 
 func (s *RServer) SetInodeAttributes(ctx context.Context, req *pb.SetInodeAttributesRequest) (*pb.SetInodeAttributesReply, error) {
-	attr, err := s.fb.SetInodeAttributes(ctx, req.Id, fbackend.SetInodeAttributesParam{
+	attr, err := s.fp.SetInodeAttributes(ctx, req.Id, fbackend.SetInodeAttributesParam{
 		Size:     req.Size,
 		Mode:     os.FileMode(req.Mode),
 		Mtime:    time.Unix(req.Mtime, 0),
@@ -94,7 +96,7 @@ func (s *RServer) SetInodeAttributes(ctx context.Context, req *pb.SetInodeAttrib
 }
 
 func (s *RServer) MkDir(ctx context.Context, req *pb.MkDirRequest) (*pb.MkDirReply, error) {
-	id, attr, err := s.fb.MkDir(ctx, req.Id, req.Name, os.FileMode(req.Mode))
+	id, attr, err := s.fp.MkDir(ctx, req.Id, req.Name, os.FileMode(req.Mode))
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -110,7 +112,7 @@ func (s *RServer) MkDir(ctx context.Context, req *pb.MkDirRequest) (*pb.MkDirRep
 }
 
 func (s *RServer) CreateNode(ctx context.Context, req *pb.CreateNodeRequest) (*pb.CreateNodeReply, error) {
-	entry, err := s.fb.CreateNode(ctx, req.Id, req.Name, os.FileMode(req.Mode))
+	entry, err := s.fp.CreateNode(ctx, req.Id, req.Name, os.FileMode(req.Mode))
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -125,7 +127,7 @@ func (s *RServer) CreateNode(ctx context.Context, req *pb.CreateNodeRequest) (*p
 }
 
 func (s *RServer) CreateSymlink(ctx context.Context, req *pb.CreateSymlinkRequest) (*pb.CreateSymlinkReply, error) {
-	id, attr, err := s.fb.CreateSymlink(ctx, req.Id, req.Name, req.Target)
+	id, attr, err := s.fp.CreateSymlink(ctx, req.Id, req.Name, req.Target)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -141,7 +143,7 @@ func (s *RServer) CreateSymlink(ctx context.Context, req *pb.CreateSymlinkReques
 }
 
 func (s *RServer) CreateLink(ctx context.Context, req *pb.CreateLinkRequest) (*pb.CreateLinkReply, error) {
-	attr, err := s.fb.CreateLink(ctx, req.Id, req.Name, req.TargetID)
+	attr, err := s.fp.CreateLink(ctx, req.Id, req.Name, req.TargetID)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -156,7 +158,7 @@ func (s *RServer) CreateLink(ctx context.Context, req *pb.CreateLinkRequest) (*p
 }
 
 func (s *RServer) Rename(ctx context.Context, req *pb.RenameRequest) (*pb.Error, error) {
-	err := s.fb.Rename(ctx, fuseops.RenameOp{
+	err := s.fp.Rename(ctx, fuseops.RenameOp{
 		OldParent: fuseops.InodeID(req.OldParent),
 		OldName:   req.OldName,
 		NewParent: fuseops.InodeID(req.NewParent),
@@ -173,7 +175,7 @@ func (s *RServer) Rename(ctx context.Context, req *pb.RenameRequest) (*pb.Error,
 }
 
 func (s *RServer) RmDir(ctx context.Context, req *pb.RmDirRequest) (*pb.Error, error) {
-	err := s.fb.RmDir(ctx, fuseops.RmDirOp{
+	err := s.fp.RmDir(ctx, fuseops.RmDirOp{
 		Parent: fuseops.InodeID(req.Parent),
 		Name:   req.Name,
 	})
@@ -188,7 +190,7 @@ func (s *RServer) RmDir(ctx context.Context, req *pb.RmDirRequest) (*pb.Error, e
 }
 
 func (s *RServer) Unlink(ctx context.Context, req *pb.UnlinkRequest) (*pb.Error, error) {
-	err := s.fb.Unlink(ctx, fuseops.UnlinkOp{
+	err := s.fp.Unlink(ctx, fuseops.UnlinkOp{
 		Parent: fuseops.InodeID(req.Parent),
 		Name:   req.Name,
 	})
@@ -203,7 +205,7 @@ func (s *RServer) Unlink(ctx context.Context, req *pb.UnlinkRequest) (*pb.Error,
 }
 
 func (s *RServer) OpenDir(ctx context.Context, req *pb.NodeId) (*pb.Error, error) {
-	err := s.fb.OpenDir(ctx, req.Id)
+	err := s.fp.OpenDir(ctx, req.Id)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -214,7 +216,7 @@ func (s *RServer) OpenDir(ctx context.Context, req *pb.NodeId) (*pb.Error, error
 	return perr, nil
 }
 func (s *RServer) ReadDir(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXReply, error) {
-	bytesRead, buf, err := s.fb.ReadDir(ctx, req.Id, req.Length, req.Offset)
+	bytesRead, buf, err := s.fp.ReadDir(ctx, req.Id, req.Length, req.Offset)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -230,7 +232,7 @@ func (s *RServer) ReadDir(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXR
 }
 
 func (s *RServer) OpenFile(ctx context.Context, req *pb.NodeId) (*pb.Error, error) {
-	err := s.fb.OpenFile(ctx, req.Id)
+	err := s.fp.OpenFile(ctx, req.Id)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -242,7 +244,7 @@ func (s *RServer) OpenFile(ctx context.Context, req *pb.NodeId) (*pb.Error, erro
 }
 
 func (s *RServer) ReadFile(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXReply, error) {
-	bytesRead, buf, err := s.fb.ReadFile(ctx, req.Id, req.Length, req.Offset)
+	bytesRead, buf, err := s.fp.ReadFile(ctx, req.Id, req.Length, req.Offset)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -258,7 +260,7 @@ func (s *RServer) ReadFile(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadX
 }
 
 func (s *RServer) WriteFile(ctx context.Context, req *pb.WriteXRequest) (*pb.WriteXReply, error) {
-	bytesWrite, err := s.fb.WriteFile(ctx, req.Id, req.Offset, req.Data)
+	bytesWrite, err := s.fp.WriteFile(ctx, req.Id, req.Offset, req.Data)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -273,7 +275,7 @@ func (s *RServer) WriteFile(ctx context.Context, req *pb.WriteXRequest) (*pb.Wri
 }
 
 func (s *RServer) ReadSymlink(ctx context.Context, req *pb.NodeId) (*pb.ReadSymlinkReply, error) {
-	target, err := s.fb.ReadSymlink(ctx, req.Id)
+	target, err := s.fp.ReadSymlink(ctx, req.Id)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -288,7 +290,7 @@ func (s *RServer) ReadSymlink(ctx context.Context, req *pb.NodeId) (*pb.ReadSyml
 }
 
 func (s *RServer) GetXattr(ctx context.Context, req *pb.GetXattrRequest) (*pb.ReadXReply, error) {
-	bytesRead, buf, err := s.fb.GetXattr(ctx, req.Id, req.Name, req.Length)
+	bytesRead, buf, err := s.fp.GetXattr(ctx, req.Id, req.Name, req.Length)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -304,7 +306,7 @@ func (s *RServer) GetXattr(ctx context.Context, req *pb.GetXattrRequest) (*pb.Re
 }
 
 func (s *RServer) ListXattr(ctx context.Context, req *pb.ListXattrRequest) (*pb.ReadXReply, error) {
-	bytesRead, buf, err := s.fb.ListXattr(ctx, req.Id, req.Length)
+	bytesRead, buf, err := s.fp.ListXattr(ctx, req.Id, req.Length)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -320,7 +322,7 @@ func (s *RServer) ListXattr(ctx context.Context, req *pb.ListXattrRequest) (*pb.
 }
 
 func (s *RServer) RemoveXattr(ctx context.Context, req *pb.RemoveXattrRequest) (*pb.Error, error) {
-	err := s.fb.RemoveXattr(ctx, req.Id, req.Name)
+	err := s.fp.RemoveXattr(ctx, req.Id, req.Name)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -332,7 +334,7 @@ func (s *RServer) RemoveXattr(ctx context.Context, req *pb.RemoveXattrRequest) (
 }
 
 func (s *RServer) SetXattr(ctx context.Context, req *pb.SetXattrRequest) (*pb.Error, error) {
-	err := s.fb.SetXattr(ctx, fuseops.SetXattrOp{
+	err := s.fp.SetXattr(ctx, fuseops.SetXattrOp{
 		Inode: fuseops.InodeID(req.Id),
 		Name:  req.Name,
 		Value: req.Value,
@@ -349,7 +351,7 @@ func (s *RServer) SetXattr(ctx context.Context, req *pb.SetXattrRequest) (*pb.Er
 }
 
 func (s *RServer) Fallocate(ctx context.Context, req *pb.FallocateRequest) (*pb.Error, error) {
-	err := s.fb.Fallocate(ctx, req.Id, req.Mode, req.Length)
+	err := s.fp.Fallocate(ctx, req.Id, req.Mode, req.Length)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -384,14 +386,14 @@ func (s *RServer) AllocateRoot(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, 
 	return &pb.IsOK{Ok: s.ma.AllocateRoot(req.Id)}, nil
 }
 
-func (s *RServer) RegisterFBackEnd(fb *fbackend.FBackEnd) {
-	if fb == nil {
+func (s *RServer) RegisterFProxy(fp *fproxy.FProxy) {
+	if fp == nil {
 		log.Fatalf("nil backend error")
 	}
-	if s.fb != nil {
+	if s.fp != nil {
 		log.Fatalf("duplicate backend error")
 	}
-	s.fb = fb
+	s.fp = fp
 }
 
 // NewRServer do NOT register backend

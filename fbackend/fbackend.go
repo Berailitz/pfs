@@ -121,7 +121,7 @@ func (fb *FBackEnd) deleteNode(id uint64) {
 
 // MakeRoot should only be called at new
 func (fb *FBackEnd) MakeRoot() {
-	ok := fb.mcli.AllocateRoot(fuseops.RootInodeID)
+	ok := fb.mcli.AllocateRoot()
 	if ok {
 		rootAttrs := fuseops.InodeAttributes{
 			Mode: 0700 | os.ModeDir,

@@ -86,17 +86,17 @@ func (c *RClient) RemoveOwner(ownerID uint64) bool {
 	return out.Ok
 }
 
-func (c *RClient) AllocateRoot(ownerID uint64) bool {
+func (c *RClient) AllocateRoot() bool {
 	ctx := context.Background()
-	log.Printf("allocate root: ownerID=%v", ownerID)
+	log.Printf("allocate root: ownerID=%v", c.id)
 	out, err := c.gcli.AllocateRoot(ctx, &remotetree.OwnerId{
-		Id: ownerID,
+		Id: c.id,
 	})
 	if err != nil {
-		log.Printf("allocate root error: ownerID=%v, err=%+v", ownerID, err)
+		log.Printf("allocate root error: ownerID=%v, err=%+v", c.id, err)
 		return false
 	}
-	log.Printf("allocate root success: ownerID=%v", ownerID)
+	log.Printf("allocate root success: ownerID=%v", c.id)
 	return out.Ok
 }
 

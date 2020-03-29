@@ -1,4 +1,4 @@
-//go:generate  protoc -I ../remotetree/ ../remotetree/remotetree.proto --go_out=plugins=grpc:../remotetree
+//go:generate  protoc -I ../pb/ ../pb/pb.proto --go_out=plugins=grpc:../pb
 
 package rclient
 
@@ -6,18 +6,18 @@ import (
 	"context"
 	"log"
 
-	"github.com/Berailitz/pfs/remotetree"
+	pb "github.com/Berailitz/pfs/remotetree"
 )
 
 type RClient struct {
 	id   uint64
-	gcli remotetree.RemoteTreeClient
+	gcli pb.RemoteTreeClient
 }
 
 // QueryOwner fetch owner'addr of a node
 func (c *RClient) QueryOwner(nodeID uint64) string {
 	ctx := context.Background()
-	addr, err := c.gcli.QueryOwner(ctx, &remotetree.NodeId{
+	addr, err := c.gcli.QueryOwner(ctx, &pb.NodeId{
 		Id: uint64(nodeID),
 	})
 	if err != nil {
@@ -30,7 +30,7 @@ func (c *RClient) QueryOwner(nodeID uint64) string {
 func (c *RClient) Allocate() uint64 {
 	ctx := context.Background()
 	log.Printf("allocate node")
-	nodeID, err := c.gcli.Allocate(ctx, &remotetree.OwnerId{
+	nodeID, err := c.gcli.Allocate(ctx, &pb.OwnerId{
 		Id: c.id,
 	})
 	if err != nil {
@@ -43,7 +43,7 @@ func (c *RClient) Allocate() uint64 {
 
 func (c *RClient) Deallocate(nodeID uint64) bool {
 	ctx := context.Background()
-	out, err := c.gcli.Deallocate(ctx, &remotetree.NodeId{
+	out, err := c.gcli.Deallocate(ctx, &pb.NodeId{
 		Id: uint64(nodeID),
 	})
 	if err != nil {
@@ -56,7 +56,7 @@ func (c *RClient) Deallocate(nodeID uint64) bool {
 // RegisterOwner return 0 if err
 func (c *RClient) RegisterOwner(addr string) uint64 {
 	ctx := context.Background()
-	out, err := c.gcli.RegisterOwner(ctx, &remotetree.Addr{
+	out, err := c.gcli.RegisterOwner(ctx, &pb.Addr{
 		Addr: addr,
 	})
 	if err != nil {
@@ -68,7 +68,7 @@ func (c *RClient) RegisterOwner(addr string) uint64 {
 
 func (c *RClient) RemoveOwner(ownerID uint64) bool {
 	ctx := context.Background()
-	out, err := c.gcli.RemoveOwner(ctx, &remotetree.OwnerId{
+	out, err := c.gcli.RemoveOwner(ctx, &pb.OwnerId{
 		Id: ownerID,
 	})
 	if err != nil {
@@ -81,7 +81,7 @@ func (c *RClient) RemoveOwner(ownerID uint64) bool {
 func (c *RClient) AllocateRoot() bool {
 	ctx := context.Background()
 	log.Printf("allocate root: ownerID=%v", c.id)
-	out, err := c.gcli.AllocateRoot(ctx, &remotetree.OwnerId{
+	out, err := c.gcli.AllocateRoot(ctx, &pb.OwnerId{
 		Id: c.id,
 	})
 	if err != nil {
@@ -117,7 +117,7 @@ func (c *RClient) AssignID(id uint64) {
 	c.id = id
 }
 
-func NewRClient(gcli remotetree.RemoteTreeClient) *RClient {
+func NewRClient(gcli pb.RemoteTreeClient) *RClient {
 	return &RClient{
 		gcli: gcli,
 	}

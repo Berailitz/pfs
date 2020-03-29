@@ -902,6 +902,11 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 	return nil
 }
 
+func (fb *FBackEnd) IsLocal(ctx context.Context, id uint64) bool {
+	_, ok := fb.LoadNode(id)
+	return ok
+}
+
 func (e *FBackEndErr) Error() string {
 	return fmt.Sprintf("fbackend error: %v", e.msg)
 }

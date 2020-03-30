@@ -24,7 +24,7 @@ func (c *RClient) mustHaveID() {
 func (c *RClient) QueryOwner(nodeID uint64) string {
 	ctx := context.Background()
 	addr, err := c.gcli.QueryOwner(ctx, &pb.NodeId{
-		Id: uint64(nodeID),
+		Id: nodeID,
 	})
 	if err != nil {
 		log.Printf("query owner error: nodeID=%v, err=%+v", nodeID, err)
@@ -45,13 +45,13 @@ func (c *RClient) Allocate() uint64 {
 		return 0
 	}
 	log.Printf("allocate node success: nodeID=%v", nodeID.Id)
-	return uint64(nodeID.Id)
+	return nodeID.Id
 }
 
 func (c *RClient) Deallocate(nodeID uint64) bool {
 	ctx := context.Background()
 	out, err := c.gcli.Deallocate(ctx, &pb.NodeId{
-		Id: uint64(nodeID),
+		Id: nodeID,
 	})
 	if err != nil {
 		log.Printf("deallocate error: nodeID=%v, err=%+v", nodeID, err)

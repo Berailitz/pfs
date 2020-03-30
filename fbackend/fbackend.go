@@ -189,7 +189,7 @@ func (fb *FBackEnd) unlock() {
 // Find the given rnode.RNode. Panic if it doesn't exist.
 //
 // LOCKS_REQUIRED(fb.mu)
-func (fb *FBackEnd) mustLoadInode(id uint64) *rnode.RNode {
+func (fb *FBackEnd) mustLoadInodeForWrite(id uint64) *rnode.RNode {
 	// TODO: lock remote rnode.RNode
 	if node, ok := fb.LoadNode(id); ok {
 		return node
@@ -530,7 +530,7 @@ func (fb *FBackEnd) Rename(
 	}()
 
 	// Ask the old parent for the child's rnode.RNode ID and type.
-	oldParent := fb.mustLoadInode(uint64(op.OldParent))
+	oldParent := fb.mustLoadInodeForWrite(uint64(op.OldParent))
 	childID, childType, ok := oldParent.LookUpChild(op.OldName)
 
 	if !ok {
@@ -540,10 +540,10 @@ func (fb *FBackEnd) Rename(
 
 	// If the new name exists already in the new parent, make sure it's not a
 	// non-empty directory, then delete it.
-	newParent := fb.mustLoadInode(uint64(op.NewParent))
+	newParent := fb.mustLoadInodeForWrite(uint64(op.NewParent))
 	existingID, _, ok := newParent.LookUpChild(op.NewName)
 	if ok {
-		existing := fb.mustLoadInode(existingID)
+		existing := fb.mustLoadInodeForWrite(existingID)
 
 		var buf [4096]byte
 		if existing.IsDir() && existing.ReadDir(buf[:], 0) > 0 {
@@ -583,7 +583,7 @@ func (fb *FBackEnd) RmDir(
 	}()
 
 	// Grab the parent, which we will update shortly.
-	parent := fb.mustLoadInode(uint64(op.Parent))
+	parent := fb.mustLoadInodeForWrite(uint64(op.Parent))
 
 	// Find the child within the parent.
 	childID, _, ok := parent.LookUpChild(op.Name)
@@ -593,7 +593,7 @@ func (fb *FBackEnd) RmDir(
 	}
 
 	// Grab the child.
-	child := fb.mustLoadInode(childID)
+	child := fb.mustLoadInodeForWrite(childID)
 
 	// Make sure the child is empty.
 	if child.Len() != 0 {
@@ -629,7 +629,7 @@ func (fb *FBackEnd) Unlink(
 	}()
 
 	// Grab the parent, which we will update shortly.
-	parent := fb.mustLoadInode(uint64(op.Parent))
+	parent := fb.mustLoadInodeForWrite(uint64(op.Parent))
 
 	// Find the child within the parent.
 	childID, _, ok := parent.LookUpChild(op.Name)
@@ -639,7 +639,7 @@ func (fb *FBackEnd) Unlink(
 	}
 
 	// Grab the child.
-	child := fb.mustLoadInode(childID)
+	child := fb.mustLoadInodeForWrite(childID)
 
 	// Remove the entry within the parent.
 	parent.RemoveChild(op.Name)

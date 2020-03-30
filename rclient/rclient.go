@@ -22,6 +22,7 @@ func (c *RClient) mustHaveID() {
 
 // QueryOwner fetch owner'addr of a node
 func (c *RClient) QueryOwner(nodeID uint64) string {
+	log.Printf("query owner: nodeID=%v", nodeID)
 	ctx := context.Background()
 	addr, err := c.gcli.QueryOwner(ctx, &pb.NodeId{
 		Id: nodeID,
@@ -30,6 +31,7 @@ func (c *RClient) QueryOwner(nodeID uint64) string {
 		log.Printf("query owner error: nodeID=%v, err=%+v", nodeID, err)
 		return ""
 	}
+	log.Printf("query owner success: nodeID=%v", nodeID)
 	return addr.Addr
 }
 
@@ -49,6 +51,7 @@ func (c *RClient) Allocate() uint64 {
 }
 
 func (c *RClient) Deallocate(nodeID uint64) bool {
+	log.Printf("deallocate: nodeID=%v", nodeID)
 	ctx := context.Background()
 	out, err := c.gcli.Deallocate(ctx, &pb.NodeId{
 		Id: nodeID,
@@ -57,11 +60,13 @@ func (c *RClient) Deallocate(nodeID uint64) bool {
 		log.Printf("deallocate error: nodeID=%v, err=%+v", nodeID, err)
 		return false
 	}
+	log.Printf("deallocate success: nodeID=%v", nodeID)
 	return out.Ok
 }
 
 // RegisterOwner return 0 if err
 func (c *RClient) RegisterOwner(addr string) uint64 {
+	log.Printf("register owner: addr=%v", addr)
 	ctx := context.Background()
 	out, err := c.gcli.RegisterOwner(ctx, &pb.Addr{
 		Addr: addr,
@@ -70,10 +75,12 @@ func (c *RClient) RegisterOwner(addr string) uint64 {
 		log.Printf("register owner error: addr=%v, err=%+v", addr, err)
 		return 0
 	}
+	log.Printf("register owner success: addr=%v", addr)
 	return out.Id
 }
 
 func (c *RClient) RemoveOwner(ownerID uint64) bool {
+	log.Printf("remove owner: ownerID=%v", ownerID)
 	ctx := context.Background()
 	out, err := c.gcli.RemoveOwner(ctx, &pb.OwnerId{
 		Id: ownerID,
@@ -82,6 +89,7 @@ func (c *RClient) RemoveOwner(ownerID uint64) bool {
 		log.Printf("remove owner error: ownerID=%v, err=%+v", ownerID, err)
 		return false
 	}
+	log.Printf("remove owner success: ownerID=%v", ownerID)
 	return out.Ok
 }
 
@@ -119,6 +127,7 @@ func (c *RClient) RegisterSelf(addr string) uint64 {
 }
 
 func (c *RClient) AssignID(id uint64) {
+	log.Printf("rcli assigned id: id=%v", id)
 	if c.id > 0 {
 		log.Printf("rcli get re-assigned id: id=%v", id)
 	}

@@ -33,8 +33,8 @@ type RServer struct {
 }
 
 func (s *RServer) FetchNode(ctx context.Context, req *pb.NodeId) (*pb.Node, error) {
-	node, ok := s.fp.LoadNode(req.Id)
-	if !ok {
+	node, err := s.fp.LoadNode(req.Id)
+	if err != nil {
 		return &pb.Node{
 			NID: 0,
 		}, nil

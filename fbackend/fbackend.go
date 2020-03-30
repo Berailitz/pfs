@@ -945,8 +945,8 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 }
 
 func (fb *FBackEnd) IsLocal(ctx context.Context, id uint64) bool {
-	_, ok := fb.LoadNode(id)
-	return ok
+	_, err := fb.LoadNodeForRead(id)
+	return err == nil
 }
 
 func (e *FBackEndErr) Error() string {

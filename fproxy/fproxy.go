@@ -87,8 +87,8 @@ func (fp *FProxy) buillNotSupportedErr(operation string) error {
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
 
-func (fp *FProxy) LoadNode(id uint64) (*rnode.RNode, bool) {
-	return fp.fb.LoadNode(id)
+func (fp *FProxy) LoadNode(id uint64) (*rnode.RNode, error) {
+	return fp.fb.LoadNodeForRead(id)
 }
 
 func (fp *FProxy) StatFS(
@@ -605,8 +605,8 @@ func (fp *FProxy) Fallocate(ctx context.Context,
 }
 
 func (fp *FProxy) isLocal(ctx context.Context, id uint64) bool {
-	_, ok := fp.fb.LoadNode(id)
-	return ok
+	_, err := fp.fb.LoadLocalNodeForRead(id)
+	return err == nil
 }
 
 func (fp *FProxy) isChildLocal(ctx context.Context, parentId uint64, name string) bool {

@@ -267,6 +267,7 @@ func (fp *FProxy) CreateLink(
 		return fp.fb.CreateLink(ctx, parentID, name, targetID)
 	}
 
+	// TODO: Parent owner start and acquire child
 	return fuseops.InodeAttributes{}, fp.buillNotSupportedErr(
 		fmt.Sprintf("CreateSymlink: parentID=%v, name=%v, targetID=%v", parentID, name, targetID))
 	//addr := fp.pcli.QueryOwner(parentID)
@@ -295,7 +296,7 @@ func (fp *FProxy) Rename(
 		return fp.fb.Rename(ctx, op)
 	}
 
-	// TODO: imply by transferring inode
+	// TODO: NewParent owner start and acquire child, OldParent owner rm OldChild, rm node, NewParent add child
 	return fp.buillNotSupportedErr(fmt.Sprintf("rename: op=%#v", op))
 }
 
@@ -307,6 +308,7 @@ func (fp *FProxy) RmDir(
 		return fp.fb.RmDir(ctx, op)
 	}
 
+	// TODO: Parent owner start, Child owner rm node
 	return fp.buillNotSupportedErr(fmt.Sprintf("rmdir: op=%#v", op))
 }
 
@@ -318,6 +320,7 @@ func (fp *FProxy) Unlink(
 		return fp.fb.Unlink(ctx, op)
 	}
 
+	// TODO: Parent owner start and acquire child
 	return fp.buillNotSupportedErr(fmt.Sprintf("unlink: op=%#v", op))
 }
 

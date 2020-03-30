@@ -196,7 +196,7 @@ func (fb *FBackEnd) unlock() {
 //
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) mustLoadInodeForWrite(id uint64) *rnode.RNode {
-	// TODO: lock remote rnode.RNode
+	// TODO: remove mustLoadInodeForWrite
 	if node, err := fb.LoadNodeForWrite(id); err == nil {
 		return node
 	}

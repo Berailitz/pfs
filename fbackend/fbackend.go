@@ -119,14 +119,14 @@ func NewFBackEnd(
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
-func (fb *FBackEnd) LoadNodeForWrite(id uint64) (*rnode.RNode, bool) {
+func (fb *FBackEnd) LoadNodeForWrite(id uint64) (*rnode.RNode, error) {
 	if out, exist := fb.nodes.Load(id); exist {
 		if node, ok := out.(*rnode.RNode); ok {
-			return node, true
+			return node, nil
 		}
 	}
 	log.Printf("load node error: id=%v", id)
-	return nil, false
+	return nil, &FBackEndErr{msg: fmt.Sprintf("load local node for write not exist error: id=%v", id)}
 }
 
 func (fb *FBackEnd) LoadLocalNodeForRead(id uint64) (*rnode.RNode, error) {
@@ -197,7 +197,7 @@ func (fb *FBackEnd) unlock() {
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) mustLoadInodeForWrite(id uint64) *rnode.RNode {
 	// TODO: lock remote rnode.RNode
-	if node, ok := fb.LoadNodeForWrite(id); ok {
+	if node, err := fb.LoadNodeForWrite(id); err == nil {
 		return node
 	}
 	log.Fatalf("Unknown rnode.RNode: %v", id)
@@ -294,10 +294,9 @@ func (fb *FBackEnd) SetInodeAttributes(
 	defer fb.unlock()
 
 	// Grab the rnode.RNode.
-	node, ok := fb.LoadNodeForWrite(id)
-	if !ok {
-		err := &FBackEndErr{msg: fmt.Sprintf("set node attr not found error: id=%v", id)}
-		log.Printf(err.Error())
+	node, err := fb.LoadNodeForWrite(id)
+	if err != nil {
+		log.Printf("set node attr err: err=%v", err.Error())
 		return fuseops.InodeAttributes{}, err
 	}
 
@@ -327,11 +326,9 @@ func (fb *FBackEnd) MkDir(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, ok := fb.LoadNodeForWrite(parentID)
-	if !ok {
-		err := &FBackEndErr{msg: fmt.Sprintf("mkdir parent not found error: parentID=%v, name=%v",
-			parentID, name)}
-		log.Printf(err.Error())
+	parent, err := fb.LoadNodeForWrite(parentID)
+	if err != nil {
+		log.Printf("mkdir err: err=%v", err.Error())
 		return 0, fuseops.InodeAttributes{}, err
 	}
 
@@ -370,11 +367,9 @@ func (fb *FBackEnd) CreateNode(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, ok := fb.LoadNodeForWrite(parentID)
-	if !ok {
-		err := &FBackEndErr{msg: fmt.Sprintf("do create file parent not found error: parentID=%v, name=%v",
-			parentID, name)}
-		log.Printf(err.Error())
+	parent, err := fb.LoadNodeForWrite(parentID)
+	if err != nil {
+		log.Printf("create node err: err=%v", err.Error())
 		return fuseops.ChildInodeEntry{}, err
 	}
 
@@ -426,11 +421,9 @@ func (fb *FBackEnd) CreateSymlink(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, ok := fb.LoadNodeForWrite(parentID)
-	if !ok {
-		err := &FBackEndErr{msg: fmt.Sprintf("create symlink parent not found error: parentID=%v, name=%v",
-			parentID, name)}
-		log.Printf(err.Error())
+	parent, err := fb.LoadNodeForWrite(parentID)
+	if err != nil {
+		log.Printf("create symlink err: err=%v", err.Error())
 		return 0, fuseops.InodeAttributes{}, err
 	}
 
@@ -476,11 +469,9 @@ func (fb *FBackEnd) CreateLink(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, ok := fb.LoadNodeForWrite(parentID)
-	if !ok {
-		err := &FBackEndErr{msg: fmt.Sprintf("create link parent not found error: parentID=%v, name=%v",
-			parentID, name)}
-		log.Printf(err.Error())
+	parent, err := fb.LoadNodeForWrite(parentID)
+	if err != nil {
+		log.Printf("create link load parent err: err=%v", err.Error())
 		return fuseops.InodeAttributes{}, err
 	}
 
@@ -492,13 +483,9 @@ func (fb *FBackEnd) CreateLink(
 	}
 
 	// Get the target rnode.RNode to be linked
-	target, ok := fb.LoadNodeForWrite(targetID)
-	if !ok {
-		err := &FBackEndErr{
-			msg: fmt.Sprintf("create link target not found error: parentID=%v, name=%v, targetID=%v",
-				parentID, name, targetID),
-		}
-		log.Printf(err.Error())
+	target, err := fb.LoadNodeForWrite(targetID)
+	if err != nil {
+		log.Printf("create link load target err: err=%v", err.Error())
 		return fuseops.InodeAttributes{}, err
 	}
 
@@ -766,10 +753,9 @@ func (fb *FBackEnd) WriteFile(
 	defer fb.unlock()
 
 	// Find the rnode.RNode in question.
-	node, ok := fb.LoadNodeForWrite(id)
-	if !ok {
-		err := &FBackEndErr{msg: fmt.Sprintf("write file not found error: id=%v", id)}
-		log.Printf(err.Error())
+	node, err := fb.LoadNodeForWrite(id)
+	if err != nil {
+		log.Printf("write file err: err=%v", err.Error())
 		return 0, err
 	}
 
@@ -871,10 +857,9 @@ func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
-	node, ok := fb.LoadNodeForWrite(id)
-	if !ok {
-		err := &FBackEndErr{msg: fmt.Sprintf("get xattr not found error: id=%v", id)}
-		log.Printf(err.Error())
+	node, err := fb.LoadNodeForWrite(id)
+	if err != nil {
+		log.Printf("remove xattr err: err=%v", err.Error())
 		return err
 	}
 
@@ -893,10 +878,9 @@ func (fb *FBackEnd) SetXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
-	node, hasNode := fb.LoadNodeForWrite(uint64(op.Inode))
-	if !hasNode {
-		err := &FBackEndErr{msg: fmt.Sprintf("set xattr not found error: id=%v", op.Inode)}
-		log.Printf(err.Error())
+	node, err := fb.LoadNodeForWrite(uint64(op.Inode))
+	if err != nil {
+		log.Printf("set xattr err: err=%v", err.Error())
 		return err
 	}
 
@@ -928,14 +912,13 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
-	node, ok := fb.LoadNodeForWrite(id)
-	if !ok {
-		err := &FBackEndErr{msg: fmt.Sprintf("fallocate not found error: id=%v", id)}
-		log.Printf(err.Error())
+	node, err := fb.LoadNodeForWrite(id)
+	if err != nil {
+		log.Printf("fallocate err: err=%v", err.Error())
 		return err
 	}
 
-	err := node.Fallocate(mode, length, length)
+	err = node.Fallocate(mode, length, length)
 	if err != nil {
 		err := &FBackEndErr{msg: fmt.Sprintf("node fallocate error: err=%+v", err)}
 		log.Printf(err.Error())

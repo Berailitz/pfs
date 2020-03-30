@@ -129,12 +129,19 @@ func (fb *FBackEnd) LoadNode(id uint64) (*rnode.RNode, bool) {
 	return nil, false
 }
 
-func (fb *FBackEnd) LoadNodeForRead(id uint64) (*rnode.RNode, error) {
+func (fb *FBackEnd) LoadLocalNodeForRead(id uint64) (*rnode.RNode, error) {
 	if out, exist := fb.nodes.Load(id); exist {
 		if node, ok := out.(*rnode.RNode); ok {
 			return node, nil
 		}
-		return nil, &FBackEndErr{msg: fmt.Sprintf("load node non-node error: id=%v", id)}
+		return nil, &FBackEndErr{msg: fmt.Sprintf("load local node non-node error: id=%v", id)}
+	}
+	return nil, &FBackEndErr{msg: fmt.Sprintf("load local node not exist error: id=%v", id)}
+}
+
+func (fb *FBackEnd) LoadNodeForRead(id uint64) (*rnode.RNode, error) {
+	if node, err := fb.LoadLocalNodeForRead(id); err == nil {
+		return node, nil
 	} else {
 		addr := fb.mcli.QueryOwner(id)
 		gcli := fb.pool.Load(addr)

@@ -103,6 +103,16 @@ func (lfs *LFS) LoadHandle(
 	return 0, &LFSErr{fmt.Sprintf("load handle not found error: handle=%v", h)}
 }
 
+func (lfs *LFS) ReleaseHandle(
+	ctx context.Context,
+	h fuseops.HandleID) error {
+	if _, err := lfs.LoadHandle(ctx, h); err != nil {
+		lfs.handleMap.Delete(h)
+		return nil
+	}
+	return &LFSErr{fmt.Sprintf("release handle not found error: handle=%v", h)}
+}
+
 ////////////////////////////////////////////////////////////////////////
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
@@ -402,6 +412,20 @@ func (lfs *LFS) ReadDir(
 	return nil
 }
 
+func (lfs *LFS) ReleaseDirHandle(
+	ctx context.Context,
+	op *fuseops.ReleaseDirHandleOp) error {
+	log.Printf("release dir: op=%+v", op)
+	if err := lfs.ReleaseHandle(ctx, op.Handle); err != nil {
+		log.Printf("release dir error: op=%+v, err=%+v",
+			op, err)
+		return err
+	}
+
+	log.Printf("release dir success: op=%+v", op)
+	return nil
+}
+
 func (lfs *LFS) OpenFile(
 	ctx context.Context,
 	op *fuseops.OpenFileOp) error {
@@ -457,6 +481,19 @@ func (lfs *LFS) WriteFile(
 
 	log.Printf("write file success: id=%v, offset=%v, bytesWrite=%v", op.Inode, op.Offset, bytesWrite)
 	return err
+}
+
+func (lfs *LFS) ReleaseFileHandle(
+	ctx context.Context,
+	op *fuseops.ReleaseFileHandleOp) error {
+	if err := lfs.ReleaseHandle(ctx, op.Handle); err != nil {
+		log.Printf("release file error: op=%+v, err=%+v",
+			op, err)
+		return err
+	}
+
+	log.Printf("release file success: op=%+v", op)
+	return nil
 }
 
 func (lfs *LFS) ReadSymlink(

@@ -104,7 +104,7 @@ func (c *RClient) AllocateRoot() bool {
 		log.Printf("allocate root error: ownerID=%v, err=%+v", c.id, err)
 		return false
 	}
-	log.Printf("allocate root success: ownerID=%v", c.id)
+	log.Printf("allocate root finished: ownerID=%v, out=%+v", c.id, out)
 	return out.Ok
 }
 

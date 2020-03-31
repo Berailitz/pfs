@@ -120,7 +120,7 @@ func (lfs *LFS) ReleaseHandle(
 func (lfs *LFS) StatFS(
 	ctx context.Context,
 	op *fuseops.StatFSOp) error {
-	return nil
+	return fuse.ENOSYS
 }
 
 func (lfs *LFS) LookUpInode(

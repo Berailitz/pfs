@@ -16,6 +16,7 @@ package lfs
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"syscall"
 	"time"
@@ -38,6 +39,12 @@ type LFS struct {
 
 	fp *fproxy.FProxy
 }
+
+type LFSErr struct {
+	msg string
+}
+
+var _ = (error)((*LFSErr)(nil))
 
 // Create a file system that stores data and metadata in memory.
 //
@@ -503,4 +510,8 @@ func (lfs *LFS) Fallocate(ctx context.Context,
 
 	log.Printf("fallocate success: op=%#v", op)
 	return nil
+}
+
+func (e *LFSErr) Error() string {
+	return fmt.Sprintf("lfs error: %v", e.msg)
 }

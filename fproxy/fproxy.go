@@ -56,6 +56,10 @@ func NewFProxy(
 	}
 
 	fb := fbackend.NewFBackEnd(uid, gid, masterAddr, localAddr, gopts)
+	if fb == nil {
+		log.Fatalf("new fp nil fb error: uid=%v, gid=%v, masterAddr=%v, localAddr=%v, gopts=%+v",
+			uid, gid, masterAddr, localAddr, gopts)
+	}
 	// Set up the root rnode.RNode.
 
 	return &FProxy{

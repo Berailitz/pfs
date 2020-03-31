@@ -72,6 +72,14 @@ Private workspace for Golang.
         1. RClient (skeleton on node, depending on Manager)
 1. LFS
 
+## Design
+### Control-Data-Compatibility Model
+### Node Transfer
+### Node Lock
+1. Node locks are inside nodes, for the reduction of consistence complexity.
+1. Node has a `canLock` bool, which is set to `true` when created.
+1. If a node is to be transferred/destroyed and should not be used anymore, `canLock` is set to false before node id locking, so nobody hangs on it. (Everyone before the switch of `canLock` can read/write since they are in front of the transfer/destroy thread, others will return before trying to lock the node.)
+
 # Plan
 1. read remote node
 1. transfer node

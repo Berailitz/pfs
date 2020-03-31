@@ -111,7 +111,10 @@ func NewFBackEnd(
 	}
 
 	// Set up the root rnode.RNode.
-	fb.MakeRoot()
+	if err := fb.MakeRoot(); err != nil {
+		log.Printf("make root error: err=%+v", err)
+		return nil
+	}
 
 	return fb
 }
@@ -163,25 +166,41 @@ func (fb *FBackEnd) LoadNodeForRead(id uint64) (*rnode.RNode, error) {
 	}
 }
 
-func (fb *FBackEnd) storeNode(id uint64, node *rnode.RNode) {
-	fb.nodes.Store(id, node)
+func (fb *FBackEnd) storeNode(id uint64, node *rnode.RNode) error {
+	log.Printf("store node: id=%v", id)
+	if _, loaded := fb.nodes.LoadOrStore(id, node); loaded {
+		return &FBackEndErr{fmt.Sprintf("store node overwrite error: id=%v", id)}
+	}
+	log.Printf("store node success: id=%v", id)
+	return nil
 }
 
-func (fb *FBackEnd) deleteNode(id uint64) {
+func (fb *FBackEnd) deleteNode(id uint64) error {
+	log.Printf("delete node: id=%v", id)
+	if _, ok := fb.nodes.Load(id); !ok {
+		return &FBackEndErr{fmt.Sprintf("delete node not exist error: id=%v", id)}
+	}
 	fb.nodes.Delete(id)
+	log.Printf("delete node success: id=%v", id)
+	return nil
 }
 
 // MakeRoot should only be called at new
-func (fb *FBackEnd) MakeRoot() {
-	ok := fb.mcli.AllocateRoot()
-	if ok {
-		rootAttrs := fuseops.InodeAttributes{
-			Mode: 0700 | os.ModeDir,
-			Uid:  fb.uid,
-			Gid:  fb.gid,
-		}
-		fb.storeNode(uint64(fuseops.RootInodeID), rnode.NewRNode(rootAttrs, fuseops.RootInodeID))
+func (fb *FBackEnd) MakeRoot() error {
+	if ok := fb.mcli.AllocateRoot(); !ok {
+		log.Printf("make root allocate root error")
+		return &FBackEndErr{"make root allocate root error"}
 	}
+	rootAttrs := fuseops.InodeAttributes{
+		Mode: 0700 | os.ModeDir,
+		Uid:  fb.uid,
+		Gid:  fb.gid,
+	}
+	if err := fb.storeNode(uint64(fuseops.RootInodeID), rnode.NewRNode(rootAttrs, fuseops.RootInodeID)); err != nil {
+		log.Printf("make root store node error")
+		return err
+	}
+	return nil
 }
 
 func (fb *FBackEnd) lock() {
@@ -213,7 +232,10 @@ func (fb *FBackEnd) allocateInode(
 	id := fb.mcli.Allocate()
 	if id > 0 {
 		node := rnode.NewRNode(attrs, id)
-		fb.storeNode(id, node)
+		if err := fb.storeNode(id, node); err != nil {
+			log.Printf("allocate inode store error: id=%v, err=%v", id, err)
+			return 0, nil
+		}
 		return id, node
 	}
 
@@ -222,11 +244,14 @@ func (fb *FBackEnd) allocateInode(
 
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) deallocateInode(id uint64) {
-	ok := fb.mcli.Deallocate(id)
-	if ok {
-		fb.deleteNode(id)
+	log.Printf("deallocate: id=%v", id)
+	if ok := fb.mcli.Deallocate(id); !ok {
+		log.Printf("deallocate master deallocate error: id=%v", id)
 	}
-	log.Fatalf("deallocate error")
+	if err := fb.deleteNode(id); err != nil {
+		log.Printf("deallocate node delete error: id=%v, err=%+v", id, err)
+	}
+	log.Printf("deallocate success: id=%v", id)
 }
 
 ////////////////////////////////////////////////////////////////////////

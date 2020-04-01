@@ -26,6 +26,11 @@ const (
 	rServerStartTime = time.Second * 3
 )
 
+var (
+	gitCommit string
+	buildTime string
+)
+
 func currentUid() uint32 {
 	user, err := user.Current()
 	if err != nil {
@@ -56,6 +61,7 @@ func currentGid() uint32 {
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Printf("buildTime=%v, gitCommit=%v\n", buildTime, gitCommit)
 	debug := flag.Bool("debug", false, "print debugging messages.")
 	port := flag.Int("port", 10000, "The server port")
 	host := flag.String("host", "127.0.0.1", "The server host")

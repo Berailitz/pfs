@@ -220,16 +220,17 @@ func (lfs *LFS) MkNode(
 func (lfs *LFS) CreateFile(
 	ctx context.Context,
 	op *fuseops.CreateFileOp) error {
-	entry, err := lfs.fp.CreateNode(ctx, uint64(op.Parent), op.Name, op.Mode)
-	log.Printf("create file: parent=%v, name=%v, mode=%v",
-		op.Parent, op.Name, op.Mode)
+	entry, handle, err := lfs.fp.CreateFile(ctx, uint64(op.Parent), op.Name, op.Mode)
+	log.Printf("create file: parent=%v, name=%v, mode=%v, handle=%v",
+		op.Parent, op.Name, op.Mode, handle)
 	if err != nil {
-		log.Printf("create file error: parent=%v, name=%v, mode=%v, err=%+v",
-			op.Parent, op.Name, op.Mode, err)
+		log.Printf("create file error: parent=%v, name=%v, mode=%v, handle=%v, err=%+v",
+			op.Parent, op.Name, op.Mode, handle, err)
 		return err
 	}
 
 	op.Entry = entry
+	op.Handle = fuseops.HandleID(handle)
 	log.Printf("create file success: op=%#v", op)
 	return err
 }

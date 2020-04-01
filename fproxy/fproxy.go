@@ -234,6 +234,34 @@ func (fp *FProxy) CreateNode(
 	return utility.FromPbEntry(*reply.Entry), fp.decodeError(reply.Err)
 }
 
+// LOCKS_REQUIRED(fp.mu)
+func (fp *FProxy) CreateFile(
+	ctx context.Context,
+	parentID uint64,
+	name string,
+	mode os.FileMode) (fuseops.ChildInodeEntry, uint64, error) {
+	if fp.IsLocalNode(ctx, parentID) {
+		return fp.fb.CreateFile(ctx, parentID, name, mode)
+	}
+
+	addr := fp.pcli.QueryOwner(parentID)
+	gcli := fp.pool.Load(addr)
+	if gcli == nil {
+		return fuseops.ChildInodeEntry{}, 0, fp.buillNoGCliErr(addr)
+	}
+
+	reply, err := gcli.CreateFile(ctx, &pb.CreateNodeRequest{
+		Id:   parentID,
+		Name: name,
+		Mode: uint32(mode),
+	})
+	if err != nil {
+		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
+		return fuseops.ChildInodeEntry{}, 0, err
+	}
+	return utility.FromPbEntry(*reply.Entry), reply.Handle, fp.decodeError(reply.Err)
+}
+
 func (fp *FProxy) CreateSymlink(
 	ctx context.Context,
 	parentID uint64,

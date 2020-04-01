@@ -477,6 +477,67 @@ func (fb *FBackEnd) CreateNode(
 	return entry, nil
 }
 
+// LOCKS_REQUIRED(fb.mu)
+func (fb *FBackEnd) CreateFile(
+	ctx context.Context,
+	parentID uint64,
+	name string,
+	mode os.FileMode) (fuseops.ChildInodeEntry, uint64, error) {
+	fb.lock()
+	defer fb.unlock()
+
+	// Grab the parent, which we will update shortly.
+	parent, err := fb.LoadNodeForWrite(parentID)
+	if err != nil {
+		log.Printf("create file err: err=%v", err.Error())
+		return fuseops.ChildInodeEntry{}, 0, err
+	}
+
+	// Ensure that the name doesn't already exist, so we don't wind up with a
+	// duplicate.
+	_, _, exists := parent.LookUpChild(name)
+	if exists {
+		return fuseops.ChildInodeEntry{}, 0, fuse.EEXIST
+	}
+
+	// Set up attributes for the child.
+	now := time.Now()
+	childAttrs := fuseops.InodeAttributes{
+		Nlink:  1,
+		Mode:   mode,
+		Atime:  now,
+		Mtime:  now,
+		Ctime:  now,
+		Crtime: now,
+		Uid:    fb.uid,
+		Gid:    fb.gid,
+	}
+
+	// Allocate a child.
+	childID, child := fb.allocateInode(childAttrs)
+
+	// Add an entry in the parent.
+	parent.AddChild(childID, name, fuseutil.DT_File)
+
+	// Fill in the response entry.
+	var entry fuseops.ChildInodeEntry
+	entry.Child = fuseops.InodeID(childID)
+	entry.Attributes = child.Attrs()
+
+	handle, err := fb.AllocateHandle(ctx, childID)
+	if err != nil {
+		log.Printf("create file allocate handle err: err=%v", err.Error())
+		return fuseops.ChildInodeEntry{}, 0, err
+	}
+
+	// We don't spontaneously mutate, so the kernel can cache as long as it wants
+	// (since it also handles invalidation).
+	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	entry.EntryExpiration = entry.AttributesExpiration
+
+	return entry, handle, nil
+}
+
 func (fb *FBackEnd) CreateSymlink(
 	ctx context.Context,
 	parentID uint64,

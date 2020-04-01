@@ -126,6 +126,22 @@ func (s *RServer) CreateNode(ctx context.Context, req *pb.CreateNodeRequest) (*p
 	}, nil
 }
 
+func (s *RServer) CreateFile(ctx context.Context, req *pb.CreateNodeRequest) (*pb.CreateFileReply, error) {
+	entry, handle, err := s.fp.CreateFile(ctx, req.Id, req.Name, os.FileMode(req.Mode))
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return &pb.CreateFileReply{
+		Entry:  utility.ToPbEntry(entry),
+		Handle: handle,
+		Err:    perr,
+	}, nil
+}
+
 func (s *RServer) CreateSymlink(ctx context.Context, req *pb.CreateSymlinkRequest) (*pb.CreateSymlinkReply, error) {
 	id, attr, err := s.fp.CreateSymlink(ctx, req.Id, req.Name, req.Target)
 	var perr *pb.Error = nil

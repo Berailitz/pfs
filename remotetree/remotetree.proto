@@ -15,6 +15,7 @@ service RemoteTree {
     rpc SetInodeAttributes(SetInodeAttributesRequest) returns (SetInodeAttributesReply) {}
     rpc MkDir(MkDirRequest) returns (MkDirReply) {}
     rpc CreateNode(CreateNodeRequest) returns (CreateNodeReply) {}
+    rpc CreateFile(CreateNodeRequest) returns (CreateFileReply) {}
     rpc CreateSymlink(CreateSymlinkRequest) returns (CreateSymlinkReply) {}
     rpc CreateLink(CreateLinkRequest) returns (CreateLinkReply) {}
     rpc Rename(RenameRequest) returns (Error) {}
@@ -102,6 +103,12 @@ message CreateNodeRequest {
 message CreateNodeReply {
     Error err = 1;
     ChildInodeEntry entry = 2;
+}
+
+message CreateFileReply {
+    Error err = 1;
+    ChildInodeEntry entry = 2;
+    uint64 handle = 3;
 }
 
 message CreateSymlinkRequest {

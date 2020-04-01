@@ -72,8 +72,8 @@ func NewFProxy(
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
-func (fp *FProxy) decodeError(perr pb.Error) error {
-	if perr.Status != 0 {
+func (fp *FProxy) decodeError(perr *pb.Error) error {
+	if perr != nil && perr.Status != 0 {
 		return fmt.Errorf(perr.Msg)
 	}
 	return nil
@@ -123,7 +123,7 @@ func (fp *FProxy) LookUpInode(
 		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
 		return 0, fuseops.InodeAttributes{}, err
 	}
-	return reply.Id, utility.FromPbAttr(*reply.Attr), fp.decodeError(*reply.Err)
+	return reply.Id, utility.FromPbAttr(*reply.Attr), fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) GetInodeAttributes(
@@ -146,7 +146,7 @@ func (fp *FProxy) GetInodeAttributes(
 		log.Printf("rpc get inode attr error: id=%v, err=%+v", id, err)
 		return fuseops.InodeAttributes{}, err
 	}
-	return utility.FromPbAttr(*reply.Attr), fp.decodeError(*reply.Err)
+	return utility.FromPbAttr(*reply.Attr), fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) SetInodeAttributes(
@@ -176,7 +176,7 @@ func (fp *FProxy) SetInodeAttributes(
 		log.Printf("rpc set inode attr error: id=%v, err=%+v", id, err)
 		return fuseops.InodeAttributes{}, err
 	}
-	return utility.FromPbAttr(*reply.Attr), fp.decodeError(*reply.Err)
+	return utility.FromPbAttr(*reply.Attr), fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) MkDir(
@@ -203,7 +203,7 @@ func (fp *FProxy) MkDir(
 		log.Printf("rpc mkdir error: parentID=%v, name=%v, err=%+v", parentID, name, err)
 		return 0, fuseops.InodeAttributes{}, err
 	}
-	return reply.Id, utility.FromPbAttr(*reply.Attr), fp.decodeError(*reply.Err)
+	return reply.Id, utility.FromPbAttr(*reply.Attr), fp.decodeError(reply.Err)
 }
 
 // LOCKS_REQUIRED(fp.mu)
@@ -231,7 +231,7 @@ func (fp *FProxy) CreateNode(
 		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
 		return fuseops.ChildInodeEntry{}, err
 	}
-	return utility.FromPbEntry(*reply.Entry), fp.decodeError(*reply.Err)
+	return utility.FromPbEntry(*reply.Entry), fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) CreateSymlink(
@@ -259,7 +259,7 @@ func (fp *FProxy) CreateSymlink(
 			parentID, name, target, err)
 		return 0, fuseops.InodeAttributes{}, err
 	}
-	return reply.Id, utility.FromPbAttr(*reply.Attr), fp.decodeError(*reply.Err)
+	return reply.Id, utility.FromPbAttr(*reply.Attr), fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) CreateLink(
@@ -289,7 +289,7 @@ func (fp *FProxy) CreateLink(
 	//	log.Printf("rpc set inode attr error: id=%v, err=%+v", id, err)
 	//	return fuseops.InodeAttributes{}, err
 	//}
-	//return utility.FromPbAttr(*reply.Attr), fp.decodeError(*reply.Err)
+	//return utility.FromPbAttr(*reply.Attr), fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) Rename(
@@ -349,7 +349,7 @@ func (fp *FProxy) OpenDir(
 			id, err)
 		return err
 	}
-	return fp.decodeError(*reply)
+	return fp.decodeError(reply)
 }
 
 func (fp *FProxy) ReadDir(
@@ -377,7 +377,7 @@ func (fp *FProxy) ReadDir(
 			id, err)
 		return 0, nil, err
 	}
-	return 0, nil, fp.decodeError(*reply.Err)
+	return 0, nil, fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) OpenFile(ctx context.Context, id uint64) error {
@@ -399,7 +399,7 @@ func (fp *FProxy) OpenFile(ctx context.Context, id uint64) error {
 			id, err)
 		return err
 	}
-	return fp.decodeError(*reply)
+	return fp.decodeError(reply)
 }
 
 func (fp *FProxy) ReadFile(
@@ -427,7 +427,7 @@ func (fp *FProxy) ReadFile(
 			id, err)
 		return 0, nil, err
 	}
-	return 0, nil, fp.decodeError(*reply.Err)
+	return 0, nil, fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) WriteFile(
@@ -455,7 +455,7 @@ func (fp *FProxy) WriteFile(
 			id, err)
 		return 0, err
 	}
-	return 0, fp.decodeError(*reply.Err)
+	return 0, fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) ReadSymlink(
@@ -479,7 +479,7 @@ func (fp *FProxy) ReadSymlink(
 			id, err)
 		return "", err
 	}
-	return "", fp.decodeError(*reply.Err)
+	return "", fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) GetXattr(ctx context.Context,
@@ -506,7 +506,7 @@ func (fp *FProxy) GetXattr(ctx context.Context,
 			id, err)
 		return 0, nil, err
 	}
-	return 0, nil, fp.decodeError(*reply.Err)
+	return 0, nil, fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) ListXattr(ctx context.Context,
@@ -531,7 +531,7 @@ func (fp *FProxy) ListXattr(ctx context.Context,
 			id, err)
 		return 0, nil, err
 	}
-	return 0, nil, fp.decodeError(*reply.Err)
+	return 0, nil, fp.decodeError(reply.Err)
 }
 
 func (fp *FProxy) RemoveXattr(ctx context.Context, id uint64, name string) error {
@@ -554,7 +554,7 @@ func (fp *FProxy) RemoveXattr(ctx context.Context, id uint64, name string) error
 			id, err)
 		return err
 	}
-	return fp.decodeError(*reply)
+	return fp.decodeError(reply)
 }
 
 func (fp *FProxy) SetXattr(ctx context.Context, op fuseops.SetXattrOp) error {
@@ -578,7 +578,7 @@ func (fp *FProxy) SetXattr(ctx context.Context, op fuseops.SetXattrOp) error {
 		log.Printf("rpc setxattr error: op=%#v, err=%+v", op, err)
 		return err
 	}
-	return fp.decodeError(*reply)
+	return fp.decodeError(reply)
 }
 
 func (fp *FProxy) Fallocate(ctx context.Context,
@@ -605,7 +605,7 @@ func (fp *FProxy) Fallocate(ctx context.Context,
 			id, mode, length, err)
 		return err
 	}
-	return fp.decodeError(*reply)
+	return fp.decodeError(reply)
 }
 
 func (fp *FProxy) IsLocalNode(ctx context.Context, id uint64) bool {

@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -32,8 +30,6 @@ import (
 	"github.com/jacobsa/fuse/fuseutil"
 )
 
-const initialHandle = 1
-
 type LFS struct {
 	fuseutil.NotImplementedFileSystem
 
@@ -42,9 +38,6 @@ type LFS struct {
 	gid uint32
 
 	fp *fproxy.FProxy
-
-	nextHandle uint64
-	handleMap  sync.Map // map[fuseops.HandleID]uint64
 }
 
 type LFSErr struct {
@@ -66,10 +59,9 @@ func NewLFS(
 		log.Fatalf("nil fbackend error")
 	}
 	return &LFS{
-		uid:        uid,
-		gid:        gid,
-		fp:         fp,
-		nextHandle: initialHandle,
+		uid: uid,
+		gid: gid,
+		fp:  fp,
 	}
 }
 
@@ -78,39 +70,6 @@ func NewLFSServer(lfs *LFS) fuse.Server {
 		return nil
 	}
 	return fuseutil.NewFileSystemServer(lfs)
-}
-
-func (lfs *LFS) AllocateHandle(
-	ctx context.Context,
-	node uint64) (uint64, error) {
-	if !lfs.fp.IsLocalNode(ctx, node) {
-		return 0, &LFSErr{fmt.Sprintf("allocate handle node not local error: node=%v", node)}
-	}
-	handle := atomic.AddUint64(&lfs.nextHandle, 1) - 1
-	lfs.handleMap.Store(handle, node)
-	return handle, nil
-}
-
-func (lfs *LFS) LoadHandle(
-	ctx context.Context,
-	h fuseops.HandleID) (uint64, error) {
-	if out, ok := lfs.handleMap.Load(h); ok {
-		if node, ok := out.(uint64); ok {
-			return node, nil
-		}
-		return 0, &LFSErr{fmt.Sprintf("load handle value not node id error: handle=%v", h)}
-	}
-	return 0, &LFSErr{fmt.Sprintf("load handle not found error: handle=%v", h)}
-}
-
-func (lfs *LFS) ReleaseHandle(
-	ctx context.Context,
-	h fuseops.HandleID) error {
-	if _, err := lfs.LoadHandle(ctx, h); err != nil {
-		lfs.handleMap.Delete(h)
-		return nil
-	}
-	return &LFSErr{fmt.Sprintf("release handle not found error: handle=%v", h)}
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -375,12 +334,13 @@ func (lfs *LFS) OpenDir(
 	op *fuseops.OpenDirOp) error {
 	log.Printf("opendir: id=%v", op.Inode)
 	node := uint64(op.Inode)
-	if err := lfs.fp.OpenDir(ctx, node); err != nil {
+
+	handle, err := lfs.fp.OpenDir(ctx, node)
+	if err != nil {
 		log.Printf("opendir error: id=%v, err=%+v", op.Inode, err)
 		return err
 	}
 
-	handle, err := lfs.AllocateHandle(ctx, node)
 	if handle == 0 {
 		log.Printf("opendir error: node=%v, err=%+v", node, err)
 		return err
@@ -412,31 +372,18 @@ func (lfs *LFS) ReadDir(
 	return nil
 }
 
-func (lfs *LFS) ReleaseDirHandle(
-	ctx context.Context,
-	op *fuseops.ReleaseDirHandleOp) error {
-	log.Printf("release dir: op=%+v", op)
-	if err := lfs.ReleaseHandle(ctx, op.Handle); err != nil {
-		log.Printf("release dir error: op=%+v, err=%+v",
-			op, err)
-		return err
-	}
-
-	log.Printf("release dir success: op=%+v", op)
-	return nil
-}
-
 func (lfs *LFS) OpenFile(
 	ctx context.Context,
 	op *fuseops.OpenFileOp) error {
 	log.Printf("openfile: id=%v", op.Inode)
 	node := uint64(op.Inode)
-	if err := lfs.fp.OpenFile(ctx, node); err != nil {
+
+	handle, err := lfs.fp.OpenFile(ctx, node)
+	if err != nil {
 		log.Printf("openfile error: op=%#v, err=%+v", op, err)
 		return err
 	}
 
-	handle, err := lfs.AllocateHandle(ctx, node)
 	if handle == 0 {
 		log.Printf("openfile error: node=%v, err=%+v", node, err)
 		return err
@@ -481,19 +428,6 @@ func (lfs *LFS) WriteFile(
 
 	log.Printf("write file success: id=%v, offset=%v, bytesWrite=%v", op.Inode, op.Offset, bytesWrite)
 	return err
-}
-
-func (lfs *LFS) ReleaseFileHandle(
-	ctx context.Context,
-	op *fuseops.ReleaseFileHandleOp) error {
-	if err := lfs.ReleaseHandle(ctx, op.Handle); err != nil {
-		log.Printf("release file error: op=%+v, err=%+v",
-			op, err)
-		return err
-	}
-
-	log.Printf("release file success: op=%+v", op)
-	return nil
 }
 
 func (lfs *LFS) ReadSymlink(

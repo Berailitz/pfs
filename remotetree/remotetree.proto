@@ -20,9 +20,9 @@ service RemoteTree {
     rpc Rename(RenameRequest) returns (Error) {}
     rpc RmDir(RmDirRequest) returns (Error) {}
     rpc Unlink(UnlinkRequest) returns (Error) {}
-    rpc OpenDir(NodeId) returns (Error) {}
+    rpc OpenDir(NodeId) returns (Uint64Reply) {}
     rpc ReadDir(ReadXRequest) returns (ReadXReply) {}
-    rpc OpenFile(NodeId) returns (Error) {}
+    rpc OpenFile(NodeId) returns (Uint64Reply) {}
     rpc ReadFile(ReadXRequest) returns (ReadXReply) {}
     rpc WriteFile(WriteXRequest) returns (Uint64Reply) {}
     rpc ReadSymlink(NodeId) returns (ReadSymlinkReply) {}

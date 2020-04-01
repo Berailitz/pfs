@@ -204,8 +204,8 @@ func (s *RServer) Unlink(ctx context.Context, req *pb.UnlinkRequest) (*pb.Error,
 	return perr, nil
 }
 
-func (s *RServer) OpenDir(ctx context.Context, req *pb.NodeId) (*pb.Error, error) {
-	err := s.fp.OpenDir(ctx, req.Id)
+func (s *RServer) OpenDir(ctx context.Context, req *pb.NodeId) (*pb.Uint64Reply, error) {
+	h, err := s.fp.OpenDir(ctx, req.Id)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -213,7 +213,10 @@ func (s *RServer) OpenDir(ctx context.Context, req *pb.NodeId) (*pb.Error, error
 			Msg:    err.Error(),
 		}
 	}
-	return perr, nil
+	return &pb.Uint64Reply{
+		Err: perr,
+		Num: h,
+	}, nil
 }
 func (s *RServer) ReadDir(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXReply, error) {
 	bytesRead, buf, err := s.fp.ReadDir(ctx, req.Id, req.Length, req.Offset)
@@ -231,8 +234,8 @@ func (s *RServer) ReadDir(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXR
 	}, nil
 }
 
-func (s *RServer) OpenFile(ctx context.Context, req *pb.NodeId) (*pb.Error, error) {
-	err := s.fp.OpenFile(ctx, req.Id)
+func (s *RServer) OpenFile(ctx context.Context, req *pb.NodeId) (*pb.Uint64Reply, error) {
+	h, err := s.fp.OpenFile(ctx, req.Id)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -240,7 +243,10 @@ func (s *RServer) OpenFile(ctx context.Context, req *pb.NodeId) (*pb.Error, erro
 			Msg:    err.Error(),
 		}
 	}
-	return perr, nil
+	return &pb.Uint64Reply{
+		Err: perr,
+		Num: h,
+	}, nil
 }
 
 func (s *RServer) ReadFile(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXReply, error) {

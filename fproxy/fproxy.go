@@ -330,7 +330,7 @@ func (fp *FProxy) Unlink(
 
 func (fp *FProxy) OpenDir(
 	ctx context.Context,
-	id uint64) error {
+	id uint64) (handle uint64, err error) {
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.OpenDir(ctx, id)
 	}
@@ -338,7 +338,7 @@ func (fp *FProxy) OpenDir(
 	addr := fp.pcli.QueryOwner(id)
 	gcli := fp.pool.Load(addr)
 	if gcli == nil {
-		return fp.buillNoGCliErr(addr)
+		return 0, fp.buillNoGCliErr(addr)
 	}
 
 	reply, err := gcli.OpenDir(ctx, &pb.NodeId{
@@ -347,9 +347,16 @@ func (fp *FProxy) OpenDir(
 	if err != nil {
 		log.Printf("rpc opendir error: id=%v, err=%+v",
 			id, err)
-		return err
+		return 0, err
 	}
-	return fp.decodeError(reply)
+
+	err = fp.decodeError(reply.Err)
+	h := reply.Num
+	if err != nil || h <= 0 {
+		log.Printf("rpc opendir error: id=%v, h=%v, perr=%+v",
+			id, h, err)
+	}
+	return h, err
 }
 
 func (fp *FProxy) ReadDir(
@@ -380,7 +387,7 @@ func (fp *FProxy) ReadDir(
 	return 0, nil, fp.decodeError(reply.Err)
 }
 
-func (fp *FProxy) OpenFile(ctx context.Context, id uint64) error {
+func (fp *FProxy) OpenFile(ctx context.Context, id uint64) (handle uint64, err error) {
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.OpenFile(ctx, id)
 	}
@@ -388,7 +395,7 @@ func (fp *FProxy) OpenFile(ctx context.Context, id uint64) error {
 	addr := fp.pcli.QueryOwner(id)
 	gcli := fp.pool.Load(addr)
 	if gcli == nil {
-		return fp.buillNoGCliErr(addr)
+		return 0, fp.buillNoGCliErr(addr)
 	}
 
 	reply, err := gcli.OpenFile(ctx, &pb.NodeId{
@@ -397,9 +404,16 @@ func (fp *FProxy) OpenFile(ctx context.Context, id uint64) error {
 	if err != nil {
 		log.Printf("rpc openfile error: id=%v, err=%+v",
 			id, err)
-		return err
+		return 0, err
 	}
-	return fp.decodeError(reply)
+
+	err = fp.decodeError(reply.Err)
+	h := reply.Num
+	if err != nil || h <= 0 {
+		log.Printf("rpc openfile error: id=%v, h=%v, perr=%+v",
+			id, h, err)
+	}
+	return h, err
 }
 
 func (fp *FProxy) ReadFile(

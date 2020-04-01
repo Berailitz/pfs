@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -42,6 +43,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const initialHandle = 1
+
 type FBackEnd struct {
 	fuseutil.NotImplementedFileSystem
 	// The UID and GID that every rnode.RNode receives.
@@ -56,6 +59,9 @@ type FBackEnd struct {
 	nodes sync.Map // [uint64]*rnode.RNode
 	mcli  *rclient.RClient
 	pool  *gclipool.GCliPool
+
+	nextHandle uint64
+	handleMap  sync.Map // map[uint64]uint64
 }
 
 type FBackEndErr struct {
@@ -104,10 +110,11 @@ func NewFBackEnd(
 
 	mcli.RegisterSelf(localAddr)
 	fb := &FBackEnd{
-		uid:  uid,
-		gid:  gid,
-		mcli: mcli,
-		pool: gclipool.NewGCliPool(gopts, localAddr),
+		uid:        uid,
+		gid:        gid,
+		mcli:       mcli,
+		pool:       gclipool.NewGCliPool(gopts, localAddr),
+		nextHandle: initialHandle,
 	}
 
 	// Set up the root rnode.RNode.
@@ -201,6 +208,39 @@ func (fb *FBackEnd) MakeRoot() error {
 		return err
 	}
 	return nil
+}
+
+func (fb *FBackEnd) LoadHandle(
+	ctx context.Context,
+	h uint64) (uint64, error) {
+	if out, ok := fb.handleMap.Load(h); ok {
+		if node, ok := out.(uint64); ok {
+			return node, nil
+		}
+		return 0, &FBackEndErr{fmt.Sprintf("load handle value not node id error: handle=%v", h)}
+	}
+	return 0, &FBackEndErr{fmt.Sprintf("load handle not found error: handle=%v", h)}
+}
+
+func (fb *FBackEnd) AllocateHandle(
+	ctx context.Context,
+	node uint64) (uint64, error) {
+	if !fb.IsLocal(ctx, node) {
+		return 0, &FBackEndErr{fmt.Sprintf("allocate handle node not local error: node=%v", node)}
+	}
+	handle := atomic.AddUint64(&fb.nextHandle, 1) - 1
+	fb.handleMap.Store(handle, node)
+	return handle, nil
+}
+
+func (fb *FBackEnd) ReleaseHandle(
+	ctx context.Context,
+	h uint64) error {
+	if _, err := fb.LoadHandle(ctx, h); err == nil {
+		fb.handleMap.Delete(h)
+		return nil
+	}
+	return &FBackEndErr{fmt.Sprintf("release handle not found error: handle=%v", h)}
 }
 
 func (fb *FBackEnd) lock() {
@@ -669,7 +709,7 @@ func (fb *FBackEnd) Unlink(
 
 func (fb *FBackEnd) OpenDir(
 	ctx context.Context,
-	id uint64) error {
+	id uint64) (handle uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -679,16 +719,23 @@ func (fb *FBackEnd) OpenDir(
 	node, err := fb.LoadNodeForRead(id)
 	if err != nil {
 		log.Printf("open dir err: err=%v", err.Error())
-		return err
+		return 0, err
 	}
 
 	if !node.IsDir() {
 		err := &FBackEndErr{msg: fmt.Sprintf("open dir non-dir error: id=%v", id)}
 		log.Printf(err.Error())
-		return err
+		return 0, err
 	}
 
-	return nil
+	handle, err = fb.AllocateHandle(ctx, id)
+	if err != nil {
+		log.Printf("open dir allocate handle err: id=%v, err=%v", id, err.Error())
+		return 0, err
+	}
+
+	log.Printf("open dir allocate handle success: id=%v, handle=%v", id, handle)
+	return handle, nil
 }
 
 func (fb *FBackEnd) ReadDir(
@@ -713,9 +760,23 @@ func (fb *FBackEnd) ReadDir(
 	return
 }
 
+func (fb *FBackEnd) ReleaseDirHandle(
+	ctx context.Context,
+	handle uint64) error {
+	log.Printf("release dir: handle=%v", handle)
+	if err := fb.ReleaseHandle(ctx, handle); err != nil {
+		log.Printf("release dir error: handle=%v, err=%+v",
+			handle, err)
+		return err
+	}
+
+	log.Printf("release dir success: handle=%v", handle)
+	return nil
+}
+
 func (fb *FBackEnd) OpenFile(
 	ctx context.Context,
-	id uint64) error {
+	id uint64) (handle uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -725,16 +786,23 @@ func (fb *FBackEnd) OpenFile(
 	node, err := fb.LoadNodeForRead(id)
 	if err != nil {
 		log.Printf("open file err: err=%v", err.Error())
-		return err
+		return 0, err
 	}
 
 	if !node.IsFile() {
 		err := &FBackEndErr{msg: fmt.Sprintf("open file non-file error: id=%v", id)}
 		log.Printf(err.Error())
-		return err
+		return 0, err
 	}
 
-	return nil
+	handle, err = fb.AllocateHandle(ctx, id)
+	if err != nil {
+		log.Printf("open file allocate handle err: id=%v, err=%v", id, err.Error())
+		return 0, err
+	}
+
+	log.Printf("open file allocate handle success: id=%v, handle=%v", id, handle)
+	return handle, nil
 }
 
 func (fb *FBackEnd) ReadFile(
@@ -795,6 +863,20 @@ func (fb *FBackEnd) WriteFile(
 	}
 
 	return uint64(bytesWrite), err
+}
+
+func (fb *FBackEnd) ReleaseFileHandle(
+	ctx context.Context,
+	handle uint64) error {
+	log.Printf("release file: handle=%v", handle)
+	if err := fb.ReleaseHandle(ctx, handle); err != nil {
+		log.Printf("release file error: handle=%v, err=%+v",
+			handle, err)
+		return err
+	}
+
+	log.Printf("release file success: handle=%v", handle)
+	return nil
 }
 
 func (fb *FBackEnd) ReadSymlink(

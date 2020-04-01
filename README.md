@@ -80,6 +80,11 @@ Private workspace for Golang.
 1. Node has a `canLock` bool, which is set to `true` when created.
 1. If a node is to be transferred/destroyed and should not be used anymore, `canLock` is set to false before node id locking, so nobody hangs on it. (Everyone before the switch of `canLock` can read/write since they are in front of the transfer/destroy thread, others will return before trying to lock the node.)
 1. In order to handle remote open safely, all remote openers are recorded with their opened handles, which will be closed if the openers failed to send heartbeat back.
+1. All opened remote nodes are assigned with a local handle ID, which is used by and unique among local os, and a remote handle ID, which is used by and unique among remote fs. These two IDs can not be same because:
+    1. If we use the same IDs, local fs might be assigned with a locally-used ID.
+    1. If we ask the master owner to allocate handle Id, even pure local fs access will need a rpc.
+    1. If we encode owner ID into handle ID, then we must change the handle ID of the transferring node, which is opened by exactly one opened, since it is transferred and can be transferred.
+ 
 
 # Plan
 1. read remote node

@@ -3,15 +3,15 @@ syntax = "proto3";
 package remotetree;
 
 service RemoteTree {
-    //rpc RLock(NodeId) returns (StatusReply) {}
-    //rpc WLock(NodeId) returns (StatusReply) {}
-    //rpc RUnlock(NodeId) returns (StatusReply) {}
-    //rpc WUnlock(NodeId) returns (StatusReply) {}
+    //rpc RLock(UInt64ID) returns (StatusReply) {}
+    //rpc WLock(UInt64ID) returns (StatusReply) {}
+    //rpc RUnlock(UInt64ID) returns (StatusReply) {}
+    //rpc WUnlock(UInt64ID) returns (StatusReply) {}
 
-    rpc FetchNode(NodeId) returns (Node) {}
+    rpc FetchNode(UInt64ID) returns (Node) {}
 
     rpc LookUpInode(LookUpInodeRequest) returns (LookUpInodeReply) {}
-    rpc GetInodeAttributes(NodeId) returns (GetInodeAttributesReply) {}
+    rpc GetInodeAttributes(UInt64ID) returns (GetInodeAttributesReply) {}
     rpc SetInodeAttributes(SetInodeAttributesRequest) returns (SetInodeAttributesReply) {}
     rpc MkDir(MkDirRequest) returns (MkDirReply) {}
     rpc CreateNode(CreateNodeRequest) returns (CreateNodeReply) {}
@@ -20,21 +20,21 @@ service RemoteTree {
     rpc Rename(RenameRequest) returns (Error) {}
     rpc RmDir(RmDirRequest) returns (Error) {}
     rpc Unlink(UnlinkRequest) returns (Error) {}
-    rpc OpenDir(NodeId) returns (Uint64Reply) {}
+    rpc OpenDir(UInt64ID) returns (Uint64Reply) {}
     rpc ReadDir(ReadXRequest) returns (ReadXReply) {}
-    rpc OpenFile(NodeId) returns (Uint64Reply) {}
+    rpc OpenFile(UInt64ID) returns (Uint64Reply) {}
     rpc ReadFile(ReadXRequest) returns (ReadXReply) {}
     rpc WriteFile(WriteXRequest) returns (Uint64Reply) {}
-    rpc ReadSymlink(NodeId) returns (ReadSymlinkReply) {}
+    rpc ReadSymlink(UInt64ID) returns (ReadSymlinkReply) {}
     rpc GetXattr(GetXattrRequest) returns (ReadXReply) {}
     rpc ListXattr(ListXattrRequest) returns (ReadXReply) {}
     rpc RemoveXattr(RemoveXattrRequest) returns (Error) {}
     rpc SetXattr(SetXattrRequest) returns (Error) {}
     rpc Fallocate(FallocateRequest) returns (Error) {}
 
-    rpc QueryOwner(NodeId) returns (Addr) {}
-    rpc Allocate(OwnerId) returns (NodeId) {}
-    rpc Deallocate(NodeId) returns (IsOK) {}
+    rpc QueryOwner(UInt64ID) returns (Addr) {}
+    rpc Allocate(OwnerId) returns (UInt64ID) {}
+    rpc Deallocate(UInt64ID) returns (IsOK) {}
     rpc RegisterOwner(Addr) returns (OwnerId) {}
     rpc RemoveOwner(OwnerId) returns (IsOK) {}
     rpc AllocateRoot(OwnerId) returns (IsOK) {}
@@ -239,7 +239,7 @@ message Error {
     string msg = 2;
 }
 
-message NodeId {
+message UInt64ID {
     uint64 id = 1;
 }
 

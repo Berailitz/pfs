@@ -139,7 +139,7 @@ func (fp *FProxy) GetInodeAttributes(
 		return fuseops.InodeAttributes{}, fp.buillNoGCliErr(addr)
 	}
 
-	reply, err := gcli.GetInodeAttributes(ctx, &pb.NodeId{
+	reply, err := gcli.GetInodeAttributes(ctx, &pb.UInt64ID{
 		Id: id,
 	})
 	if err != nil {
@@ -341,7 +341,7 @@ func (fp *FProxy) OpenDir(
 		return 0, fp.buillNoGCliErr(addr)
 	}
 
-	reply, err := gcli.OpenDir(ctx, &pb.NodeId{
+	reply, err := gcli.OpenDir(ctx, &pb.UInt64ID{
 		Id: id,
 	})
 	if err != nil {
@@ -398,7 +398,7 @@ func (fp *FProxy) OpenFile(ctx context.Context, id uint64) (handle uint64, err e
 		return 0, fp.buillNoGCliErr(addr)
 	}
 
-	reply, err := gcli.OpenFile(ctx, &pb.NodeId{
+	reply, err := gcli.OpenFile(ctx, &pb.UInt64ID{
 		Id: id,
 	})
 	if err != nil {
@@ -485,7 +485,7 @@ func (fp *FProxy) ReadSymlink(
 		return "", fp.buillNoGCliErr(addr)
 	}
 
-	reply, err := gcli.ReadSymlink(ctx, &pb.NodeId{
+	reply, err := gcli.ReadSymlink(ctx, &pb.UInt64ID{
 		Id: id,
 	})
 	if err != nil {

@@ -32,7 +32,7 @@ type RServer struct {
 	ma     *manager.RManager
 }
 
-func (s *RServer) FetchNode(ctx context.Context, req *pb.NodeId) (*pb.Node, error) {
+func (s *RServer) FetchNode(ctx context.Context, req *pb.UInt64ID) (*pb.Node, error) {
 	node, err := s.fp.LoadNode(req.Id)
 	if err != nil {
 		return &pb.Node{
@@ -58,7 +58,7 @@ func (s *RServer) LookUpInode(ctx context.Context, req *pb.LookUpInodeRequest) (
 	}, nil
 }
 
-func (s *RServer) GetInodeAttributes(ctx context.Context, req *pb.NodeId) (*pb.GetInodeAttributesReply, error) {
+func (s *RServer) GetInodeAttributes(ctx context.Context, req *pb.UInt64ID) (*pb.GetInodeAttributesReply, error) {
 	attr, err := s.fp.GetInodeAttributes(ctx, req.Id)
 	var perr *pb.Error = nil
 	if err != nil {
@@ -204,7 +204,7 @@ func (s *RServer) Unlink(ctx context.Context, req *pb.UnlinkRequest) (*pb.Error,
 	return perr, nil
 }
 
-func (s *RServer) OpenDir(ctx context.Context, req *pb.NodeId) (*pb.Uint64Reply, error) {
+func (s *RServer) OpenDir(ctx context.Context, req *pb.UInt64ID) (*pb.Uint64Reply, error) {
 	h, err := s.fp.OpenDir(ctx, req.Id)
 	var perr *pb.Error = nil
 	if err != nil {
@@ -234,7 +234,7 @@ func (s *RServer) ReadDir(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXR
 	}, nil
 }
 
-func (s *RServer) OpenFile(ctx context.Context, req *pb.NodeId) (*pb.Uint64Reply, error) {
+func (s *RServer) OpenFile(ctx context.Context, req *pb.UInt64ID) (*pb.Uint64Reply, error) {
 	h, err := s.fp.OpenFile(ctx, req.Id)
 	var perr *pb.Error = nil
 	if err != nil {
@@ -280,7 +280,7 @@ func (s *RServer) WriteFile(ctx context.Context, req *pb.WriteXRequest) (*pb.Uin
 	}, nil
 }
 
-func (s *RServer) ReadSymlink(ctx context.Context, req *pb.NodeId) (*pb.ReadSymlinkReply, error) {
+func (s *RServer) ReadSymlink(ctx context.Context, req *pb.UInt64ID) (*pb.ReadSymlinkReply, error) {
 	target, err := s.fp.ReadSymlink(ctx, req.Id)
 	var perr *pb.Error = nil
 	if err != nil {
@@ -368,15 +368,15 @@ func (s *RServer) Fallocate(ctx context.Context, req *pb.FallocateRequest) (*pb.
 	return perr, nil
 }
 
-func (s *RServer) QueryOwner(ctx context.Context, req *pb.NodeId) (*pb.Addr, error) {
+func (s *RServer) QueryOwner(ctx context.Context, req *pb.UInt64ID) (*pb.Addr, error) {
 	return &pb.Addr{Addr: s.ma.QueryOwner(req.Id)}, nil
 }
 
-func (s *RServer) Allocate(ctx context.Context, req *pb.OwnerId) (*pb.NodeId, error) {
-	return &pb.NodeId{Id: s.ma.Allocate(req.Id)}, nil
+func (s *RServer) Allocate(ctx context.Context, req *pb.OwnerId) (*pb.UInt64ID, error) {
+	return &pb.UInt64ID{Id: s.ma.Allocate(req.Id)}, nil
 }
 
-func (s *RServer) Deallocate(ctx context.Context, req *pb.NodeId) (*pb.IsOK, error) {
+func (s *RServer) Deallocate(ctx context.Context, req *pb.UInt64ID) (*pb.IsOK, error) {
 	return &pb.IsOK{Ok: s.ma.Deallocate(req.Id)}, nil
 }
 

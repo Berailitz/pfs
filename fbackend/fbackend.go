@@ -160,7 +160,7 @@ func (fb *FBackEnd) LoadNodeForRead(id uint64) (*rnode.RNode, error) {
 		}
 
 		ctx := context.Background()
-		node, err := gcli.FetchNode(ctx, &pb.NodeId{
+		node, err := gcli.FetchNode(ctx, &pb.UInt64ID{
 			Id: id,
 		})
 		if err != nil {

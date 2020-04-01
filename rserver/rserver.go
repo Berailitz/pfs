@@ -372,6 +372,10 @@ func (s *RServer) QueryOwner(ctx context.Context, req *pb.UInt64ID) (*pb.Addr, e
 	return &pb.Addr{Addr: s.ma.QueryOwner(req.Id)}, nil
 }
 
+func (s *RServer) QueryAddr(ctx context.Context, req *pb.UInt64ID) (*pb.Addr, error) {
+	return &pb.Addr{Addr: s.ma.QueryAddr(req.Id)}, nil
+}
+
 func (s *RServer) Allocate(ctx context.Context, req *pb.OwnerId) (*pb.UInt64ID, error) {
 	return &pb.UInt64ID{Id: s.ma.Allocate(req.Id)}, nil
 }

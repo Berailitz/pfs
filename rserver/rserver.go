@@ -259,7 +259,7 @@ func (s *RServer) ReadFile(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadX
 	}, nil
 }
 
-func (s *RServer) WriteFile(ctx context.Context, req *pb.WriteXRequest) (*pb.WriteXReply, error) {
+func (s *RServer) WriteFile(ctx context.Context, req *pb.WriteXRequest) (*pb.Uint64Reply, error) {
 	bytesWrite, err := s.fp.WriteFile(ctx, req.Id, req.Offset, req.Data)
 	var perr *pb.Error = nil
 	if err != nil {
@@ -268,9 +268,9 @@ func (s *RServer) WriteFile(ctx context.Context, req *pb.WriteXRequest) (*pb.Wri
 			Msg:    err.Error(),
 		}
 	}
-	return &pb.WriteXReply{
-		Err:        perr,
-		BytesWrite: bytesWrite,
+	return &pb.Uint64Reply{
+		Err: perr,
+		Num: bytesWrite,
 	}, nil
 }
 

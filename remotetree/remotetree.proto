@@ -24,7 +24,7 @@ service RemoteTree {
     rpc ReadDir(ReadXRequest) returns (ReadXReply) {}
     rpc OpenFile(NodeId) returns (Error) {}
     rpc ReadFile(ReadXRequest) returns (ReadXReply) {}
-    rpc WriteFile(WriteXRequest) returns (WriteXReply) {}
+    rpc WriteFile(WriteXRequest) returns (Uint64Reply) {}
     rpc ReadSymlink(NodeId) returns (ReadSymlinkReply) {}
     rpc GetXattr(GetXattrRequest) returns (ReadXReply) {}
     rpc ListXattr(ListXattrRequest) returns (ReadXReply) {}
@@ -166,9 +166,9 @@ message WriteXRequest {
     bytes data = 3;
 }
 
-message WriteXReply {
+message Uint64Reply {
     Error err = 1;
-    uint64 bytesWrite = 2;
+    uint64 num = 2;
 }
 
 message ReadSymlinkReply {

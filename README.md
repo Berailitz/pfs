@@ -79,6 +79,7 @@ Private workspace for Golang.
 1. Node locks are inside nodes, for the reduction of consistence complexity.
 1. Node has a `canLock` bool, which is set to `true` when created.
 1. If a node is to be transferred/destroyed and should not be used anymore, `canLock` is set to false before node id locking, so nobody hangs on it. (Everyone before the switch of `canLock` can read/write since they are in front of the transfer/destroy thread, others will return before trying to lock the node.)
+1. In order to handle remote open safely, all remote openers are recorded with their opened handles, which will be closed if the openers failed to send heartbeat back.
 
 # Plan
 1. read remote node

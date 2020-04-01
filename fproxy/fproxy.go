@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/Berailitz/pfs/rnode"
 
@@ -20,10 +21,17 @@ import (
 	"github.com/jacobsa/fuse/fuseops"
 )
 
+type remoteHandle struct {
+	handle uint64
+	owner  uint64
+}
+
 type FProxy struct {
 	fb   *fbackend.FBackEnd
 	pcli *rclient.RClient
 	pool *gclipool.GCliPool
+
+	remoteHandleMap sync.Map // [uint64]remoteHandle
 }
 
 type FPErr struct {
@@ -415,6 +423,30 @@ func (fp *FProxy) ReadDir(
 	return 0, nil, fp.decodeError(reply.Err)
 }
 
+func (fp *FProxy) ReleaseHandle(
+	ctx context.Context,
+	h uint64) error {
+	if rh := fp.LoadRemoteHandle(ctx, h); rh != nil {
+		addr := fp.pcli.QueryAddr(rh.owner)
+		gcli := fp.pool.Load(addr)
+		if gcli == nil {
+			return fp.buillNoGCliErr(addr)
+		}
+
+		perr, err := gcli.ReleaseHandle(ctx, &pb.UInt64ID{
+			Id: rh.handle,
+		})
+		if err != nil {
+			log.Printf("rpc release handle error: local id=%v, remote id=%v, err=%+v",
+				h, rh.handle, err)
+			return err
+		}
+		return fp.decodeError(perr)
+	}
+
+	return fp.fb.ReleaseHandle(ctx, h)
+}
+
 func (fp *FProxy) OpenFile(ctx context.Context, id uint64) (handle uint64, err error) {
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.OpenFile(ctx, id)
@@ -653,6 +685,15 @@ func (fp *FProxy) Fallocate(ctx context.Context,
 func (fp *FProxy) IsLocalNode(ctx context.Context, id uint64) bool {
 	_, err := fp.fb.LoadLocalNodeForRead(id)
 	return err == nil
+}
+
+func (fp *FProxy) LoadRemoteHandle(ctx context.Context, id uint64) *remoteHandle {
+	if out, ok := fp.remoteHandleMap.Load(id); ok {
+		if rh, ok := out.(remoteHandle); ok {
+			return &rh
+		}
+	}
+	return nil
 }
 
 func (fp *FProxy) isChildLocal(ctx context.Context, parentId uint64, name string) bool {

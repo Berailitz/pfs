@@ -250,6 +250,18 @@ func (s *RServer) ReadDir(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXR
 	}, nil
 }
 
+func (s *RServer) ReleaseHandle(ctx context.Context, req *pb.UInt64ID) (*pb.Error, error) {
+	err := s.fp.ReleaseHandle(ctx, req.Id)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return perr, nil
+}
+
 func (s *RServer) OpenFile(ctx context.Context, req *pb.UInt64ID) (*pb.Uint64Reply, error) {
 	h, err := s.fp.OpenFile(ctx, req.Id)
 	var perr *pb.Error = nil

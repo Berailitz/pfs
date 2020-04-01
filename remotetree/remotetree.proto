@@ -23,6 +23,7 @@ service RemoteTree {
     rpc Unlink(UnlinkRequest) returns (Error) {}
     rpc OpenDir(UInt64ID) returns (Uint64Reply) {}
     rpc ReadDir(ReadXRequest) returns (ReadXReply) {}
+    rpc ReleaseHandle(UInt64ID) returns (Error) {}
     rpc OpenFile(UInt64ID) returns (Uint64Reply) {}
     rpc ReadFile(ReadXRequest) returns (ReadXReply) {}
     rpc WriteFile(WriteXRequest) returns (Uint64Reply) {}

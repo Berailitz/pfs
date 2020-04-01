@@ -373,6 +373,20 @@ func (lfs *LFS) ReadDir(
 	return nil
 }
 
+func (lfs *LFS) ReleaseDirHandle(
+	ctx context.Context,
+	op *fuseops.ReleaseDirHandleOp) error {
+	log.Printf("release dir: op=%+v", op)
+	if err := lfs.fp.ReleaseHandle(ctx, uint64(op.Handle)); err != nil {
+		log.Printf("release dir error: op=%+v, err=%+v",
+			op, err)
+		return err
+	}
+
+	log.Printf("release dir success: op=%+v", op)
+	return nil
+}
+
 func (lfs *LFS) OpenFile(
 	ctx context.Context,
 	op *fuseops.OpenFileOp) error {
@@ -429,6 +443,19 @@ func (lfs *LFS) WriteFile(
 
 	log.Printf("write file success: id=%v, offset=%v, bytesWrite=%v", op.Inode, op.Offset, bytesWrite)
 	return err
+}
+
+func (lfs *LFS) ReleaseFileHandle(
+	ctx context.Context,
+	op *fuseops.ReleaseFileHandleOp) error {
+	if err := lfs.fp.ReleaseHandle(ctx, uint64(op.Handle)); err != nil {
+		log.Printf("release file error: op=%+v, err=%+v",
+			op, err)
+		return err
+	}
+
+	log.Printf("release file success: op=%+v", op)
+	return nil
 }
 
 func (lfs *LFS) ReadSymlink(

@@ -35,6 +35,20 @@ func (c *RClient) QueryOwner(nodeID uint64) string {
 	return addr.Addr
 }
 
+func (c *RClient) QueryAddr(ownerID uint64) string {
+	log.Printf("query addr: ownerID=%v", ownerID)
+	ctx := context.Background()
+	addr, err := c.gcli.QueryAddr(ctx, &pb.UInt64ID{
+		Id: ownerID,
+	})
+	if err != nil {
+		log.Printf("query addr error: ownerID=%v, err=%+v", ownerID, err)
+		return ""
+	}
+	log.Printf("query addr success: ownerID=%v", ownerID)
+	return addr.Addr
+}
+
 func (c *RClient) Allocate() uint64 {
 	ctx := context.Background()
 	c.mustHaveID()

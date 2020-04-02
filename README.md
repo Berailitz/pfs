@@ -87,14 +87,11 @@ Private workspace for Golang.
  1. No file operation needs to manage locks, except for open/create/release, for all other operations are executed after open/create and before close. 
 
 # Plan
-1. read remote node
-1. transfer node
-1. remote lock
-1. read/write lock
-1. mirror a dir
-1. dump to dir
+1. node lock
+1. heartbeat
+1. read remote node/remote lock
+1. transfer node/write remote node
+1. mirror a dir/load dir
+1. dump to dir/dump dir
 1. save location/multi-client
 1. election
-
-# TODO
-1. mirror a dir

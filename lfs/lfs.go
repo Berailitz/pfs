@@ -333,17 +333,17 @@ func (lfs *LFS) Unlink(
 func (lfs *LFS) OpenDir(
 	ctx context.Context,
 	op *fuseops.OpenDirOp) error {
-	log.Printf("opendir: id=%v", op.Inode)
+	log.Printf("opendir: id=%v, flags=%v", op.Inode, op.Flags.String())
 	node := uint64(op.Inode)
 
 	handle, err := lfs.fp.OpenDir(ctx, node)
 	if err != nil {
-		log.Printf("opendir error: id=%v, err=%+v", op.Inode, err)
+		log.Printf("opendir error: id=%v, flags=%v, err=%+v", op.Inode, op.Flags.String(), err)
 		return err
 	}
 
 	if handle == 0 {
-		log.Printf("opendir error: node=%v, err=%+v", node, err)
+		log.Printf("opendir error: node=%v, flags=%v, err=%+v", node, op.Flags.String(), err)
 		return err
 	}
 	op.Handle = fuseops.HandleID(handle)
@@ -390,7 +390,7 @@ func (lfs *LFS) ReleaseDirHandle(
 func (lfs *LFS) OpenFile(
 	ctx context.Context,
 	op *fuseops.OpenFileOp) error {
-	log.Printf("openfile: id=%v", op.Inode)
+	log.Printf("openfile: id=%v, flags=%v", op.Inode, op.Flags.String())
 	node := uint64(op.Inode)
 
 	handle, err := lfs.fp.OpenFile(ctx, node)
@@ -400,7 +400,7 @@ func (lfs *LFS) OpenFile(
 	}
 
 	if handle == 0 {
-		log.Printf("openfile error: node=%v, err=%+v", node, err)
+		log.Printf("openfile error: node=%v, flags=%v, err=%+v", node, op.Flags.String(), err)
 		return err
 	}
 	op.Handle = fuseops.HandleID(handle)

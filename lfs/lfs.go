@@ -221,11 +221,11 @@ func (lfs *LFS) CreateFile(
 	ctx context.Context,
 	op *fuseops.CreateFileOp) error {
 	entry, handle, err := lfs.fp.CreateFile(ctx, uint64(op.Parent), op.Name, op.Mode)
-	log.Printf("create file: parent=%v, name=%v, mode=%v, handle=%v",
-		op.Parent, op.Name, op.Mode, handle)
+	log.Printf("create file: parent=%v, name=%v, mode=%v, handle=%v, flags=%v",
+		op.Parent, op.Name, op.Mode, handle, op.Flags.String())
 	if err != nil {
-		log.Printf("create file error: parent=%v, name=%v, mode=%v, handle=%v, err=%+v",
-			op.Parent, op.Name, op.Mode, handle, err)
+		log.Printf("create file error: parent=%v, name=%v, mode=%v, handle=%v, flags=%v, err=%+v",
+			op.Parent, op.Name, op.Mode, handle, op.Flags.String(), err)
 		return err
 	}
 

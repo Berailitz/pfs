@@ -44,6 +44,18 @@ func (s *RServer) FetchNode(ctx context.Context, req *pb.UInt64ID) (*pb.Node, er
 	return utility.ToPbNode(node), nil
 }
 
+func (s *RServer) UnlockNode(ctx context.Context, req *pb.UnlockNodeRequest) (*pb.Error, error) {
+	err := s.fp.UnlockNode(ctx, req.Id, req.IsRead)
+	var perr *pb.Error = nil
+	if err != nil {
+		perr = &pb.Error{
+			Status: 1,
+			Msg:    err.Error(),
+		}
+	}
+	return perr, nil
+}
+
 func (s *RServer) LookUpInode(ctx context.Context, req *pb.LookUpInodeRequest) (*pb.LookUpInodeReply, error) {
 	id, attr, err := s.fp.LookUpInode(ctx, req.ParentID, req.Name)
 	var perr *pb.Error = nil

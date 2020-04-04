@@ -96,6 +96,32 @@ func (fp *FProxy) LoadNode(ctx context.Context, id uint64) (*rnode.RNode, error)
 	return fp.fb.LoadNodeForRead(ctx, id)
 }
 
+func (fp *FProxy) UnlockNode(ctx context.Context, id uint64, isRead bool) error {
+	if node, err := fp.fb.LoadLocalNode(ctx, id); err != nil {
+		if isRead {
+			return fp.fb.RUnlockNode(ctx, node)
+		} else {
+			return fp.fb.UnlockNode(ctx, node)
+		}
+	}
+
+	addr := fp.pcli.QueryOwner(id)
+	gcli := fp.pool.Load(addr)
+	if gcli == nil {
+		return fp.buillNoGCliErr(addr)
+	}
+
+	perr, err := gcli.UnlockNode(ctx, &pb.UnlockNodeRequest{
+		Id:     id,
+		IsRead: isRead,
+	})
+	if err != nil {
+		log.Printf("rpc unlock node error: id=%v, isRead=%v, err=%+V", id, isRead, err)
+		return err
+	}
+	return utility.DecodeError(perr)
+}
+
 func (fp *FProxy) StatFS(
 	ctx context.Context,
 	op *fuseops.StatFSOp) error {

@@ -126,8 +126,8 @@ func (s *RServer) CreateNode(ctx context.Context, req *pb.CreateNodeRequest) (*p
 	}, nil
 }
 
-func (s *RServer) CreateFile(ctx context.Context, req *pb.CreateNodeRequest) (*pb.CreateFileReply, error) {
-	entry, handle, err := s.fp.CreateFile(ctx, req.Id, req.Name, os.FileMode(req.Mode))
+func (s *RServer) CreateFile(ctx context.Context, req *pb.CreateFileRequest) (*pb.CreateFileReply, error) {
+	entry, handle, err := s.fp.CreateFile(ctx, req.Id, req.Name, os.FileMode(req.Mode), req.Flags)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -220,8 +220,8 @@ func (s *RServer) Unlink(ctx context.Context, req *pb.UnlinkRequest) (*pb.Error,
 	return perr, nil
 }
 
-func (s *RServer) OpenDir(ctx context.Context, req *pb.UInt64ID) (*pb.Uint64Reply, error) {
-	h, err := s.fp.OpenDir(ctx, req.Id)
+func (s *RServer) OpenDir(ctx context.Context, req *pb.OpenXRequest) (*pb.Uint64Reply, error) {
+	h, err := s.fp.OpenDir(ctx, req.Id, req.Flags)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{
@@ -262,8 +262,8 @@ func (s *RServer) ReleaseHandle(ctx context.Context, req *pb.UInt64ID) (*pb.Erro
 	return perr, nil
 }
 
-func (s *RServer) OpenFile(ctx context.Context, req *pb.UInt64ID) (*pb.Uint64Reply, error) {
-	h, err := s.fp.OpenFile(ctx, req.Id)
+func (s *RServer) OpenFile(ctx context.Context, req *pb.OpenXRequest) (*pb.Uint64Reply, error) {
+	h, err := s.fp.OpenFile(ctx, req.Id, req.Flags)
 	var perr *pb.Error = nil
 	if err != nil {
 		perr = &pb.Error{

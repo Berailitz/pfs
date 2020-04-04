@@ -482,7 +482,8 @@ func (fb *FBackEnd) CreateFile(
 	ctx context.Context,
 	parentID uint64,
 	name string,
-	mode os.FileMode) (fuseops.ChildInodeEntry, uint64, error) {
+	mode os.FileMode,
+	flags uint32) (fuseops.ChildInodeEntry, uint64, error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -770,7 +771,8 @@ func (fb *FBackEnd) Unlink(
 
 func (fb *FBackEnd) OpenDir(
 	ctx context.Context,
-	id uint64) (handle uint64, err error) {
+	id uint64,
+	flags uint32) (handle uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -837,7 +839,8 @@ func (fb *FBackEnd) ReleaseDirHandle(
 
 func (fb *FBackEnd) OpenFile(
 	ctx context.Context,
-	id uint64) (handle uint64, err error) {
+	id uint64,
+	flags uint32) (handle uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 

@@ -247,9 +247,10 @@ func (fp *FProxy) CreateFile(
 	ctx context.Context,
 	parentID uint64,
 	name string,
-	mode os.FileMode) (fuseops.ChildInodeEntry, uint64, error) {
+	mode os.FileMode,
+	flags uint32) (fuseops.ChildInodeEntry, uint64, error) {
 	if fp.IsLocalNode(ctx, parentID) {
-		return fp.fb.CreateFile(ctx, parentID, name, mode)
+		return fp.fb.CreateFile(ctx, parentID, name, mode, flags)
 	}
 
 	addr := fp.pcli.QueryOwner(parentID)
@@ -258,10 +259,11 @@ func (fp *FProxy) CreateFile(
 		return fuseops.ChildInodeEntry{}, 0, fp.buillNoGCliErr(addr)
 	}
 
-	reply, err := gcli.CreateFile(ctx, &pb.CreateNodeRequest{
-		Id:   parentID,
-		Name: name,
-		Mode: uint32(mode),
+	reply, err := gcli.CreateFile(ctx, &pb.CreateFileRequest{
+		Id:    parentID,
+		Name:  name,
+		Mode:  uint32(mode),
+		Flags: flags,
 	})
 	if err != nil {
 		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
@@ -366,9 +368,10 @@ func (fp *FProxy) Unlink(
 
 func (fp *FProxy) OpenDir(
 	ctx context.Context,
-	id uint64) (handle uint64, err error) {
+	id uint64,
+	flags uint32) (handle uint64, err error) {
 	if fp.IsLocalNode(ctx, id) {
-		return fp.fb.OpenDir(ctx, id)
+		return fp.fb.OpenDir(ctx, id, flags)
 	}
 
 	addr := fp.pcli.QueryOwner(id)
@@ -377,8 +380,9 @@ func (fp *FProxy) OpenDir(
 		return 0, fp.buillNoGCliErr(addr)
 	}
 
-	reply, err := gcli.OpenDir(ctx, &pb.UInt64ID{
-		Id: id,
+	reply, err := gcli.OpenDir(ctx, &pb.OpenXRequest{
+		Id:    id,
+		Flags: flags,
 	})
 	if err != nil {
 		log.Printf("rpc opendir error: id=%v, err=%+v",
@@ -447,9 +451,9 @@ func (fp *FProxy) ReleaseHandle(
 	return fp.fb.ReleaseHandle(ctx, h)
 }
 
-func (fp *FProxy) OpenFile(ctx context.Context, id uint64) (handle uint64, err error) {
+func (fp *FProxy) OpenFile(ctx context.Context, id uint64, flags uint32) (handle uint64, err error) {
 	if fp.IsLocalNode(ctx, id) {
-		return fp.fb.OpenFile(ctx, id)
+		return fp.fb.OpenFile(ctx, id, flags)
 	}
 
 	addr := fp.pcli.QueryOwner(id)
@@ -458,8 +462,9 @@ func (fp *FProxy) OpenFile(ctx context.Context, id uint64) (handle uint64, err e
 		return 0, fp.buillNoGCliErr(addr)
 	}
 
-	reply, err := gcli.OpenFile(ctx, &pb.UInt64ID{
-		Id: id,
+	reply, err := gcli.OpenFile(ctx, &pb.OpenXRequest{
+		Id:    id,
+		Flags: flags,
 	})
 	if err != nil {
 		log.Printf("rpc openfile error: id=%v, err=%+v",

@@ -15,16 +15,16 @@ service RemoteTree {
     rpc SetInodeAttributes(SetInodeAttributesRequest) returns (SetInodeAttributesReply) {}
     rpc MkDir(MkDirRequest) returns (MkDirReply) {}
     rpc CreateNode(CreateNodeRequest) returns (CreateNodeReply) {}
-    rpc CreateFile(CreateNodeRequest) returns (CreateFileReply) {}
+    rpc CreateFile(CreateFileRequest) returns (CreateFileReply) {}
     rpc CreateSymlink(CreateSymlinkRequest) returns (CreateSymlinkReply) {}
     rpc CreateLink(CreateLinkRequest) returns (CreateLinkReply) {}
     rpc Rename(RenameRequest) returns (Error) {}
     rpc RmDir(RmDirRequest) returns (Error) {}
     rpc Unlink(UnlinkRequest) returns (Error) {}
-    rpc OpenDir(UInt64ID) returns (Uint64Reply) {}
+    rpc OpenDir(OpenXRequest) returns (Uint64Reply) {}
     rpc ReadDir(ReadXRequest) returns (ReadXReply) {}
     rpc ReleaseHandle(UInt64ID) returns (Error) {}
-    rpc OpenFile(UInt64ID) returns (Uint64Reply) {}
+    rpc OpenFile(OpenXRequest) returns (Uint64Reply) {}
     rpc ReadFile(ReadXRequest) returns (ReadXReply) {}
     rpc WriteFile(WriteXRequest) returns (Uint64Reply) {}
     rpc ReadSymlink(UInt64ID) returns (ReadSymlinkReply) {}
@@ -106,6 +106,13 @@ message CreateNodeReply {
     ChildInodeEntry entry = 2;
 }
 
+message CreateFileRequest {
+    uint64 id = 1;
+    string name = 2;
+    uint32 mode = 3;
+    uint32 flags = 4;
+}
+
 message CreateFileReply {
     Error err = 1;
     ChildInodeEntry entry = 2;
@@ -150,6 +157,11 @@ message RmDirRequest {
 message UnlinkRequest {
     uint64 parent = 1;
     string name = 2;
+}
+
+message OpenXRequest {
+    uint64 id = 1;
+    uint32 flags = 2;
 }
 
 message RemoveXattrRequest {

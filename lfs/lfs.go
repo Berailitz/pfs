@@ -220,7 +220,7 @@ func (lfs *LFS) MkNode(
 func (lfs *LFS) CreateFile(
 	ctx context.Context,
 	op *fuseops.CreateFileOp) error {
-	entry, handle, err := lfs.fp.CreateFile(ctx, uint64(op.Parent), op.Name, op.Mode)
+	entry, handle, err := lfs.fp.CreateFile(ctx, uint64(op.Parent), op.Name, op.Mode, uint32(op.Flags))
 	log.Printf("create file: parent=%v, name=%v, mode=%v, handle=%v, flags=%v",
 		op.Parent, op.Name, op.Mode, handle, op.Flags.String())
 	if err != nil {
@@ -336,7 +336,7 @@ func (lfs *LFS) OpenDir(
 	log.Printf("opendir: id=%v, flags=%v", op.Inode, op.Flags.String())
 	node := uint64(op.Inode)
 
-	handle, err := lfs.fp.OpenDir(ctx, node)
+	handle, err := lfs.fp.OpenDir(ctx, node, uint32(op.Flags))
 	if err != nil {
 		log.Printf("opendir error: id=%v, flags=%v, err=%+v", op.Inode, op.Flags.String(), err)
 		return err
@@ -393,7 +393,7 @@ func (lfs *LFS) OpenFile(
 	log.Printf("openfile: id=%v, flags=%v", op.Inode, op.Flags.String())
 	node := uint64(op.Inode)
 
-	handle, err := lfs.fp.OpenFile(ctx, node)
+	handle, err := lfs.fp.OpenFile(ctx, node, uint32(op.Flags))
 	if err != nil {
 		log.Printf("openfile error: op=%#v, err=%+v", op, err)
 		return err

@@ -8,7 +8,7 @@ service RemoteTree {
     //rpc RUnlock(UInt64ID) returns (StatusReply) {}
     //rpc WUnlock(UInt64ID) returns (StatusReply) {}
 
-    rpc FetchNode(UInt64ID) returns (Node) {}
+    rpc FetchNode(NodeIsReadRequest) returns (Node) {}
     rpc UnlockNode(NodeIsReadRequest) returns (Error) {}
 
     rpc LookUpInode(LookUpInodeRequest) returns (LookUpInodeReply) {}

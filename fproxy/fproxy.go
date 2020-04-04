@@ -92,8 +92,12 @@ func (fp *FProxy) buillNotSupportedErr(operation string) error {
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
 
-func (fp *FProxy) LoadNode(ctx context.Context, id uint64) (*rnode.RNode, error) {
-	return fp.fb.LoadNodeForRead(ctx, id)
+func (fp *FProxy) LoadNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
+	if isRead {
+		return fp.fb.LoadNodeForRead(ctx, id)
+	} else {
+		return fp.fb.LoadNodeForWrite(ctx, id)
+	}
 }
 
 func (fp *FProxy) UnlockNode(ctx context.Context, id uint64, isRead bool) error {

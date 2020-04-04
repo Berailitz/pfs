@@ -34,8 +34,8 @@ type RServer struct {
 	ma     *manager.RManager
 }
 
-func (s *RServer) FetchNode(ctx context.Context, req *pb.UInt64ID) (*pb.Node, error) {
-	node, err := s.fp.LoadNode(ctx, req.Id)
+func (s *RServer) FetchNode(ctx context.Context, req *pb.NodeIsReadRequest) (*pb.Node, error) {
+	node, err := s.fp.LoadNode(ctx, req.Id, req.IsRead)
 	if err != nil {
 		return &pb.Node{
 			NID: 0,

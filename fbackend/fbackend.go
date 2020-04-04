@@ -129,15 +129,25 @@ func NewFBackEnd(
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
-func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (*rnode.RNode, error) {
+func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
 	node, err := fb.LoadLocalNode(ctx, id)
+
 	if err != nil {
-		log.Printf("load node for write load local error: id=%v, err=%+v", id, err)
-		return nil, err
+		log.Printf("load node load local error: id=%v, isRead=%v, err=%+v", id, isRead, err)
+		node, err = fb.LoadRemoteNode(ctx, id, isRead)
+		if err != nil {
+			log.Printf("load node load remote error: id=%v, isRead=%v, err=%+v", id, isRead, err)
+			return nil, err
+		}
 	}
 
-	if err := node.Lock(); err != nil {
-		log.Printf("load node for write lock error: id=%v, err=%+v", id, err)
+	if isRead {
+		err = node.RLock()
+	} else {
+		err = node.Lock()
+	}
+	if err != nil {
+		log.Printf("load node lock error: id=%v, isRead=%v, err=%+v", id, isRead, err)
 		return nil, err
 	}
 	return node, nil
@@ -153,35 +163,35 @@ func (fb *FBackEnd) LoadLocalNode(ctx context.Context, id uint64) (*rnode.RNode,
 	return nil, &FBackEndErr{msg: fmt.Sprintf("load local node not exist error: id=%v", id)}
 }
 
-func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (*rnode.RNode, error) {
-	node, err := fb.LoadLocalNode(ctx, id)
+func (fb *FBackEnd) LoadRemoteNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
+	addr := fb.mcli.QueryOwner(id)
+	gcli := fb.pool.Load(addr)
+	if gcli == nil {
+		return nil, &FBackEndErr{msg: fmt.Sprintf("load node no gcli error: id=%v, isRead=%v", id, isRead)}
+	}
+
+	pbNode, err := gcli.FetchNode(ctx, &pb.NodeIsReadRequest{
+		Id: id,
+	})
 	if err != nil {
-		log.Printf("load node for read load local error: id=%v, err=%+v", id, err)
-
-		addr := fb.mcli.QueryOwner(id)
-		gcli := fb.pool.Load(addr)
-		if gcli == nil {
-			return nil, &FBackEndErr{msg: fmt.Sprintf("load node for read no gcli error: id=%v", id)}
-		}
-
-		ctx := context.Background()
-		pbNode, err := gcli.FetchNode(ctx, &pb.UInt64ID{
-			Id: id,
-		})
-		if err != nil {
-			log.Printf("rpc fetch node error: id=%v, err=%+v",
-				id, err)
-			return nil, &FBackEndErr{msg: fmt.Sprintf("load node for read rpc error: id=%v, err=%+v", id, err)}
-		}
-
-		node = utility.FromPbNode(pbNode)
+		log.Printf("rpc fetch node error: id=%v, err=%+v",
+			id, err)
+		return nil, &FBackEndErr{msg: fmt.Sprintf("load node rpc error: id=%v, isRead=%v, err=%+v", id, isRead, err)}
 	}
 
-	if err = node.RLock(); err != nil {
-		log.Printf("load node for read rlock error: id=%v, err=%+v", id, err)
-		return nil, err
+	if node := utility.FromPbNode(pbNode); node != nil {
+		return node, nil
+	} else {
+		return nil, &FBackEndErr{msg: fmt.Sprintf("load node parse fail error: id=%v, isRead=%v", id, isRead)}
 	}
-	return node, nil
+}
+
+func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
+	return fb.doLoadNodeForX(ctx, id, true)
+}
+
+func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
+	return fb.doLoadNodeForX(ctx, id, false)
 }
 
 func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, isRead bool) error {

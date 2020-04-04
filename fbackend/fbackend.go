@@ -251,18 +251,6 @@ func (fb *FBackEnd) unlock() {
 	fb.mu.Unlock()
 }
 
-// Find the given rnode.RNode. Panic if it doesn't exist.
-//
-// LOCKS_REQUIRED(fb.mu)
-func (fb *FBackEnd) mustLoadInodeForWrite(id uint64) *rnode.RNode {
-	// TODO: remove mustLoadInodeForWrite
-	if node, err := fb.LoadNodeForWrite(id); err == nil {
-		return node
-	}
-	log.Fatalf("Unknown rnode.RNode: %v", id)
-	return nil
-}
-
 // Allocate a new rnode.RNode, assigning it an ID that is not in use.
 //
 // LOCKS_REQUIRED(fb.mu)
@@ -635,19 +623,12 @@ func (fb *FBackEnd) Rename(
 	op fuseops.RenameOp) (err error) {
 	fb.lock()
 	defer fb.unlock()
-	defer func() {
-		if rout := recover(); rout != nil {
-			if derr, ok := rout.(error); ok {
-				log.Printf("rename error: err=%+v", err)
-				err = derr
-			}
-			err = &FBackEndErr{msg: fmt.Sprintf("rename error: %#v", rout)}
-			log.Printf(err.Error())
-		}
-	}()
 
 	// Ask the old parent for the child's rnode.RNode ID and type.
-	oldParent := fb.mustLoadInodeForWrite(uint64(op.OldParent))
+	oldParent, err := fb.LoadNodeForWrite(uint64(op.OldParent))
+	if err != nil {
+		return err
+	}
 	childID, childType, ok := oldParent.LookUpChild(op.OldName)
 
 	if !ok {
@@ -657,15 +638,22 @@ func (fb *FBackEnd) Rename(
 
 	// If the new name exists already in the new parent, make sure it's not a
 	// non-empty directory, then delete it.
-	newParent := fb.mustLoadInodeForWrite(uint64(op.NewParent))
+	newParent, err := fb.LoadNodeForWrite(uint64(op.NewParent))
+	if err != nil {
+		return err
+	}
 	existingID, _, ok := newParent.LookUpChild(op.NewName)
 	if ok {
-		existing := fb.mustLoadInodeForWrite(existingID)
+		var existing *rnode.RNode
+		existing, err = fb.LoadNodeForWrite(existingID)
+		if err != nil {
+			return err
+		}
 
 		var buf [4096]byte
 		if existing.IsDir() && existing.ReadDir(buf[:], 0) > 0 {
 			err = fuse.ENOTEMPTY
-			return
+			return err
 		}
 
 		newParent.RemoveChild(op.NewName)
@@ -688,19 +676,12 @@ func (fb *FBackEnd) RmDir(
 	op fuseops.RmDirOp) (err error) {
 	fb.lock()
 	defer fb.unlock()
-	defer func() {
-		if rout := recover(); rout != nil {
-			if derr, ok := rout.(error); ok {
-				log.Printf("rmdir error: err=%+v", err)
-				err = derr
-			}
-			err = &FBackEndErr{msg: fmt.Sprintf("rmdir error: %#v", rout)}
-			log.Printf(err.Error())
-		}
-	}()
 
 	// Grab the parent, which we will update shortly.
-	parent := fb.mustLoadInodeForWrite(uint64(op.Parent))
+	parent, err := fb.LoadNodeForWrite(uint64(op.Parent))
+	if err != nil {
+		return err
+	}
 
 	// Find the child within the parent.
 	childID, _, ok := parent.LookUpChild(op.Name)
@@ -710,7 +691,10 @@ func (fb *FBackEnd) RmDir(
 	}
 
 	// Grab the child.
-	child := fb.mustLoadInodeForWrite(childID)
+	child, err := fb.LoadNodeForWrite(childID)
+	if err != nil {
+		return err
+	}
 
 	// Make sure the child is empty.
 	if child.Len() != 0 {
@@ -734,19 +718,12 @@ func (fb *FBackEnd) Unlink(
 	op fuseops.UnlinkOp) (err error) {
 	fb.lock()
 	defer fb.unlock()
-	defer func() {
-		if rout := recover(); rout != nil {
-			if derr, ok := rout.(error); ok {
-				log.Printf("unlink error: err=%+v", err)
-				err = derr
-			}
-			err = &FBackEndErr{msg: fmt.Sprintf("unlink error: %#v", rout)}
-			log.Printf(err.Error())
-		}
-	}()
 
 	// Grab the parent, which we will update shortly.
-	parent := fb.mustLoadInodeForWrite(uint64(op.Parent))
+	parent, err := fb.LoadNodeForWrite(uint64(op.Parent))
+	if err != nil {
+		return err
+	}
 
 	// Find the child within the parent.
 	childID, _, ok := parent.LookUpChild(op.Name)
@@ -756,7 +733,10 @@ func (fb *FBackEnd) Unlink(
 	}
 
 	// Grab the child.
-	child := fb.mustLoadInodeForWrite(childID)
+	child, err := fb.LoadNodeForWrite(childID)
+	if err != nil {
+		return err
+	}
 
 	// Remove the entry within the parent.
 	parent.RemoveChild(op.Name)

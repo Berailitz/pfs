@@ -1,6 +1,7 @@
 package utility
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -130,4 +131,11 @@ func FromPbNode(node *pb.Node) *rnode.RNode {
 		NEntries:  FromPbDirents(node.NEntries),
 		NContents: node.NContents,
 	}
+}
+
+func DecodeError(perr *pb.Error) error {
+	if perr != nil && perr.Status != 0 {
+		return fmt.Errorf(perr.Msg)
+	}
+	return nil
 }

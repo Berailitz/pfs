@@ -216,6 +216,7 @@ func NewRNode(attrs fuseops.InodeAttributes, id uint64) *RNode {
 	}
 }
 
+// TODO: check at times
 func (rn *RNode) CheckInvariants() {
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
 	if !(rn.Attrs().Mode&^(os.ModePerm|os.ModeDir|os.ModeSymlink) == 0) {

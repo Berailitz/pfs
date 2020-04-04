@@ -100,13 +100,9 @@ func (fp *FProxy) LoadNode(ctx context.Context, id uint64, isRead bool) (*rnode.
 	}
 }
 
-func (fp *FProxy) UnlockNode(ctx context.Context, id uint64, isRead bool) error {
+func (fp *FProxy) RUnlockNode(ctx context.Context, id uint64) error {
 	if node, err := fp.fb.LoadLocalNode(ctx, id); err != nil {
-		if isRead {
-			return fp.fb.RUnlockNode(ctx, node)
-		} else {
-			return fp.fb.UnlockNode(ctx, node)
-		}
+		return fp.fb.RUnlockNode(ctx, node)
 	}
 
 	addr := fp.pcli.QueryOwner(id)
@@ -115,12 +111,35 @@ func (fp *FProxy) UnlockNode(ctx context.Context, id uint64, isRead bool) error 
 		return fp.buillNoGCliErr(addr)
 	}
 
-	perr, err := gcli.UnlockNode(ctx, &pb.NodeIsReadRequest{
-		Id:     id,
-		IsRead: isRead,
+	perr, err := gcli.RUnlockNode(ctx, &pb.UInt64ID{
+		Id: id,
 	})
 	if err != nil {
-		log.Printf("rpc unlock node error: id=%v, isRead=%v, err=%+V", id, isRead, err)
+		log.Printf("rpc runlock node error: id=%v, err=%+V", id, err)
+		return err
+	}
+	return utility.DecodeError(perr)
+}
+
+func (fp *FProxy) UnlockNode(ctx context.Context, node *rnode.RNode) error {
+	id := node.ID()
+	if localNode, err := fp.fb.LoadLocalNode(ctx, id); err != nil {
+		if err := fp.fb.UpdateNode(ctx, node); err != nil {
+			log.Printf("unlock node update node error: id=%v, err=%+V", id, err)
+			return err
+		}
+		return fp.fb.UnlockNode(ctx, localNode)
+	}
+
+	addr := fp.pcli.QueryOwner(id)
+	gcli := fp.pool.Load(addr)
+	if gcli == nil {
+		return fp.buillNoGCliErr(addr)
+	}
+
+	perr, err := gcli.UnlockNode(ctx, utility.ToPbNode(node))
+	if err != nil {
+		log.Printf("rpc unlock node error: id=%v, err=%+V", id, err)
 		return err
 	}
 	return utility.DecodeError(perr)

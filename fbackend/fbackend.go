@@ -213,10 +213,15 @@ func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, isRead 
 		return &FBackEndErr{msg: fmt.Sprintf("unlock node no gcli error: id=%v, isRead=%v", id, isRead)}
 	}
 
-	perr, err := gcli.UnlockNode(ctx, &pb.NodeIsReadRequest{
-		Id:     id,
-		IsRead: isRead,
-	})
+	var perr *pb.Error
+	var err error
+	if isRead {
+		perr, err = gcli.RUnlockNode(ctx, &pb.UInt64ID{
+			Id: id,
+		})
+	} else {
+		perr, err = gcli.UnlockNode(ctx, utility.ToPbNode(node))
+	}
 	if err != nil {
 		log.Printf("unlock node error: id=%v, isRead=%v, err=%+v", id, isRead, err)
 		return err
@@ -235,6 +240,20 @@ func (fb *FBackEnd) UnlockNode(ctx context.Context, node *rnode.RNode) error {
 
 func (fb *FBackEnd) RUnlockNode(ctx context.Context, node *rnode.RNode) error {
 	return fb.doUnlockNode(ctx, node, true)
+}
+
+func (fb *FBackEnd) UpdateNode(ctx context.Context, node *rnode.RNode) error {
+	localNode, err := fb.LoadLocalNode(ctx, node.ID())
+	if err != nil {
+		log.Printf("update node load error: id=%v, err=%v", node.ID(), err)
+		return err
+	}
+
+	oldLock := localNode.NLock
+	*localNode = *node
+	localNode.NLock = oldLock
+	log.Printf("update node success: id=%v, err=%v", node.ID(), err)
+	return nil
 }
 
 func (fb *FBackEnd) IsLocal(ctx context.Context, id uint64) bool {

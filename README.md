@@ -87,7 +87,6 @@ Private workspace for Golang.
  1. No file operation needs to manage locks, except for open/create/release, for all other operations are executed after open/create and before close. 
 
 # Plan
-1. use `deallocateInode`
 1. manager use `ctx`
 1. node lock
 1. heartbeat

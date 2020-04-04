@@ -823,6 +823,11 @@ func (fb *FBackEnd) RmDir(
 
 	// Mark the child as unlinked.
 	child.DecrNlink()
+	if child.IsLost() {
+		if err := fb.deallocateInode(ctx, childID); err != nil {
+			return err
+		}
+	}
 
 	return
 }
@@ -863,6 +868,11 @@ func (fb *FBackEnd) Unlink(
 
 	// Mark the child as unlinked.
 	child.DecrNlink()
+	if child.IsLost() {
+		if err := fb.deallocateInode(ctx, childID); err != nil {
+			return err
+		}
+	}
 
 	return
 }

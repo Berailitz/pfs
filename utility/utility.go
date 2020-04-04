@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/Berailitz/pfs/rnode"
@@ -130,6 +131,7 @@ func FromPbNode(node *pb.Node) *rnode.RNode {
 		},
 		NEntries:  FromPbDirents(node.NEntries),
 		NContents: node.NContents,
+		NLock:     &sync.RWMutex{},
 	}
 }
 

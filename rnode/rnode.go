@@ -87,7 +87,7 @@ type RNode struct {
 	// INVARIANT: If !IsFile(), len(contents) == 0
 	NContents []byte
 
-	lock    sync.RWMutex
+	NLock   *sync.RWMutex
 	canLock int32 // 0 for can lock
 }
 
@@ -162,7 +162,7 @@ func (rn *RNode) CanLock() bool {
 func (rn *RNode) RLock() error {
 	log.Printf("rlock node: id=%v", rn.ID())
 	if rn.CanLock() {
-		rn.lock.RLock()
+		rn.NLock.RLock()
 		log.Printf("rlock node success: id=%v", rn.ID())
 		return nil
 	}
@@ -172,13 +172,13 @@ func (rn *RNode) RLock() error {
 
 func (rn *RNode) RUnlock() {
 	log.Printf("runlock node: id=%v", rn.ID())
-	rn.lock.RUnlock()
+	rn.NLock.RUnlock()
 }
 
 func (rn *RNode) Lock() error {
 	log.Printf("lock node: id=%v", rn.ID())
 	if rn.CanLock() {
-		rn.lock.Lock()
+		rn.NLock.Lock()
 		log.Printf("lock node success: id=%v", rn.ID())
 		return nil
 	}
@@ -188,7 +188,7 @@ func (rn *RNode) Lock() error {
 
 func (rn *RNode) Unlock() {
 	log.Printf("unlock node: id=%v", rn.ID())
-	rn.lock.Unlock()
+	rn.NLock.Unlock()
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -211,6 +211,7 @@ func NewRNode(attrs fuseops.InodeAttributes, id uint64) *RNode {
 			NXattrs: make(map[string][]byte),
 		},
 		canLock: CanLockTrue,
+		NLock:   &sync.RWMutex{},
 	}
 }
 

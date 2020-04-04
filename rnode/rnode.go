@@ -75,72 +75,72 @@ type RNode struct {
 	NContents []byte
 }
 
-func (in *RNode) ID() uint64 {
-	return in.NID
+func (rn *RNode) ID() uint64 {
+	return rn.NID
 }
 
-func (in *RNodeAttr) Attrs() fuseops.InodeAttributes {
-	return in.NAttr
+func (rna *RNodeAttr) Attrs() fuseops.InodeAttributes {
+	return rna.NAttr
 }
 
-func (in *RNodeAttr) SetAttrs(attrs fuseops.InodeAttributes) {
-	in.NAttr = attrs
+func (rna *RNodeAttr) SetAttrs(attrs fuseops.InodeAttributes) {
+	rna.NAttr = attrs
 }
 
-func (in *RNode) Entries() []fuseutil.Dirent {
-	return in.NEntries
+func (rn *RNode) Entries() []fuseutil.Dirent {
+	return rn.NEntries
 }
 
-func (in *RNode) SetEntries(entries []fuseutil.Dirent) {
-	in.NEntries = entries
+func (rn *RNode) SetEntries(entries []fuseutil.Dirent) {
+	rn.NEntries = entries
 }
 
-func (in *RNode) Contents() []byte {
-	return in.NContents
+func (rn *RNode) Contents() []byte {
+	return rn.NContents
 }
 
-func (in *RNode) SetContents(contents []byte) {
-	in.NContents = contents
+func (rn *RNode) SetContents(contents []byte) {
+	rn.NContents = contents
 }
 
-func (in *RNodeAttr) Target() string {
-	return in.NTarget
+func (rna *RNodeAttr) Target() string {
+	return rna.NTarget
 }
 
-func (in *RNodeAttr) SetTarget(target string) {
-	in.NTarget = target
+func (rna *RNodeAttr) SetTarget(target string) {
+	rna.NTarget = target
 }
 
-func (in *RNodeAttr) Xattrs() map[string][]byte {
-	return in.NXattrs
+func (rna *RNodeAttr) Xattrs() map[string][]byte {
+	return rna.NXattrs
 }
 
-func (in *RNodeAttr) SetXattrs(xattrs map[string][]byte) {
-	in.NXattrs = xattrs
+func (rna *RNodeAttr) SetXattrs(xattrs map[string][]byte) {
+	rna.NXattrs = xattrs
 }
 
-func (in *RNode) GetRNodeAttr() RNodeAttr {
-	return in.RNodeAttr
+func (rn *RNode) GetRNodeAttr() RNodeAttr {
+	return rn.RNodeAttr
 }
 
-func (in *RNode) SetRNodeAttr(attr RNodeAttr) {
-	in.RNodeAttr = attr
+func (rn *RNode) SetRNodeAttr(attr RNodeAttr) {
+	rn.RNodeAttr = attr
 }
 
-func (in *RNode) GetRNodeAttrBytes() *bytes.Buffer {
+func (rn *RNode) GetRNodeAttrBytes() *bytes.Buffer {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(in.RNodeAttr); err != nil {
+	if err := enc.Encode(rn.RNodeAttr); err != nil {
 		log.Printf("encode attr error: err=%+v", err)
 		return nil
 	}
 	return &buf
 }
 
-func (in *RNode) SetRNodeAttrBytes(data []byte) error {
+func (rn *RNode) SetRNodeAttrBytes(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	if err := dec.Decode(&in.RNodeAttr); err != nil {
+	if err := dec.Decode(&rn.RNodeAttr); err != nil {
 		log.Printf("decode attr error: err=%+v", err)
 		return err
 	}
@@ -169,32 +169,32 @@ func NewRNode(attrs fuseops.InodeAttributes, id uint64) *RNode {
 	}
 }
 
-func (in *RNode) CheckInvariants() {
+func (rn *RNode) CheckInvariants() {
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
-	if !(in.Attrs().Mode&^(os.ModePerm|os.ModeDir|os.ModeSymlink) == 0) {
-		panic(fmt.Sprintf("Unexpected mode: %v", in.Attrs().Mode))
+	if !(rn.Attrs().Mode&^(os.ModePerm|os.ModeDir|os.ModeSymlink) == 0) {
+		panic(fmt.Sprintf("Unexpected mode: %v", rn.Attrs().Mode))
 	}
 
 	// INVARIANT: !(IsDir() && IsSymlink())
-	if in.IsDir() && in.IsSymlink() {
-		panic(fmt.Sprintf("Unexpected mode: %v", in.Attrs().Mode))
+	if rn.IsDir() && rn.IsSymlink() {
+		panic(fmt.Sprintf("Unexpected mode: %v", rn.Attrs().Mode))
 	}
 
 	// INVARIANT: attrs.Size == len(contents)
-	if in.Attrs().Size != uint64(len(in.Contents())) {
+	if rn.Attrs().Size != uint64(len(rn.Contents())) {
 		panic(fmt.Sprintf(
 			"Size mismatch: %d vs. %d",
-			in.Attrs().Size,
-			len(in.Contents())))
+			rn.Attrs().Size,
+			len(rn.Contents())))
 	}
 
 	// INVARIANT: If !IsDir(), len(entries) == 0
-	if !in.IsDir() && len(in.Entries()) != 0 {
-		panic(fmt.Sprintf("Unexpected entries length: %d", len(in.Entries())))
+	if !rn.IsDir() && len(rn.Entries()) != 0 {
+		panic(fmt.Sprintf("Unexpected entries length: %d", len(rn.Entries())))
 	}
 
 	// INVARIANT: For each i, entries[i].Offset == i+1
-	for i, e := range in.Entries() {
+	for i, e := range rn.Entries() {
 		if !(e.Offset == fuseops.DirOffset(i+1)) {
 			panic(fmt.Sprintf("Unexpected offset for index %d: %d", i, e.Offset))
 		}
@@ -202,7 +202,7 @@ func (in *RNode) CheckInvariants() {
 
 	// INVARIANT: Contains no duplicate names in used entries.
 	childNames := make(map[string]struct{})
-	for _, e := range in.Entries() {
+	for _, e := range rn.Entries() {
 		if e.Type != fuseutil.DT_Unknown {
 			if _, ok := childNames[e.Name]; ok {
 				panic(fmt.Sprintf("Duplicate name: %s", e.Name))
@@ -213,40 +213,40 @@ func (in *RNode) CheckInvariants() {
 	}
 
 	// INVARIANT: If !IsFile(), len(contents) == 0
-	if !in.IsFile() && len(in.Contents()) != 0 {
-		panic(fmt.Sprintf("Unexpected length: %d", len(in.Contents())))
+	if !rn.IsFile() && len(rn.Contents()) != 0 {
+		panic(fmt.Sprintf("Unexpected length: %d", len(rn.Contents())))
 	}
 
 	// INVARIANT: If !IsSymlink(), len(target) == 0
-	if !in.IsSymlink() && len(in.Target()) != 0 {
-		panic(fmt.Sprintf("Unexpected target length: %d", len(in.Target())))
+	if !rn.IsSymlink() && len(rn.Target()) != 0 {
+		panic(fmt.Sprintf("Unexpected target length: %d", len(rn.Target())))
 	}
 
 	return
 }
 
-func (in *RNode) IsDir() bool {
-	return in.Attrs().Mode&os.ModeDir != 0
+func (rn *RNode) IsDir() bool {
+	return rn.Attrs().Mode&os.ModeDir != 0
 }
 
-func (in *RNode) IsSymlink() bool {
-	return in.Attrs().Mode&os.ModeSymlink != 0
+func (rn *RNode) IsSymlink() bool {
+	return rn.Attrs().Mode&os.ModeSymlink != 0
 }
 
-func (in *RNode) IsFile() bool {
-	return !(in.IsDir() || in.IsSymlink())
+func (rn *RNode) IsFile() bool {
+	return !(rn.IsDir() || rn.IsSymlink())
 }
 
-// Return the index of the child within in.Entries(), if it exists.
+// Return the index of the child within rn.Entries(), if it exists.
 //
-// REQUIRES: in.IsDir()
-func (in *RNode) findChild(name string) (i int, ok bool) {
-	if !in.IsDir() {
+// REQUIRES: rn.IsDir()
+func (rn *RNode) findChild(name string) (i int, ok bool) {
+	if !rn.IsDir() {
 		panic("findChild called on non-directory.")
 	}
 
 	var e fuseutil.Dirent
-	for i, e = range in.Entries() {
+	for i, e = range rn.Entries() {
 		if e.Name == name {
 			return i, true
 		}
@@ -261,10 +261,10 @@ func (in *RNode) findChild(name string) (i int, ok bool) {
 
 // Return the number of children of the directory.
 //
-// REQUIRES: in.IsDir()
-func (in *RNode) Len() int {
+// REQUIRES: rn.IsDir()
+func (rn *RNode) Len() int {
 	var n int
-	for _, e := range in.Entries() {
+	for _, e := range rn.Entries() {
 		if e.Type != fuseutil.DT_Unknown {
 			n++
 		}
@@ -275,16 +275,16 @@ func (in *RNode) Len() int {
 
 // Find an entry for the given child name and return its RNode ID.
 //
-// REQUIRES: in.IsDir()
-func (in *RNode) LookUpChild(name string) (
+// REQUIRES: rn.IsDir()
+func (rn *RNode) LookUpChild(name string) (
 	// TODO: lock remote children
 	id uint64,
 	typ fuseutil.DirentType,
 	ok bool) {
-	index, ok := in.findChild(name)
+	index, ok := rn.findChild(name)
 	if ok {
-		id = uint64(in.Entries()[index].Inode)
-		typ = in.Entries()[index].Type
+		id = uint64(rn.Entries()[index].Inode)
+		typ = rn.Entries()[index].Type
 	}
 
 	return id, typ, ok
@@ -292,25 +292,25 @@ func (in *RNode) LookUpChild(name string) (
 
 // Add an entry for a child.
 //
-// REQUIRES: in.IsDir()
+// REQUIRES: rn.IsDir()
 // REQUIRES: dt != fuseutil.DT_Unknown
-func (in *RNode) AddChild(
+func (rn *RNode) AddChild(
 	id uint64,
 	name string,
 	dt fuseutil.DirentType) {
 	var index int
 
 	// Update the modification time.
-	attrs := in.Attrs()
+	attrs := rn.Attrs()
 	attrs.Mtime = time.Now()
-	in.SetAttrs(attrs)
+	rn.SetAttrs(attrs)
 
 	// No matter where we place the entry, make sure it has the correct Offset
 	// field.
 	defer func() {
-		entries := in.Entries()
+		entries := rn.Entries()
 		entries[index].Offset = fuseops.DirOffset(index + 1)
-		in.SetEntries(entries)
+		rn.SetEntries(entries)
 	}()
 
 	// Set up the entry.
@@ -321,63 +321,63 @@ func (in *RNode) AddChild(
 	}
 
 	// Look for a gap in which we can insert it.
-	for index = range in.Entries() {
-		if in.Entries()[index].Type == fuseutil.DT_Unknown {
-			entries := in.Entries()
+	for index = range rn.Entries() {
+		if rn.Entries()[index].Type == fuseutil.DT_Unknown {
+			entries := rn.Entries()
 			entries[index] = e
-			in.SetEntries(entries)
+			rn.SetEntries(entries)
 			return
 		}
 	}
 
 	// Append it to the end.
-	index = len(in.Entries())
-	in.SetEntries(append(in.Entries(), e))
+	index = len(rn.Entries())
+	rn.SetEntries(append(rn.Entries(), e))
 }
 
 // Remove an entry for a child.
 //
-// REQUIRES: in.IsDir()
+// REQUIRES: rn.IsDir()
 // REQUIRES: An entry for the given name exists.
-func (in *RNode) RemoveChild(name string) {
+func (rn *RNode) RemoveChild(name string) {
 	// Update the modification time.
-	attrs := in.Attrs()
+	attrs := rn.Attrs()
 	attrs.Mtime = time.Now()
-	in.SetAttrs(attrs)
+	rn.SetAttrs(attrs)
 
 	// Find the entry.
-	i, ok := in.findChild(name)
+	i, ok := rn.findChild(name)
 	if !ok {
 		panic(fmt.Sprintf("Unknown child: %s", name))
 	}
 
 	// Mark it as unused.
-	entries := in.Entries()
+	entries := rn.Entries()
 	entries[i] = fuseutil.Dirent{
 		Type:   fuseutil.DT_Unknown,
 		Offset: fuseops.DirOffset(i + 1),
 	}
-	in.SetEntries(entries)
+	rn.SetEntries(entries)
 }
 
 // Serve a ReadDir request.
 //
-// REQUIRES: in.IsDir()
-func (in *RNode) ReadDir(p []byte, offset int) int {
-	if !in.IsDir() {
+// REQUIRES: rn.IsDir()
+func (rn *RNode) ReadDir(p []byte, offset int) int {
+	if !rn.IsDir() {
 		panic("ReadDir called on non-directory.")
 	}
 
 	var n int
-	for i := offset; i < len(in.Entries()); i++ {
-		e := in.Entries()[i]
+	for i := offset; i < len(rn.Entries()); i++ {
+		e := rn.Entries()[i]
 
 		// Skip unused entries.
 		if e.Type == fuseutil.DT_Unknown {
 			continue
 		}
 
-		tmp := fuseutil.WriteDirent(p[n:], in.Entries()[i])
+		tmp := fuseutil.WriteDirent(p[n:], rn.Entries()[i])
 		if tmp == 0 {
 			break
 		}
@@ -390,19 +390,19 @@ func (in *RNode) ReadDir(p []byte, offset int) int {
 
 // Read from the file's contents. See documentation for ioutil.ReaderAt.
 //
-// REQUIRES: in.IsFile()
-func (in *RNode) ReadAt(p []byte, off int64) (int, error) {
-	if !in.IsFile() {
+// REQUIRES: rn.IsFile()
+func (rn *RNode) ReadAt(p []byte, off int64) (int, error) {
+	if !rn.IsFile() {
 		panic("ReadAt called on non-file.")
 	}
 
 	// Ensure the offset is in range.
-	if off > int64(len(in.Contents())) {
+	if off > int64(len(rn.Contents())) {
 		return 0, io.EOF
 	}
 
 	// Read what we can.
-	n := copy(p, in.Contents()[off:])
+	n := copy(p, rn.Contents()[off:])
 	if n < len(p) {
 		return n, io.EOF
 	}
@@ -412,29 +412,29 @@ func (in *RNode) ReadAt(p []byte, off int64) (int, error) {
 
 // Write to the file's contents. See documentation for ioutil.WriterAt.
 //
-// REQUIRES: in.IsFile()
-func (in *RNode) WriteAt(p []byte, off int64) (int, error) {
-	if !in.IsFile() {
+// REQUIRES: rn.IsFile()
+func (rn *RNode) WriteAt(p []byte, off int64) (int, error) {
+	if !rn.IsFile() {
 		panic("WriteAt called on non-file.")
 	}
 
 	// Update the modification time.
-	attrs := in.Attrs()
+	attrs := rn.Attrs()
 	attrs.Mtime = time.Now()
-	in.SetAttrs(attrs)
+	rn.SetAttrs(attrs)
 
 	// Ensure that the contents slice is long enough.
 	newLen := int(off) + len(p)
-	if len(in.Contents()) < newLen {
-		padding := make([]byte, newLen-len(in.Contents()))
-		in.SetContents(append(in.Contents(), padding...))
-		attrs := in.Attrs()
+	if len(rn.Contents()) < newLen {
+		padding := make([]byte, newLen-len(rn.Contents()))
+		rn.SetContents(append(rn.Contents(), padding...))
+		attrs := rn.Attrs()
 		attrs.Size = uint64(newLen)
-		in.SetAttrs(attrs)
+		rn.SetAttrs(attrs)
 	}
 
 	// Copy in the data.
-	n := copy(in.Contents()[off:], p)
+	n := copy(rn.Contents()[off:], p)
 
 	// Sanity check.
 	if n != len(p) {
@@ -445,34 +445,34 @@ func (in *RNode) WriteAt(p []byte, off int64) (int, error) {
 }
 
 // Update attributes from non-nil parameters.
-func (in *RNode) SetAttributes(
+func (rn *RNode) SetAttributes(
 	size *uint64,
 	mode *os.FileMode,
 	mtime *time.Time) {
 	// Update the modification time.
-	attrs := in.Attrs()
+	attrs := rn.Attrs()
 	attrs.Mtime = time.Now()
-	in.SetAttrs(attrs)
+	rn.SetAttrs(attrs)
 
 	// Truncate?
 	if size != nil {
 		intSize := int(*size)
 
 		// Update contents.
-		if intSize <= len(in.Contents()) {
-			in.SetContents(in.Contents()[:intSize])
+		if intSize <= len(rn.Contents()) {
+			rn.SetContents(rn.Contents()[:intSize])
 		} else {
-			padding := make([]byte, intSize-len(in.Contents()))
-			in.SetContents(append(in.Contents(), padding...))
+			padding := make([]byte, intSize-len(rn.Contents()))
+			rn.SetContents(append(rn.Contents(), padding...))
 		}
 
 		// Update attributes.
-		attrs := in.Attrs()
+		attrs := rn.Attrs()
 		attrs.Size = *size
-		in.SetAttrs(attrs)
+		rn.SetAttrs(attrs)
 	}
 
-	attrs = in.Attrs()
+	attrs = rn.Attrs()
 	// Change mode?
 	if mode != nil {
 		attrs.Mode = *mode
@@ -482,20 +482,20 @@ func (in *RNode) SetAttributes(
 	if mtime != nil {
 		attrs.Mtime = *mtime
 	}
-	in.SetAttrs(attrs)
+	rn.SetAttrs(attrs)
 }
 
-func (in *RNode) Fallocate(mode uint32, offset uint64, length uint64) error {
+func (rn *RNode) Fallocate(mode uint32, offset uint64, length uint64) error {
 	if mode != 0 {
 		return fuse.ENOSYS
 	}
 	newSize := int(offset + length)
-	if newSize > len(in.Contents()) {
-		padding := make([]byte, newSize-len(in.Contents()))
-		in.SetContents(append(in.Contents(), padding...))
-		attrs := in.Attrs()
+	if newSize > len(rn.Contents()) {
+		padding := make([]byte, newSize-len(rn.Contents()))
+		rn.SetContents(append(rn.Contents(), padding...))
+		attrs := rn.Attrs()
 		attrs.Size = offset + length
-		in.SetAttrs(attrs)
+		rn.SetAttrs(attrs)
 	}
 	return nil
 }

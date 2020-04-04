@@ -89,6 +89,7 @@ Private workspace for Golang.
 # Plan
 1. use `deallocateInode`
 1. rm `SetAttr`
+1. manager use `ctx`
 1. node lock
 1. heartbeat
 1. read remote node/remote lock

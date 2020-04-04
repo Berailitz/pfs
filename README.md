@@ -97,3 +97,4 @@ Private workspace for Golang.
 1. dump to dir/dump dir
 1. save location/multi-client
 1. election
+1. retry/middle ware

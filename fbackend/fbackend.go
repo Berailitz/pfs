@@ -130,7 +130,7 @@ func NewFBackEnd(
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (*rnode.RNode, error) {
-	node, err := fb.loadLocalNode(ctx, id)
+	node, err := fb.LoadLocalNode(ctx, id)
 	if err != nil {
 		log.Printf("load node for write load local error: id=%v, err=%+v", id, err)
 		return nil, err
@@ -143,7 +143,7 @@ func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (*rnode.RNo
 	return node, nil
 }
 
-func (fb *FBackEnd) loadLocalNode(ctx context.Context, id uint64) (*rnode.RNode, error) {
+func (fb *FBackEnd) LoadLocalNode(ctx context.Context, id uint64) (*rnode.RNode, error) {
 	if out, exist := fb.nodes.Load(id); exist {
 		if node, ok := out.(*rnode.RNode); ok {
 			return node, nil
@@ -154,7 +154,7 @@ func (fb *FBackEnd) loadLocalNode(ctx context.Context, id uint64) (*rnode.RNode,
 }
 
 func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (*rnode.RNode, error) {
-	node, err := fb.loadLocalNode(ctx, id)
+	node, err := fb.LoadLocalNode(ctx, id)
 	if err != nil {
 		log.Printf("load node for read load local error: id=%v, err=%+v", id, err)
 
@@ -185,7 +185,7 @@ func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (*rnode.RNod
 }
 
 func (fb *FBackEnd) IsLocal(ctx context.Context, id uint64) bool {
-	if _, err := fb.loadLocalNode(ctx, id); err == nil {
+	if _, err := fb.LoadLocalNode(ctx, id); err == nil {
 		return true
 	}
 	return false

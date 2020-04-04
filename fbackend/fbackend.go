@@ -200,9 +200,9 @@ func (fb *FBackEnd) storeNode(id uint64, node *rnode.RNode) error {
 	return nil
 }
 
-func (fb *FBackEnd) deleteNode(id uint64) error {
+func (fb *FBackEnd) deleteNode(ctx context.Context, id uint64) error {
 	log.Printf("delete node: id=%v", id)
-	if _, ok := fb.nodes.Load(id); !ok {
+	if !fb.IsLocal(ctx, id) {
 		return &FBackEndErr{fmt.Sprintf("delete node not exist error: id=%v", id)}
 	}
 	fb.nodes.Delete(id)
@@ -289,12 +289,12 @@ func (fb *FBackEnd) allocateInode(
 }
 
 // LOCKS_REQUIRED(fb.mu)
-func (fb *FBackEnd) deallocateInode(id uint64) {
+func (fb *FBackEnd) deallocateInode(ctx context.Context, id uint64) {
 	log.Printf("deallocate: id=%v", id)
 	if ok := fb.mcli.Deallocate(id); !ok {
 		log.Printf("deallocate master deallocate error: id=%v", id)
 	}
-	if err := fb.deleteNode(id); err != nil {
+	if err := fb.deleteNode(ctx, id); err != nil {
 		log.Printf("deallocate node delete error: id=%v, err=%+v", id, err)
 	}
 	log.Printf("deallocate success: id=%v", id)

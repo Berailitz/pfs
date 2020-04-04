@@ -185,15 +185,16 @@ func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (*rnode.RNod
 }
 
 //TODO: add unlock for fetch node, warp all fb unlock
-func (fb *FBackEnd) doUnlockNode(ctx context.Context, id uint64, isRead bool) error {
+func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, isRead bool) error {
+	id := node.ID()
 	log.Printf("unlock node: id=%v, isRead=%v", id, isRead)
-	if node, err := fb.loadLocalNode(ctx, id); err == nil {
-		if isRead {
-			node.RUnlock()
-		} else {
-			node.Unlock()
-		}
-		log.Printf("unlock node success: id=%v, isRead=%v", id, isRead)
+	if isRead {
+		node.RUnlock()
+	} else {
+		node.Unlock()
+	}
+	if fb.IsLocal(ctx, id) {
+		log.Printf("unlock local node success: id=%v, isRead=%v", id, isRead)
 		return nil
 	}
 
@@ -219,12 +220,12 @@ func (fb *FBackEnd) doUnlockNode(ctx context.Context, id uint64, isRead bool) er
 	return nil
 }
 
-func (fb *FBackEnd) UnlockNode(ctx context.Context, id uint64) error {
-	return fb.doUnlockNode(ctx, id, false)
+func (fb *FBackEnd) UnlockNode(ctx context.Context, node *rnode.RNode) error {
+	return fb.doUnlockNode(ctx, node, false)
 }
 
-func (fb *FBackEnd) RUnlockNode(ctx context.Context, id uint64) error {
-	return fb.doUnlockNode(ctx, id, true)
+func (fb *FBackEnd) RUnlockNode(ctx context.Context, node *rnode.RNode) error {
+	return fb.doUnlockNode(ctx, node, true)
 }
 
 func (fb *FBackEnd) IsLocal(ctx context.Context, id uint64) bool {
@@ -367,7 +368,7 @@ func (fb *FBackEnd) LookUpInode(
 		return 0, fuseops.InodeAttributes{}, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, parentID)
+		err = fb.RUnlockNode(ctx, parent)
 	}()
 
 	// Does the directory have an entry with the given name?
@@ -383,7 +384,7 @@ func (fb *FBackEnd) LookUpInode(
 		return 0, fuseops.InodeAttributes{}, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, childID)
+		err = fb.RUnlockNode(ctx, child)
 	}()
 
 	return childID, child.Attrs(), nil
@@ -402,7 +403,7 @@ func (fb *FBackEnd) GetInodeAttributes(
 		return fuseops.InodeAttributes{}, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, id)
+		err = fb.RUnlockNode(ctx, node)
 	}()
 
 	// Fill in the response.
@@ -423,7 +424,7 @@ func (fb *FBackEnd) SetInodeAttributes(
 		return fuseops.InodeAttributes{}, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, id)
+		err = fb.UnlockNode(ctx, node)
 	}()
 
 	// Handle the request.
@@ -458,7 +459,7 @@ func (fb *FBackEnd) MkDir(
 		return 0, fuseops.InodeAttributes{}, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parentID)
+		err = fb.UnlockNode(ctx, parent)
 	}()
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
@@ -502,7 +503,7 @@ func (fb *FBackEnd) CreateNode(
 		return fuseops.ChildInodeEntry{}, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parentID)
+		err = fb.UnlockNode(ctx, parent)
 	}()
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
@@ -561,7 +562,7 @@ func (fb *FBackEnd) CreateFile(
 		return fuseops.ChildInodeEntry{}, 0, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parentID)
+		err = fb.UnlockNode(ctx, parent)
 	}()
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
@@ -624,7 +625,7 @@ func (fb *FBackEnd) CreateSymlink(
 		return 0, fuseops.InodeAttributes{}, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parentID)
+		err = fb.UnlockNode(ctx, parent)
 	}()
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
@@ -675,7 +676,7 @@ func (fb *FBackEnd) CreateLink(
 		return fuseops.InodeAttributes{}, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parentID)
+		err = fb.UnlockNode(ctx, parent)
 	}()
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
@@ -692,7 +693,7 @@ func (fb *FBackEnd) CreateLink(
 		return fuseops.InodeAttributes{}, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, targetID)
+		err = fb.UnlockNode(ctx, target)
 	}()
 
 	// Update the attributes
@@ -721,7 +722,7 @@ func (fb *FBackEnd) Rename(
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, uint64(op.OldParent))
+		err = fb.UnlockNode(ctx, oldParent)
 	}()
 	childID, childType, ok := oldParent.LookUpChild(op.OldName)
 
@@ -737,7 +738,7 @@ func (fb *FBackEnd) Rename(
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, uint64(op.NewParent))
+		err = fb.UnlockNode(ctx, newParent)
 	}()
 	existingID, _, ok := newParent.LookUpChild(op.NewName)
 	if ok {
@@ -747,7 +748,7 @@ func (fb *FBackEnd) Rename(
 			return err
 		}
 		defer func() {
-			err = fb.UnlockNode(ctx, existingID)
+			err = fb.UnlockNode(ctx, existing)
 		}()
 
 		var buf [4096]byte
@@ -783,7 +784,7 @@ func (fb *FBackEnd) RmDir(
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, uint64(op.Parent))
+		err = fb.UnlockNode(ctx, parent)
 	}()
 
 	// Find the child within the parent.
@@ -799,7 +800,7 @@ func (fb *FBackEnd) RmDir(
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, childID)
+		err = fb.UnlockNode(ctx, child)
 	}()
 
 	// Make sure the child is empty.
@@ -831,7 +832,7 @@ func (fb *FBackEnd) Unlink(
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, uint64(op.Parent))
+		err = fb.UnlockNode(ctx, parent)
 	}()
 
 	// Find the child within the parent.
@@ -847,7 +848,7 @@ func (fb *FBackEnd) Unlink(
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, childID)
+		err = fb.UnlockNode(ctx, child)
 	}()
 
 	// Remove the entry within the parent.
@@ -877,7 +878,7 @@ func (fb *FBackEnd) OpenDir(
 		return 0, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, id)
+		err = fb.RUnlockNode(ctx, node)
 	}()
 
 	if !node.IsDir() {
@@ -911,7 +912,7 @@ func (fb *FBackEnd) ReadDir(
 		return
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, id)
+		err = fb.RUnlockNode(ctx, node)
 	}()
 
 	buf = make([]byte, length)
@@ -951,7 +952,7 @@ func (fb *FBackEnd) OpenFile(
 		return 0, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, id)
+		err = fb.RUnlockNode(ctx, node)
 	}()
 
 	if !node.IsFile() {
@@ -985,7 +986,7 @@ func (fb *FBackEnd) ReadFile(
 		return
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, id)
+		err = fb.RUnlockNode(ctx, node)
 	}()
 
 	// Serve the request.
@@ -1020,7 +1021,7 @@ func (fb *FBackEnd) WriteFile(
 		return 0, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, id)
+		err = fb.UnlockNode(ctx, node)
 	}()
 
 	// Serve the request.
@@ -1063,7 +1064,7 @@ func (fb *FBackEnd) ReadSymlink(
 		return
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, id)
+		err = fb.RUnlockNode(ctx, node)
 	}()
 
 	// Serve the request.
@@ -1085,7 +1086,7 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 		return
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, id)
+		err = fb.RUnlockNode(ctx, node)
 	}()
 
 	if value, ok := node.Xattrs()[name]; ok {
@@ -1117,7 +1118,7 @@ func (fb *FBackEnd) ListXattr(ctx context.Context,
 		return
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, id)
+		err = fb.RUnlockNode(ctx, node)
 	}()
 
 	dst = make([]byte, length)
@@ -1150,7 +1151,7 @@ func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, id)
+		err = fb.UnlockNode(ctx, node)
 	}()
 
 	if _, ok := node.Xattrs()[name]; ok {
@@ -1174,7 +1175,7 @@ func (fb *FBackEnd) SetXattr(ctx context.Context,
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, uint64(op.Inode))
+		err = fb.UnlockNode(ctx, node)
 	}()
 
 	_, hasAttr := node.Xattrs()[op.Name]
@@ -1211,7 +1212,7 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, id)
+		err = fb.UnlockNode(ctx, node)
 	}()
 
 	err = node.Fallocate(mode, length, length)

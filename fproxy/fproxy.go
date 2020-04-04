@@ -111,7 +111,7 @@ func (fp *FProxy) UnlockNode(ctx context.Context, id uint64, isRead bool) error 
 		return fp.buillNoGCliErr(addr)
 	}
 
-	perr, err := gcli.UnlockNode(ctx, &pb.UnlockNodeRequest{
+	perr, err := gcli.UnlockNode(ctx, &pb.NodeIsReadRequest{
 		Id:     id,
 		IsRead: isRead,
 	})

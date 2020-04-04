@@ -203,7 +203,7 @@ func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, isRead 
 		return &FBackEndErr{msg: fmt.Sprintf("unlock node no gcli error: id=%v, isRead=%v", id, isRead)}
 	}
 
-	perr, err := gcli.UnlockNode(ctx, &pb.UnlockNodeRequest{
+	perr, err := gcli.UnlockNode(ctx, &pb.NodeIsReadRequest{
 		Id:     id,
 		IsRead: isRead,
 	})

@@ -44,7 +44,7 @@ func (s *RServer) FetchNode(ctx context.Context, req *pb.UInt64ID) (*pb.Node, er
 	return utility.ToPbNode(node), nil
 }
 
-func (s *RServer) UnlockNode(ctx context.Context, req *pb.UnlockNodeRequest) (*pb.Error, error) {
+func (s *RServer) UnlockNode(ctx context.Context, req *pb.NodeIsReadRequest) (*pb.Error, error) {
 	err := s.fp.UnlockNode(ctx, req.Id, req.IsRead)
 	var perr *pb.Error = nil
 	if err != nil {

@@ -99,8 +99,8 @@ func (fp *FProxy) buillNotSupportedErr(operation string) error {
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
 
-func (fp *FProxy) LoadNode(id uint64) (*rnode.RNode, error) {
-	return fp.fb.LoadNodeForRead(id)
+func (fp *FProxy) LoadNode(ctx context.Context, id uint64) (*rnode.RNode, error) {
+	return fp.fb.LoadNodeForRead(ctx, id)
 }
 
 func (fp *FProxy) StatFS(

@@ -129,7 +129,7 @@ func NewFBackEnd(
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
-func (fb *FBackEnd) LoadNodeForWrite(id uint64) (*rnode.RNode, error) {
+func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (*rnode.RNode, error) {
 	if out, exist := fb.nodes.Load(id); exist {
 		if node, ok := out.(*rnode.RNode); ok {
 			if err := node.Lock(); err != nil {
@@ -142,7 +142,7 @@ func (fb *FBackEnd) LoadNodeForWrite(id uint64) (*rnode.RNode, error) {
 	return nil, &FBackEndErr{msg: fmt.Sprintf("load local node for write not exist error: id=%v", id)}
 }
 
-func (fb *FBackEnd) LoadLocalNodeForRead(id uint64) (*rnode.RNode, error) {
+func (fb *FBackEnd) LoadLocalNodeForRead(ctx context.Context, id uint64) (*rnode.RNode, error) {
 	if out, exist := fb.nodes.Load(id); exist {
 		if node, ok := out.(*rnode.RNode); ok {
 			return node, nil
@@ -152,8 +152,8 @@ func (fb *FBackEnd) LoadLocalNodeForRead(id uint64) (*rnode.RNode, error) {
 	return nil, &FBackEndErr{msg: fmt.Sprintf("load local node not exist error: id=%v", id)}
 }
 
-func (fb *FBackEnd) LoadNodeForRead(id uint64) (node *rnode.RNode, err error) {
-	if node, err = fb.LoadLocalNodeForRead(id); err != nil {
+func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
+	if node, err = fb.LoadLocalNodeForRead(ctx, id); err != nil {
 		addr := fb.mcli.QueryOwner(id)
 		gcli := fb.pool.Load(addr)
 		if gcli == nil {
@@ -315,7 +315,7 @@ func (fb *FBackEnd) LookUpInode(
 	defer fb.unlock()
 
 	// Grab the parent directory.
-	parent, err := fb.LoadNodeForRead(parentID)
+	parent, err := fb.LoadNodeForRead(ctx, parentID)
 	if err != nil {
 		log.Printf("look up inode load prarent err: err=%v", err.Error())
 		return 0, fuseops.InodeAttributes{}, err
@@ -329,7 +329,7 @@ func (fb *FBackEnd) LookUpInode(
 	}
 
 	// Grab the child.
-	child, err := fb.LoadNodeForRead(childID)
+	child, err := fb.LoadNodeForRead(ctx, childID)
 	if err != nil {
 		log.Printf("look up inode load child err: err=%v", err.Error())
 		return 0, fuseops.InodeAttributes{}, err
@@ -346,7 +346,7 @@ func (fb *FBackEnd) GetInodeAttributes(
 	defer fb.unlock()
 
 	// Grab the rnode.RNode.
-	node, err := fb.LoadNodeForRead(id)
+	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("get node attr err: err=%v", err.Error())
 		return fuseops.InodeAttributes{}, err
@@ -365,7 +365,7 @@ func (fb *FBackEnd) SetInodeAttributes(
 	defer fb.unlock()
 
 	// Grab the rnode.RNode.
-	node, err := fb.LoadNodeForWrite(id)
+	node, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		log.Printf("set node attr err: err=%v", err.Error())
 		return fuseops.InodeAttributes{}, err
@@ -398,7 +398,7 @@ func (fb *FBackEnd) MkDir(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(parentID)
+	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("mkdir err: err=%v", err.Error())
 		return 0, fuseops.InodeAttributes{}, err
@@ -440,7 +440,7 @@ func (fb *FBackEnd) CreateNode(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(parentID)
+	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("create node err: err=%v", err.Error())
 		return fuseops.ChildInodeEntry{}, err
@@ -497,7 +497,7 @@ func (fb *FBackEnd) CreateFile(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(parentID)
+	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("create file err: err=%v", err.Error())
 		return fuseops.ChildInodeEntry{}, 0, err
@@ -558,7 +558,7 @@ func (fb *FBackEnd) CreateSymlink(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(parentID)
+	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("create symlink err: err=%v", err.Error())
 		return 0, fuseops.InodeAttributes{}, err
@@ -607,7 +607,7 @@ func (fb *FBackEnd) CreateLink(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(parentID)
+	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("create link load parent err: err=%v", err.Error())
 		return fuseops.InodeAttributes{}, err
@@ -622,7 +622,7 @@ func (fb *FBackEnd) CreateLink(
 	}
 
 	// Get the target rnode.RNode to be linked
-	target, err := fb.LoadNodeForWrite(targetID)
+	target, err := fb.LoadNodeForWrite(ctx, targetID)
 	if err != nil {
 		log.Printf("create link load target err: err=%v", err.Error())
 		return fuseops.InodeAttributes{}, err
@@ -650,7 +650,7 @@ func (fb *FBackEnd) Rename(
 	defer fb.unlock()
 
 	// Ask the old parent for the child's rnode.RNode ID and type.
-	oldParent, err := fb.LoadNodeForWrite(uint64(op.OldParent))
+	oldParent, err := fb.LoadNodeForWrite(ctx, uint64(op.OldParent))
 	if err != nil {
 		return err
 	}
@@ -664,7 +664,7 @@ func (fb *FBackEnd) Rename(
 
 	// If the new name exists already in the new parent, make sure it's not a
 	// non-empty directory, then delete it.
-	newParent, err := fb.LoadNodeForWrite(uint64(op.NewParent))
+	newParent, err := fb.LoadNodeForWrite(ctx, uint64(op.NewParent))
 	if err != nil {
 		return err
 	}
@@ -672,7 +672,7 @@ func (fb *FBackEnd) Rename(
 	existingID, _, ok := newParent.LookUpChild(op.NewName)
 	if ok {
 		var existing *rnode.RNode
-		existing, err = fb.LoadNodeForWrite(existingID)
+		existing, err = fb.LoadNodeForWrite(ctx, existingID)
 		if err != nil {
 			return err
 		}
@@ -706,7 +706,7 @@ func (fb *FBackEnd) RmDir(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(uint64(op.Parent))
+	parent, err := fb.LoadNodeForWrite(ctx, uint64(op.Parent))
 	if err != nil {
 		return err
 	}
@@ -720,7 +720,7 @@ func (fb *FBackEnd) RmDir(
 	}
 
 	// Grab the child.
-	child, err := fb.LoadNodeForWrite(childID)
+	child, err := fb.LoadNodeForWrite(ctx, childID)
 	if err != nil {
 		return err
 	}
@@ -750,7 +750,7 @@ func (fb *FBackEnd) Unlink(
 	defer fb.unlock()
 
 	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(uint64(op.Parent))
+	parent, err := fb.LoadNodeForWrite(ctx, uint64(op.Parent))
 	if err != nil {
 		return err
 	}
@@ -764,7 +764,7 @@ func (fb *FBackEnd) Unlink(
 	}
 
 	// Grab the child.
-	child, err := fb.LoadNodeForWrite(childID)
+	child, err := fb.LoadNodeForWrite(ctx, childID)
 	if err != nil {
 		return err
 	}
@@ -791,7 +791,7 @@ func (fb *FBackEnd) OpenDir(
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	node, err := fb.LoadNodeForRead(id)
+	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("open dir err: err=%v", err.Error())
 		return 0, err
@@ -823,7 +823,7 @@ func (fb *FBackEnd) ReadDir(
 	defer fb.unlock()
 
 	// Grab the directory.
-	node, err := fb.LoadNodeForRead(id)
+	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("read dir err: err=%v", err.Error())
 		return
@@ -861,7 +861,7 @@ func (fb *FBackEnd) OpenFile(
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	node, err := fb.LoadNodeForRead(id)
+	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("open file err: err=%v", err.Error())
 		return 0, err
@@ -893,7 +893,7 @@ func (fb *FBackEnd) ReadFile(
 	defer fb.unlock()
 
 	// Find the rnode.RNode in question.
-	node, err := fb.LoadNodeForRead(id)
+	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("read file err: err=%v", err.Error())
 		return
@@ -926,7 +926,7 @@ func (fb *FBackEnd) WriteFile(
 	defer fb.unlock()
 
 	// Find the rnode.RNode in question.
-	node, err := fb.LoadNodeForWrite(id)
+	node, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		log.Printf("write file err: err=%v", err.Error())
 		return 0, err
@@ -967,7 +967,7 @@ func (fb *FBackEnd) ReadSymlink(
 	defer fb.unlock()
 
 	// Find the rnode.RNode in question.
-	node, err := fb.LoadNodeForRead(id)
+	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("read symlink err: err=%v", err.Error())
 		return
@@ -987,7 +987,7 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
-	node, err := fb.LoadNodeForRead(id)
+	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("get xattr err: err=%v", err.Error())
 		return
@@ -1017,7 +1017,7 @@ func (fb *FBackEnd) ListXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
-	node, err := fb.LoadNodeForRead(id)
+	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("list xattr err: err=%v", err.Error())
 		return
@@ -1048,7 +1048,7 @@ func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
-	node, err := fb.LoadNodeForWrite(id)
+	node, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		log.Printf("remove xattr err: err=%v", err.Error())
 		return err
@@ -1070,7 +1070,7 @@ func (fb *FBackEnd) SetXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
-	node, err := fb.LoadNodeForWrite(uint64(op.Inode))
+	node, err := fb.LoadNodeForWrite(ctx, uint64(op.Inode))
 	if err != nil {
 		log.Printf("set xattr err: err=%v", err.Error())
 		return err
@@ -1105,7 +1105,7 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
-	node, err := fb.LoadNodeForWrite(id)
+	node, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		log.Printf("fallocate err: err=%v", err.Error())
 		return err

@@ -688,8 +688,7 @@ func (fp *FProxy) Fallocate(ctx context.Context,
 }
 
 func (fp *FProxy) IsLocalNode(ctx context.Context, id uint64) bool {
-	_, err := fp.fb.LoadLocalNodeForRead(id)
-	return err == nil
+	return fp.fb.IsLocal(ctx, id)
 }
 
 func (fp *FProxy) LoadRemoteHandle(ctx context.Context, id uint64) *remoteHandle {

@@ -9,6 +9,7 @@ service RemoteTree {
     //rpc WUnlock(UInt64ID) returns (StatusReply) {}
 
     rpc FetchNode(UInt64ID) returns (Node) {}
+    rpc UnlockNode(UnlockNodeRequest) returns (Error) {}
 
     rpc LookUpInode(LookUpInodeRequest) returns (LookUpInodeReply) {}
     rpc GetInodeAttributes(UInt64ID) returns (GetInodeAttributesReply) {}
@@ -41,6 +42,11 @@ service RemoteTree {
     rpc RegisterOwner(Addr) returns (OwnerId) {}
     rpc RemoveOwner(OwnerId) returns (IsOK) {}
     rpc AllocateRoot(OwnerId) returns (IsOK) {}
+}
+
+message UnlockNodeRequest {
+    uint64 id = 1;
+    bool isRead = 2;
 }
 
 message Node {

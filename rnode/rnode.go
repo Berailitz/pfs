@@ -49,7 +49,9 @@ type RNodeAttr struct {
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
 	// INVARIANT: !(IsDir() && IsSymlink())
 	// INVARIANT: attrs.Size == len(contents)
-	NAttr fuseops.InodeAttributes
+	NAttr     fuseops.InodeAttributes
+	mtimeLock sync.Mutex
+	ctimeLock sync.Mutex
 
 	// For symlinks, the target of the symlink.
 	//
@@ -101,10 +103,6 @@ func (rn *RNode) ID() uint64 {
 
 func (rna *RNodeAttr) Attrs() fuseops.InodeAttributes {
 	return rna.NAttr
-}
-
-func (rna *RNodeAttr) SetAttrs(attrs fuseops.InodeAttributes) {
-	rna.NAttr = attrs
 }
 
 func (rn *RNode) Entries() []fuseutil.Dirent {
@@ -349,9 +347,7 @@ func (rn *RNode) AddChild(
 	var index int
 
 	// Update the modification time.
-	attrs := rn.Attrs()
-	attrs.Mtime = time.Now()
-	rn.SetAttrs(attrs)
+	rn.SetMtime(time.Now())
 
 	// No matter where we place the entry, make sure it has the correct Offset
 	// field.
@@ -389,9 +385,7 @@ func (rn *RNode) AddChild(
 // REQUIRES: An entry for the given name exists.
 func (rn *RNode) RemoveChild(name string) {
 	// Update the modification time.
-	attrs := rn.Attrs()
-	attrs.Mtime = time.Now()
-	rn.SetAttrs(attrs)
+	rn.SetMtime(time.Now())
 
 	// Find the entry.
 	i, ok := rn.findChild(name)
@@ -467,18 +461,14 @@ func (rn *RNode) WriteAt(p []byte, off int64) (int, error) {
 	}
 
 	// Update the modification time.
-	attrs := rn.Attrs()
-	attrs.Mtime = time.Now()
-	rn.SetAttrs(attrs)
+	rn.SetMtime(time.Now())
 
 	// Ensure that the contents slice is long enough.
 	newLen := int(off) + len(p)
 	if len(rn.Contents()) < newLen {
 		padding := make([]byte, newLen-len(rn.Contents()))
 		rn.SetContents(append(rn.Contents(), padding...))
-		attrs := rn.Attrs()
-		attrs.Size = uint64(newLen)
-		rn.SetAttrs(attrs)
+		rn.SetSize(uint64(newLen))
 	}
 
 	// Copy in the data.
@@ -498,9 +488,7 @@ func (rn *RNode) SetAttributes(
 	mode *os.FileMode,
 	mtime *time.Time) {
 	// Update the modification time.
-	attrs := rn.Attrs()
-	attrs.Mtime = time.Now()
-	rn.SetAttrs(attrs)
+	rn.SetMtime(time.Now())
 
 	// Truncate?
 	if size != nil {
@@ -515,22 +503,18 @@ func (rn *RNode) SetAttributes(
 		}
 
 		// Update attributes.
-		attrs := rn.Attrs()
-		attrs.Size = *size
-		rn.SetAttrs(attrs)
+		rn.SetSize(*size)
 	}
 
-	attrs = rn.Attrs()
 	// Change mode?
 	if mode != nil {
-		attrs.Mode = *mode
+		rn.SetMode(*mode)
 	}
 
 	// Change mtime?
 	if mtime != nil {
-		attrs.Mtime = *mtime
+		rn.SetMtime(*mtime)
 	}
-	rn.SetAttrs(attrs)
 }
 
 func (rn *RNode) Fallocate(mode uint32, offset uint64, length uint64) error {
@@ -541,11 +525,41 @@ func (rn *RNode) Fallocate(mode uint32, offset uint64, length uint64) error {
 	if newSize > len(rn.Contents()) {
 		padding := make([]byte, newSize-len(rn.Contents()))
 		rn.SetContents(append(rn.Contents(), padding...))
-		attrs := rn.Attrs()
-		attrs.Size = offset + length
-		rn.SetAttrs(attrs)
+		rn.SetSize(offset + length)
 	}
 	return nil
+}
+
+func (rn *RNode) IncrNlink() {
+	atomic.AddUint32(&rn.NAttr.Nlink, 1)
+}
+
+func (rn *RNode) DecrNlink() {
+	atomic.AddUint32(&rn.NAttr.Nlink, ^uint32(0))
+}
+
+func (rn *RNode) IsLost() bool {
+	return atomic.LoadUint32(&rn.NAttr.Nlink) == 0
+}
+
+func (rn *RNode) SetSize(s uint64) {
+	atomic.StoreUint64(&rn.NAttr.Size, s)
+}
+
+func (rn *RNode) SetMode(m os.FileMode) {
+	atomic.StoreUint32((*uint32)(&rn.NAttr.Mode), uint32(m))
+}
+
+func (rn *RNode) SetMtime(t time.Time) {
+	rn.mtimeLock.Lock()
+	defer rn.mtimeLock.Unlock()
+	rn.NAttr.Mtime = t
+}
+
+func (rn *RNode) SetCtime(t time.Time) {
+	rn.ctimeLock.Lock()
+	defer rn.ctimeLock.Unlock()
+	rn.NAttr.Ctime = t
 }
 
 func (e *RNodeErr) Error() string {

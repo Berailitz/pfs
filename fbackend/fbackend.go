@@ -707,10 +707,8 @@ func (fb *FBackEnd) CreateLink(
 
 	// Update the attributes
 	now := time.Now()
-	attrs := target.Attrs()
-	attrs.Nlink++
-	attrs.Ctime = now
-	target.SetAttrs(attrs)
+	target.SetCtime(now)
+	target.IncrNlink()
 
 	// Add an entry in the parent.
 	parent.AddChild(targetID, name, fuseutil.DT_File)
@@ -822,9 +820,7 @@ func (fb *FBackEnd) RmDir(
 	parent.RemoveChild(op.Name)
 
 	// Mark the child as unlinked.
-	attrs := child.Attrs()
-	attrs.Nlink--
-	child.SetAttrs(attrs)
+	child.DecrNlink()
 
 	return
 }
@@ -864,9 +860,7 @@ func (fb *FBackEnd) Unlink(
 	parent.RemoveChild(op.Name)
 
 	// Mark the child as unlinked.
-	attrs := child.Attrs()
-	attrs.Nlink--
-	child.SetAttrs(attrs)
+	child.DecrNlink()
 
 	return
 }

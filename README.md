@@ -88,6 +88,7 @@ Private workspace for Golang.
 
 # Plan
 1. manager use `ctx`
+1. avoid dead lock
 1. node lock
 1. heartbeat
 1. read remote node/remote lock

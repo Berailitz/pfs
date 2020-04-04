@@ -184,7 +184,6 @@ func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (*rnode.RNod
 	return node, nil
 }
 
-//TODO: add unlock for fetch node, warp all fb unlock
 func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, isRead bool) error {
 	id := node.ID()
 	log.Printf("unlock node: id=%v, isRead=%v", id, isRead)

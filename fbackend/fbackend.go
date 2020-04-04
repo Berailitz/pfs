@@ -185,10 +185,8 @@ func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (*rnode.RNod
 }
 
 func (fb *FBackEnd) IsLocal(ctx context.Context, id uint64) bool {
-	if out, exist := fb.nodes.Load(id); exist {
-		if _, ok := out.(*rnode.RNode); ok {
-			return true
-		}
+	if _, err := fb.loadLocalNode(ctx, id); err == nil {
+		return true
 	}
 	return false
 }

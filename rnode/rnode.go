@@ -323,7 +323,6 @@ func (rn *RNode) Len() int {
 //
 // REQUIRES: rn.IsDir()
 func (rn *RNode) LookUpChild(name string) (
-	// TODO: lock remote children
 	id uint64,
 	typ fuseutil.DirentType,
 	ok bool) {

@@ -21,11 +21,22 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
+)
+
+const (
+	CanLockTrue        = 0
+	CanLockTransfering = 1
+)
+
+var (
+	RNodeCanNotLockErr = &RNodeErr{"can not lock"}
 )
 
 // Common attributes for files and directories.
@@ -73,7 +84,16 @@ type RNode struct {
 	//
 	// INVARIANT: If !IsFile(), len(contents) == 0
 	NContents []byte
+
+	lock    sync.RWMutex
+	canLock int32 // 0 for can lock
 }
+
+type RNodeErr struct {
+	msg string
+}
+
+var _ = (error)((*RNodeErr)(nil))
 
 func (rn *RNode) ID() uint64 {
 	return rn.NID
@@ -137,14 +157,40 @@ func (rn *RNode) GetRNodeAttrBytes() *bytes.Buffer {
 	return &buf
 }
 
-func (rn *RNode) SetRNodeAttrBytes(data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	if err := dec.Decode(&rn.RNodeAttr); err != nil {
-		log.Printf("decode attr error: err=%+v", err)
-		return err
+func (rn *RNode) CanLock() bool {
+	return atomic.LoadInt32(&rn.canLock) == CanLockTrue
+}
+
+func (rn *RNode) RLock() error {
+	log.Printf("rlock node: id=%v", rn.ID())
+	if rn.CanLock() {
+		rn.lock.RLock()
+		log.Printf("rlock node success: id=%v", rn.ID())
+		return nil
 	}
-	return nil
+	log.Printf("rlock node cannot lock: id=%v", rn.ID())
+	return RNodeCanNotLockErr
+}
+
+func (rn *RNode) RUnlock() {
+	log.Printf("runlock node: id=%v", rn.ID())
+	rn.lock.RUnlock()
+}
+
+func (rn *RNode) Lock() error {
+	log.Printf("lock node: id=%v", rn.ID())
+	if rn.CanLock() {
+		rn.lock.Lock()
+		log.Printf("lock node success: id=%v", rn.ID())
+		return nil
+	}
+	log.Printf("lock node cannot lock error: id=%v", rn.ID())
+	return RNodeCanNotLockErr
+}
+
+func (rn *RNode) Unlock() {
+	log.Printf("unlock node: id=%v", rn.ID())
+	rn.lock.Unlock()
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -166,6 +212,7 @@ func NewRNode(attrs fuseops.InodeAttributes, id uint64) *RNode {
 			NAttr:   attrs,
 			NXattrs: make(map[string][]byte),
 		},
+		canLock: CanLockTrue,
 	}
 }
 
@@ -498,4 +545,8 @@ func (rn *RNode) Fallocate(mode uint32, offset uint64, length uint64) error {
 		rn.SetAttrs(attrs)
 	}
 	return nil
+}
+
+func (e *RNodeErr) Error() string {
+	return fmt.Sprintf("rnode error: err=%v", e.msg)
 }

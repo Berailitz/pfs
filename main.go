@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/user"
 	"strconv"
 
@@ -57,6 +58,17 @@ func currentGid() uint32 {
 	return uint32(gid)
 }
 
+func startTest(testCmd string) {
+	log.Printf("run test cmd: cmd=%v", testCmd)
+	cmd := exec.Command("bash", "-c", testCmd)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		log.Fatalf("start test script error: err=%+v", err)
+	}
+}
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Printf("buildTime=%v, gitCommit=%v\n", buildTime, gitCommit)
@@ -64,6 +76,7 @@ func main() {
 	port := flag.Int("port", 10000, "The server port")
 	host := flag.String("host", "127.0.0.1", "The server host")
 	master := flag.String("master", "127.0.0.1:10000", "The master server addr")
+	testCmd := flag.String("testCmd", "", "Script to test.")
 	flag.Parse()
 	ctx := context.Background()
 
@@ -111,6 +124,12 @@ func main() {
 			log.Fatalf("unmount fs error: dir=%v, err=%+v", dir, err)
 		}
 	}(&isGracefulStop)
+
+	if *testCmd != "" {
+		startTest(*testCmd)
+	}
+
+	log.Printf("join mfs")
 	if err := mfs.Join(ctx); err != nil {
 		log.Fatalf("mfs join error: err=%+v", err)
 	} else {

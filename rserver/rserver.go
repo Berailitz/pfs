@@ -25,6 +25,8 @@ import (
 	pb "github.com/Berailitz/pfs/remotetree"
 )
 
+const rServerStartTime = time.Second * 2
+
 type RServer struct {
 	pb.UnimplementedRemoteTreeServer
 	Server *grpc.Server
@@ -452,10 +454,12 @@ func (s *RServer) Start(port int) error {
 	s.Server = grpc.NewServer(opts...)
 	pb.RegisterRemoteTreeServer(s.Server, s)
 	log.Printf("starting...localhost:%d", port)
-	err = s.Server.Serve(lis)
-	if err != nil {
-		return err
-	}
+	go func() {
+		if err := s.Server.Serve(lis); err != nil {
+			log.Printf("rserver serve error: err=%+v", err)
+		}
+	}()
+	time.Sleep(rServerStartTime) // wait for the server to start
 	return nil
 }
 

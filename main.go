@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/user"
 	"strconv"
-	"time"
 
 	"github.com/Berailitz/pfs/fproxy"
 
@@ -22,8 +21,7 @@ import (
 )
 
 const (
-	dir              = "x"
-	rServerStartTime = time.Second * 3
+	dir = "x"
 )
 
 var (
@@ -73,10 +71,7 @@ func main() {
 	gopts := []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
 
 	rsvr := rserver.NewRServer()
-	go func() {
-		rsvr.Start(*port)
-	}()
-	time.Sleep(rServerStartTime) // wait for the server to start
+	rsvr.Start(*port)
 
 	fp := fproxy.NewFProxy(currentUid(), currentGid(), *master, localAddr, gopts)
 	rsvr.RegisterFProxy(fp)

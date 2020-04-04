@@ -4,6 +4,7 @@ package rclient
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	pb "github.com/Berailitz/pfs/remotetree"
@@ -12,6 +13,10 @@ import (
 type RClient struct {
 	id   uint64
 	gcli pb.RemoteTreeClient
+}
+
+type RClientErr struct {
+	msg string
 }
 
 func (c *RClient) mustHaveID() {
@@ -64,7 +69,7 @@ func (c *RClient) Allocate() uint64 {
 	return nodeID.Id
 }
 
-func (c *RClient) Deallocate(nodeID uint64) bool {
+func (c *RClient) Deallocate(nodeID uint64) error {
 	log.Printf("deallocate: nodeID=%v", nodeID)
 	ctx := context.Background()
 	out, err := c.gcli.Deallocate(ctx, &pb.UInt64ID{
@@ -72,10 +77,15 @@ func (c *RClient) Deallocate(nodeID uint64) bool {
 	})
 	if err != nil {
 		log.Printf("deallocate error: nodeID=%v, err=%+v", nodeID, err)
-		return false
+		return err
+	}
+	if !out.Ok {
+		err := &RClientErr{fmt.Sprintf("deallocate no node error: nodeID=%v, err=%+v", nodeID, err)}
+		log.Println(err.Error())
+		return err
 	}
 	log.Printf("deallocate success: nodeID=%v", nodeID)
-	return out.Ok
+	return nil
 }
 
 // RegisterOwner return 0 if err
@@ -152,4 +162,8 @@ func NewRClient(gcli pb.RemoteTreeClient) *RClient {
 	return &RClient{
 		gcli: gcli,
 	}
+}
+
+func (e *RClientErr) Error() string {
+	return fmt.Sprintf("rcli error: %v", e.msg)
 }

@@ -70,8 +70,17 @@ func main() {
 	localAddr := fmt.Sprintf("%s:%d", *host, *port)
 	gopts := []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
 
+	log.Printf("start rs")
 	rsvr := rserver.NewRServer()
-	rsvr.Start(*port)
+	if err := rsvr.Start(*port); err != nil {
+		log.Fatalf("start rs error: err=%+v", err)
+	}
+	defer func() {
+		log.Printf("stop rs")
+		if err := rsvr.Stop(); err != nil {
+			log.Printf("stop rs error: err=%+v", err)
+		}
+	}()
 
 	fp := fproxy.NewFProxy(currentUid(), currentGid(), *master, localAddr, gopts)
 	rsvr.RegisterFProxy(fp)
@@ -84,12 +93,27 @@ func main() {
 		cfg.OpContext = ctx
 	}
 
+	log.Printf("mount fs")
+	isGracefulStop := false
 	fsvr := lfs.NewLFSServer(lfs.NewLFS(currentUid(), currentGid(), fp))
 	// Mount the file system.
 	mfs, err := fuse.Mount(dir, fsvr, &cfg)
 	if err != nil {
-		log.Fatalf("Mount: %v", err)
+		log.Fatalf("mount fs error: dir=%v, err=%+v", dir, err)
 	}
-	mfs.Join(ctx)
-	rsvr.Stop()
+	defer func(_isGracefulStop *bool) {
+		if *_isGracefulStop {
+			log.Printf("no need to unmount fs")
+			return
+		}
+		log.Printf("unmount fs")
+		if err := fuse.Unmount(dir); err != nil {
+			log.Fatalf("unmount fs error: dir=%v, err=%+v", dir, err)
+		}
+	}(&isGracefulStop)
+	if err := mfs.Join(ctx); err != nil {
+		log.Fatalf("mfs join error: err=%+v", err)
+	} else {
+		isGracefulStop = true
+	}
 }

@@ -130,19 +130,20 @@ func NewFBackEnd(
 // Helpers
 ////////////////////////////////////////////////////////////////////////
 func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (*rnode.RNode, error) {
-	if out, exist := fb.nodes.Load(id); exist {
-		if node, ok := out.(*rnode.RNode); ok {
-			if err := node.Lock(); err != nil {
-				return nil, err
-			}
-			return node, nil
-		}
+	node, err := fb.loadLocalNode(ctx, id)
+	if err != nil {
+		log.Printf("load node for write load local error: id=%v, err=%+v", id, err)
+		return nil, err
 	}
-	log.Printf("load node error: id=%v", id)
-	return nil, &FBackEndErr{msg: fmt.Sprintf("load local node for write not exist error: id=%v", id)}
+
+	if err := node.Lock(); err != nil {
+		log.Printf("load node for write lock error: id=%v, err=%+v", id, err)
+		return nil, err
+	}
+	return node, nil
 }
 
-func (fb *FBackEnd) LoadLocalNodeForRead(ctx context.Context, id uint64) (*rnode.RNode, error) {
+func (fb *FBackEnd) loadLocalNode(ctx context.Context, id uint64) (*rnode.RNode, error) {
 	if out, exist := fb.nodes.Load(id); exist {
 		if node, ok := out.(*rnode.RNode); ok {
 			return node, nil
@@ -152,8 +153,11 @@ func (fb *FBackEnd) LoadLocalNodeForRead(ctx context.Context, id uint64) (*rnode
 	return nil, &FBackEndErr{msg: fmt.Sprintf("load local node not exist error: id=%v", id)}
 }
 
-func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
-	if node, err = fb.LoadLocalNodeForRead(ctx, id); err != nil {
+func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (*rnode.RNode, error) {
+	node, err := fb.loadLocalNode(ctx, id)
+	if err != nil {
+		log.Printf("load node for read load local error: id=%v, err=%+v", id, err)
+
 		addr := fb.mcli.QueryOwner(id)
 		gcli := fb.pool.Load(addr)
 		if gcli == nil {
@@ -174,9 +178,10 @@ func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (node *rnode
 	}
 
 	if err = node.RLock(); err != nil {
+		log.Printf("load node for read rlock error: id=%v, err=%+v", id, err)
 		return nil, err
 	}
-	return
+	return node, nil
 }
 
 func (fb *FBackEnd) IsLocal(ctx context.Context, id uint64) bool {

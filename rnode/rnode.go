@@ -87,8 +87,8 @@ type RNode struct {
 	// INVARIANT: If !IsFile(), len(contents) == 0
 	NContents []byte
 
-	NLock   *sync.RWMutex
-	canLock int32 // 0 for can lock
+	NLock    *sync.RWMutex
+	NCanLock int32 // 0 for can lock
 }
 
 type RNodeErr struct {
@@ -156,7 +156,7 @@ func (rn *RNode) GetRNodeAttrBytes() *bytes.Buffer {
 }
 
 func (rn *RNode) CanLock() bool {
-	return atomic.LoadInt32(&rn.canLock) == CanLockTrue
+	return atomic.LoadInt32(&rn.NCanLock) == CanLockTrue
 }
 
 func (rn *RNode) RLock() error {
@@ -210,8 +210,8 @@ func NewRNode(attrs fuseops.InodeAttributes, id uint64) *RNode {
 			NAttr:   attrs,
 			NXattrs: make(map[string][]byte),
 		},
-		canLock: CanLockTrue,
-		NLock:   &sync.RWMutex{},
+		NCanLock: CanLockTrue,
+		NLock:    &sync.RWMutex{},
 	}
 }
 

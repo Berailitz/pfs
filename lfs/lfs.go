@@ -102,7 +102,7 @@ func (lfs *LFS) LookUpInode(
 	op.Entry.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
 
-	log.Printf("look up inode success: parent=%v, name=%v", op.Parent, op.Name)
+	log.Printf("look up inode success: parent=%v, name=%v, attrs=%+v", op.Parent, op.Name, attrs)
 	return nil
 }
 
@@ -124,7 +124,7 @@ func (lfs *LFS) GetInodeAttributes(
 	// (since it also handles invalidation).
 	op.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
 
-	log.Printf("get inode attr success: id=%v", op.Inode)
+	log.Printf("get inode attr success: id=%v, attr=%+v", op.Inode, attr)
 	return nil
 }
 
@@ -405,6 +405,7 @@ func (lfs *LFS) OpenFile(
 		return err
 	}
 	op.Handle = fuseops.HandleID(handle)
+	op.UseDirectIO = true
 
 	log.Printf("openfile success: op=%+v", op)
 	return nil

@@ -32,4 +32,16 @@ ls -l $mp
 rm $mp/a/text
 ls -l $mp/a
 
+mv $mp/empty $mp/empty.new
+ls -l $mp
+
+mkdir $mp/newdir
+mv $mp/empty.new $mp/newdir/new.txt
+ls -l $mp
+ls -l $mp/newdir
+
+mv $mp/newdir/new.txt $mp/back.txt
+ls -l $mp
+ls -l $mp/newdir
+
 umount $mp

@@ -625,7 +625,7 @@ func (fp *FProxy) ReadFile(
 	id uint64,
 	length uint64,
 	offset uint64) (bytesRead uint64, buf []byte, err error) {
-	log.Printf("fp readfile success: id=%v, length=%v, offset=%v", id, length, offset)
+	log.Printf("fp readfile: id=%v, length=%v, offset=%v", id, length, offset)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.ReadFile(ctx, id, length, offset)
 	}

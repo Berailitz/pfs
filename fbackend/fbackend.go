@@ -21,9 +21,10 @@ import (
 	"log"
 	"os"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/Berailitz/pfs/idallocator"
 
 	pb "github.com/Berailitz/pfs/remotetree"
 
@@ -43,8 +44,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const initialHandle = 1
-
 type FBackEnd struct {
 	fuseutil.NotImplementedFileSystem
 	// The UID and GID that every rnode.RNode receives.
@@ -60,8 +59,8 @@ type FBackEnd struct {
 	mcli  *rclient.RClient
 	pool  *gclipool.GCliPool
 
-	nextHandle uint64
-	handleMap  sync.Map // map[uint64]uint64
+	handleAllocator *idallocator.IDAllocator
+	handleMap       sync.Map // map[uint64]uint64
 }
 
 type FBackEndErr struct {
@@ -95,7 +94,8 @@ func NewFBackEnd(
 	gid uint32,
 	masterAddr string,
 	localAddr string,
-	gopts []grpc.DialOption) *FBackEnd {
+	gopts []grpc.DialOption,
+	allocator *idallocator.IDAllocator) *FBackEnd {
 	gcli, err := utility.BuildGCli(masterAddr, gopts)
 	if err != nil {
 		log.Fatalf("new rcli fial error: master=%v, opts=%+v, err=%+V",
@@ -110,11 +110,11 @@ func NewFBackEnd(
 
 	mcli.RegisterSelf(localAddr)
 	fb := &FBackEnd{
-		uid:        uid,
-		gid:        gid,
-		mcli:       mcli,
-		pool:       gclipool.NewGCliPool(gopts, localAddr),
-		nextHandle: initialHandle,
+		uid:             uid,
+		gid:             gid,
+		mcli:            mcli,
+		pool:            gclipool.NewGCliPool(gopts, localAddr),
+		handleAllocator: allocator,
 	}
 
 	// Set up the root rnode.RNode.
@@ -322,7 +322,7 @@ func (fb *FBackEnd) AllocateHandle(
 	if !fb.IsLocal(ctx, node) {
 		return 0, &FBackEndErr{fmt.Sprintf("allocate handle node not local error: node=%v", node)}
 	}
-	handle := atomic.AddUint64(&fb.nextHandle, 1) - 1
+	handle := fb.handleAllocator.Allocate()
 	fb.handleMap.Store(handle, node)
 	return handle, nil
 }

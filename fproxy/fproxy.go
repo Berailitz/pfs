@@ -7,6 +7,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/Berailitz/pfs/idallocator"
+
 	"github.com/Berailitz/pfs/rnode"
 
 	"github.com/Berailitz/pfs/gclipool"
@@ -20,6 +22,8 @@ import (
 	"github.com/Berailitz/pfs/rclient"
 	"github.com/jacobsa/fuse/fuseops"
 )
+
+const initialHandle = 1
 
 type remoteHandle struct {
 	handle uint64
@@ -63,7 +67,8 @@ func NewFProxy(
 		log.Fatalf("nil pcli error")
 	}
 
-	fb := fbackend.NewFBackEnd(uid, gid, masterAddr, localAddr, gopts)
+	allcator := idallocator.NewIDAllocator(initialHandle)
+	fb := fbackend.NewFBackEnd(uid, gid, masterAddr, localAddr, gopts, allcator)
 	if fb == nil {
 		log.Fatalf("new fp nil fb error: uid=%v, gid=%v, masterAddr=%v, localAddr=%v, gopts=%+v",
 			uid, gid, masterAddr, localAddr, gopts)

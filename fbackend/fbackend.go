@@ -588,7 +588,7 @@ func (fb *FBackEnd) CreateNode(
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
-	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	entry.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
 	entry.EntryExpiration = entry.AttributesExpiration
 
 	log.Printf("fb create node success: parent=%v, name=%v, mode=%v",
@@ -657,7 +657,7 @@ func (fb *FBackEnd) CreateFile(
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
-	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	entry.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
 	entry.EntryExpiration = entry.AttributesExpiration
 
 	log.Printf("fb create file success: parent=%v, name=%v, mode=%v, flags=%v",

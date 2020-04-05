@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Berailitz/pfs/fproxy"
+	"github.com/Berailitz/pfs/utility"
 
 	"github.com/Berailitz/pfs/fbackend"
 
@@ -98,7 +99,7 @@ func (lfs *LFS) LookUpInode(
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
-	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	op.Entry.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
 
 	log.Printf("look up inode success: parent=%v, name=%v", op.Parent, op.Name)
@@ -121,7 +122,7 @@ func (lfs *LFS) GetInodeAttributes(
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
-	op.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	op.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
 
 	log.Printf("get inode attr success: id=%v", op.Inode)
 	return nil
@@ -164,7 +165,7 @@ func (lfs *LFS) SetInodeAttributes(
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
-	op.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	op.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
 
 	log.Printf("set inode attr success: id=%v, size=%v, mode=%v, mtime=%v",
 		op.Inode, op.Size, op.Mode, op.Mtime)
@@ -191,7 +192,7 @@ func (lfs *LFS) MkDir(
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
-	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	op.Entry.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
 
 	log.Printf("mkdir success: parent=%v, name=%v, mode=%v",
@@ -254,7 +255,7 @@ func (lfs *LFS) CreateSymlink(
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
-	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	op.Entry.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
 
 	log.Printf("create symlink success: parent=%v, name=%v, target=%v",
@@ -281,7 +282,7 @@ func (lfs *LFS) CreateLink(
 
 	// We don't spontaneously mutate, so the kernel can cache as long as it wants
 	// (since it also handles invalidation).
-	op.Entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
+	op.Entry.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
 	op.Entry.EntryExpiration = op.Entry.AttributesExpiration
 
 	log.Printf("create link success: parent=%v, name=%v, target=%v",

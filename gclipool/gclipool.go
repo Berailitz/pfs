@@ -1,7 +1,7 @@
 package gclipool
 
 import (
-	"log"
+	"fmt"
 	"sync"
 
 	"google.golang.org/grpc"
@@ -16,31 +16,37 @@ type GCliPool struct {
 	local string
 }
 
-// TODO: return error
-func (p *GCliPool) Load(addr string) pb.RemoteTreeClient {
+type GCliPoolErr struct {
+	msg string
+}
+
+var _ = (error)((*GCliPoolErr)(nil))
+
+func (p *GCliPool) Load(addr string) (pb.RemoteTreeClient, error) {
 	if addr == "" {
-		log.Printf("gclipool load cli empty addr error: addr=%v", addr)
-		return nil
+		err := &GCliPoolErr{fmt.Sprintf("gclipool load cli empty addr error: addr=%v", addr)}
+		return nil, err
 	}
 
 	if addr == p.local {
-		log.Printf("gclipool load local cli error: addr=%v", addr)
-		return nil
+		err := &GCliPoolErr{fmt.Sprintf("gclipool load local cli error: addr=%v", addr)}
+		return nil, err
 	}
 
 	if out, ok := p.cmap.Load(addr); ok {
 		if gcli, ok := out.(pb.RemoteTreeClient); ok {
-			return gcli
+			return gcli, nil
 		}
 	}
+
 	gcli, err := utility.BuildGCli(addr, p.gopts)
 	if err != nil {
-		log.Fatalf("build gcli fial error: addr=%v, opts=%#v, err=%+v",
-			addr, p.gopts, err)
-		return nil
+		err := &GCliPoolErr{fmt.Sprintf("build gcli fial error: addr=%v, opts=%#v, err=%+v",
+			addr, p.gopts, err)}
+		return nil, err
 	}
 	p.cmap.Store(addr, gcli)
-	return gcli
+	return gcli, nil
 }
 
 func NewGCliPool(gopts []grpc.DialOption, local string) *GCliPool {
@@ -48,4 +54,8 @@ func NewGCliPool(gopts []grpc.DialOption, local string) *GCliPool {
 		gopts: gopts,
 		local: local,
 	}
+}
+
+func (e *GCliPoolErr) Error() string {
+	return fmt.Sprintf("gclipool error: %v", e.msg)
 }

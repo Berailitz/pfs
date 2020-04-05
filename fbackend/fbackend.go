@@ -165,9 +165,9 @@ func (fb *FBackEnd) LoadLocalNode(ctx context.Context, id uint64) (*rnode.RNode,
 
 func (fb *FBackEnd) LoadRemoteNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
 	addr := fb.mcli.QueryOwner(id)
-	gcli := fb.pool.Load(addr)
-	if gcli == nil {
-		return nil, &FBackEndErr{msg: fmt.Sprintf("load node no gcli error: id=%v, isRead=%v", id, isRead)}
+	gcli, err := fb.pool.Load(addr)
+	if err != nil {
+		return nil, err
 	}
 
 	pbNode, err := gcli.FetchNode(ctx, &pb.NodeIsReadRequest{
@@ -198,13 +198,12 @@ func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (node *rnod
 func (fb *FBackEnd) doUnlockRemoteNode(ctx context.Context, node *rnode.RNode, isRead bool) error {
 	id := node.ID()
 	addr := node.Addr()
-	gcli := fb.pool.Load(addr)
-	if gcli == nil {
-		return &FBackEndErr{msg: fmt.Sprintf("unlock remote node no gcli error: id=%v, isRead=%v", id, isRead)}
+	gcli, err := fb.pool.Load(addr)
+	if err != nil {
+		return err
 	}
 
 	var perr *pb.Error
-	var err error
 	if isRead {
 		perr, err = gcli.RUnlockNode(ctx, &pb.UInt64ID{
 			Id: id,

@@ -88,7 +88,6 @@ Private workspace for Golang.
 
 # Plan
 1. manager use `ctx`
-1. `pool.Load` return `error`
 1. avoid dead lock
 1. node lock
 1. heartbeat

@@ -80,9 +80,6 @@ func NewFProxy(
 ////////////////////////////////////////////////////////////////////////
 // Helpers
 ////////////////////////////////////////////////////////////////////////
-func (fp *FProxy) buillNoGCliErr(addr string) error {
-	return &FPErr{msg: fmt.Sprintf("no gcli: addr=%v", addr)}
-}
 
 ////////////////////////////////////////////////////////////////////////
 // FileSystem methods
@@ -102,9 +99,9 @@ func (fp *FProxy) RUnlockNode(ctx context.Context, id uint64) error {
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return err
 	}
 
 	perr, err := gcli.RUnlockNode(ctx, &pb.UInt64ID{
@@ -128,9 +125,9 @@ func (fp *FProxy) UnlockNode(ctx context.Context, node *rnode.RNode) error {
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return err
 	}
 
 	perr, err := gcli.UnlockNode(ctx, utility.ToPbNode(node))
@@ -156,9 +153,9 @@ func (fp *FProxy) LookUpInode(
 	}
 
 	addr := fp.pcli.QueryOwner(parentID)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return 0, fuseops.InodeAttributes{}, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, fuseops.InodeAttributes{}, err
 	}
 
 	reply, err := gcli.LookUpInode(ctx, &pb.LookUpInodeRequest{
@@ -180,9 +177,9 @@ func (fp *FProxy) GetInodeAttributes(
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fuseops.InodeAttributes{}, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return fuseops.InodeAttributes{}, err
 	}
 
 	reply, err := gcli.GetInodeAttributes(ctx, &pb.UInt64ID{
@@ -204,9 +201,9 @@ func (fp *FProxy) SetInodeAttributes(
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fuseops.InodeAttributes{}, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return fuseops.InodeAttributes{}, err
 	}
 
 	reply, err := gcli.SetInodeAttributes(ctx, &pb.SetInodeAttributesRequest{
@@ -235,9 +232,9 @@ func (fp *FProxy) MkDir(
 	}
 
 	addr := fp.pcli.QueryOwner(parentID)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return 0, fuseops.InodeAttributes{}, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, fuseops.InodeAttributes{}, err
 	}
 
 	reply, err := gcli.MkDir(ctx, &pb.MkDirRequest{
@@ -263,9 +260,9 @@ func (fp *FProxy) CreateNode(
 	}
 
 	addr := fp.pcli.QueryOwner(parentID)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fuseops.ChildInodeEntry{}, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return fuseops.ChildInodeEntry{}, err
 	}
 
 	reply, err := gcli.CreateNode(ctx, &pb.CreateNodeRequest{
@@ -292,9 +289,9 @@ func (fp *FProxy) CreateFile(
 	}
 
 	addr := fp.pcli.QueryOwner(parentID)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fuseops.ChildInodeEntry{}, 0, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return fuseops.ChildInodeEntry{}, 0, err
 	}
 
 	reply, err := gcli.CreateFile(ctx, &pb.CreateFileRequest{
@@ -320,9 +317,9 @@ func (fp *FProxy) CreateSymlink(
 	}
 
 	addr := fp.pcli.QueryOwner(parentID)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return 0, fuseops.InodeAttributes{}, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, fuseops.InodeAttributes{}, err
 	}
 
 	reply, err := gcli.CreateSymlink(ctx, &pb.CreateSymlinkRequest{
@@ -349,9 +346,9 @@ func (fp *FProxy) CreateLink(
 
 	// TODO: Parent owner start and acquire child
 	addr := fp.pcli.QueryOwner(parentID)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fuseops.InodeAttributes{}, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return fuseops.InodeAttributes{}, err
 	}
 
 	reply, err := gcli.CreateLink(ctx, &pb.CreateLinkRequest{
@@ -377,9 +374,9 @@ func (fp *FProxy) Rename(
 
 	// TODO: NewParent owner start and acquire child, OldParent owner rm OldChild, rm node, NewParent add child
 	addr := fp.pcli.QueryOwner(uint64(op.NewParent))
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return err
 	}
 
 	perr, err := gcli.Rename(ctx, &pb.RenameRequest{
@@ -406,9 +403,9 @@ func (fp *FProxy) RmDir(
 
 	// TODO: Parent owner start, Child owner rm node
 	addr := fp.pcli.QueryOwner(uint64(op.Parent))
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return err
 	}
 
 	perr, err := gcli.RmDir(ctx, &pb.RmDirRequest{
@@ -433,9 +430,9 @@ func (fp *FProxy) Unlink(
 
 	// TODO: Parent owner start and acquire child
 	addr := fp.pcli.QueryOwner(uint64(op.Parent))
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return err
 	}
 
 	perr, err := gcli.Unlink(ctx, &pb.UnlinkRequest{
@@ -459,9 +456,9 @@ func (fp *FProxy) OpenDir(
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return 0, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, err
 	}
 
 	reply, err := gcli.OpenDir(ctx, &pb.OpenXRequest{
@@ -493,9 +490,9 @@ func (fp *FProxy) ReadDir(
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return 0, nil, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, nil, err
 	}
 
 	reply, err := gcli.ReadDir(ctx, &pb.ReadXRequest{
@@ -516,9 +513,9 @@ func (fp *FProxy) ReleaseHandle(
 	h uint64) error {
 	if rh := fp.LoadRemoteHandle(ctx, h); rh != nil {
 		addr := fp.pcli.QueryAddr(rh.owner)
-		gcli := fp.pool.Load(addr)
-		if gcli == nil {
-			return fp.buillNoGCliErr(addr)
+		gcli, err := fp.pool.Load(addr)
+		if err != nil {
+			return err
 		}
 
 		perr, err := gcli.ReleaseHandle(ctx, &pb.UInt64ID{
@@ -541,9 +538,9 @@ func (fp *FProxy) OpenFile(ctx context.Context, id uint64, flags uint32) (handle
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return 0, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, err
 	}
 
 	reply, err := gcli.OpenFile(ctx, &pb.OpenXRequest{
@@ -575,9 +572,9 @@ func (fp *FProxy) ReadFile(
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return 0, nil, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, nil, err
 	}
 
 	reply, err := gcli.ReadFile(ctx, &pb.ReadXRequest{
@@ -603,9 +600,9 @@ func (fp *FProxy) WriteFile(
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return 0, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, err
 	}
 
 	reply, err := gcli.WriteFile(ctx, &pb.WriteXRequest{
@@ -629,9 +626,9 @@ func (fp *FProxy) ReadSymlink(
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return "", fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return "", err
 	}
 
 	reply, err := gcli.ReadSymlink(ctx, &pb.UInt64ID{
@@ -654,9 +651,9 @@ func (fp *FProxy) GetXattr(ctx context.Context,
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return 0, nil, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, nil, err
 	}
 
 	reply, err := gcli.GetXattr(ctx, &pb.GetXattrRequest{
@@ -680,9 +677,9 @@ func (fp *FProxy) ListXattr(ctx context.Context,
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return 0, nil, fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, nil, err
 	}
 
 	reply, err := gcli.ListXattr(ctx, &pb.ListXattrRequest{
@@ -703,9 +700,9 @@ func (fp *FProxy) RemoveXattr(ctx context.Context, id uint64, name string) error
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return err
 	}
 
 	reply, err := gcli.RemoveXattr(ctx, &pb.RemoveXattrRequest{
@@ -726,9 +723,9 @@ func (fp *FProxy) SetXattr(ctx context.Context, op fuseops.SetXattrOp) error {
 	}
 
 	addr := fp.pcli.QueryOwner(uint64(op.Inode))
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return err
 	}
 
 	reply, err := gcli.SetXattr(ctx, &pb.SetXattrRequest{
@@ -753,9 +750,9 @@ func (fp *FProxy) Fallocate(ctx context.Context,
 	}
 
 	addr := fp.pcli.QueryOwner(id)
-	gcli := fp.pool.Load(addr)
-	if gcli == nil {
-		return fp.buillNoGCliErr(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return err
 	}
 
 	reply, err := gcli.Fallocate(ctx, &pb.FallocateRequest{

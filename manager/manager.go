@@ -34,11 +34,17 @@ type RManager struct {
 var _ = (Manager)((*RManager)(nil))
 
 func (m *RManager) QueryOwner(nodeID uint64) string {
+	log.Printf("query owner: nodeID=%v", nodeID)
 	if ownerOut, ok := m.NodeOwner.Load(nodeID); ok {
 		if owner, ok := ownerOut.(uint64); ok {
-			return m.QueryAddr(owner)
+			addr := m.QueryAddr(owner)
+			log.Printf("query owner success: nodeID=%v, addr=%v", nodeID, addr)
+			return addr
 		}
+		log.Printf("query owner not node error: nodeID=%v", nodeID)
+		return ""
 	}
+	log.Printf("query owner no node error: nodeID=%v", nodeID)
 	return ""
 }
 

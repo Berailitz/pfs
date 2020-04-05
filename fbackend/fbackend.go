@@ -423,6 +423,7 @@ func (fb *FBackEnd) LookUpInode(
 		err = fb.RUnlockNode(ctx, child)
 	}()
 
+	log.Printf("fb look up inode success: parent=%v, name=%v", parentID, name)
 	return childID, child.Attrs(), nil
 }
 
@@ -444,6 +445,7 @@ func (fb *FBackEnd) GetInodeAttributes(
 	}()
 
 	// Fill in the response.
+	log.Printf("fb get inode attr success: id=%v", id)
 	return node.Attrs(), nil
 }
 
@@ -480,6 +482,8 @@ func (fb *FBackEnd) SetInodeAttributes(
 	node.SetAttributes(internalParam.Size, internalParam.Mode, internalParam.Mtime)
 
 	// Fill in the response.
+	log.Printf("fb set inode attr success: id=%v, param=%+v",
+		id, param)
 	return node.Attrs(), nil
 }
 
@@ -525,6 +529,8 @@ func (fb *FBackEnd) MkDir(
 	parent.AddChild(childID, name, fuseutil.DT_Directory)
 
 	// Fill in the response.
+	log.Printf("fb mkdir success: parent=%v, name=%v, mode=%v",
+		parentID, name, mode)
 	return childID, child.Attrs(), nil
 }
 
@@ -585,6 +591,8 @@ func (fb *FBackEnd) CreateNode(
 	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 	entry.EntryExpiration = entry.AttributesExpiration
 
+	log.Printf("fb create node success: parent=%v, name=%v, mode=%v",
+		parentID, name, mode)
 	return entry, nil
 }
 
@@ -652,6 +660,8 @@ func (fb *FBackEnd) CreateFile(
 	entry.AttributesExpiration = time.Now().Add(365 * 24 * time.Hour)
 	entry.EntryExpiration = entry.AttributesExpiration
 
+	log.Printf("fb create file success: parent=%v, name=%v, mode=%v, flags=%v",
+		parentID, name, mode, flags)
 	return entry, handle, nil
 }
 
@@ -705,6 +715,8 @@ func (fb *FBackEnd) CreateSymlink(
 	parent.AddChild(childID, name, fuseutil.DT_Link)
 
 	// Fill in the response entry.
+	log.Printf("fb create symlink success: parent=%v, name=%v, target=%v",
+		parentID, name, target)
 	return childID, child.Attrs(), nil
 }
 
@@ -754,6 +766,8 @@ func (fb *FBackEnd) CreateLink(
 	parent.AddChild(targetID, name, fuseutil.DT_File)
 
 	// Return the response.
+	log.Printf("fb create link success: parent=%v, name=%v, target=%v",
+		parentID, name, targetID)
 	return target.Attrs(), nil
 }
 
@@ -817,6 +831,7 @@ func (fb *FBackEnd) Rename(
 	// Finally, remove the old name from the old parent.
 	oldParent.RemoveChild(op.OldName)
 
+	log.Printf("fb rename success: op=%#v", op)
 	return
 }
 
@@ -869,6 +884,7 @@ func (fb *FBackEnd) RmDir(
 		}
 	}
 
+	log.Printf("fb rmdir success: op=%#v", op)
 	return
 }
 
@@ -915,6 +931,7 @@ func (fb *FBackEnd) Unlink(
 		}
 	}
 
+	log.Printf("fb unlink success: op=%#v", op)
 	return
 }
 
@@ -978,6 +995,8 @@ func (fb *FBackEnd) ReadDir(
 	// Serve the request.
 	bytesRead = uint64(node.ReadDir(buf, int(offset)))
 
+	log.Printf("fb readdir success: id=%v, len=%v, offset=%v, bytesRead=%v",
+		id, length, offset, bytesRead)
 	return
 }
 
@@ -1039,7 +1058,7 @@ func (fb *FBackEnd) ReadFile(
 	fb.lock()
 	defer fb.unlock()
 
-	log.Printf("fb readfile success: id=%v, length=%v, offset=%v", id, length, offset)
+	log.Printf("fb readfile: id=%v, length=%v, offset=%v", id, length, offset)
 	// Find the rnode.RNode in question.
 	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
@@ -1064,6 +1083,7 @@ func (fb *FBackEnd) ReadFile(
 		log.Printf("readfile error: id=%v, length=%v, offset=%v, err=%+v", id, length, offset, err)
 	}
 	bytesRead = uint64(bytesReadI)
+	log.Printf("fb readfile success: id=%v, length=%v, offset=%v, bytesRead=%v", id, length, offset, bytesRead)
 	return
 }
 
@@ -1096,6 +1116,7 @@ func (fb *FBackEnd) WriteFile(
 			id, offset, bytesWrite, data, err)
 	}
 
+	log.Printf("write file success: id=%v, offset=%v, bytesWrite=%v, data=%v", id, offset, bytesWrite, data)
 	return uint64(bytesWrite), err
 }
 
@@ -1133,6 +1154,7 @@ func (fb *FBackEnd) ReadSymlink(
 	// Serve the request.
 	target = node.Target()
 
+	log.Printf("fp read symlink success: id=%v", id)
 	return
 }
 
@@ -1168,6 +1190,8 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 		return
 	}
 
+	log.Printf("fb get xattr success: id=%v, name=%v, length=%v",
+		id, name, length)
 	return
 }
 
@@ -1203,6 +1227,8 @@ func (fb *FBackEnd) ListXattr(ctx context.Context,
 		bytesRead += uint64(keyLen)
 	}
 
+	log.Printf("fb list xattr success: id=%v, length=%v",
+		id, length)
 	return
 }
 
@@ -1229,6 +1255,8 @@ func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 	} else {
 		return fuse.ENOATTR
 	}
+
+	log.Printf("fb rm xattr success: id=%v, name=%v", id, name)
 	return nil
 }
 
@@ -1265,6 +1293,8 @@ func (fb *FBackEnd) SetXattr(ctx context.Context,
 	xattrs := node.Xattrs()
 	xattrs[op.Name] = value
 	node.SetXattrs(xattrs)
+
+	log.Printf("fb set xattr success: op=%#v", op)
 	return nil
 }
 
@@ -1291,6 +1321,8 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 		log.Printf(err.Error())
 		return err
 	}
+
+	log.Printf("fb fallocate success: id=%v, mode=%v, len=%v", id, mode, length)
 	return nil
 }
 

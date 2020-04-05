@@ -545,7 +545,7 @@ func (fp *FProxy) ReadDir(
 			id, err)
 		return 0, nil, err
 	}
-	return 0, nil, utility.DecodeError(reply.Err)
+	return reply.BytesRead, reply.Buf, utility.DecodeError(reply.Err)
 }
 
 func (fp *FProxy) ReleaseHandle(
@@ -646,7 +646,7 @@ func (fp *FProxy) ReadFile(
 			id, err)
 		return 0, nil, err
 	}
-	return 0, nil, utility.DecodeError(reply.Err)
+	return reply.BytesRead, reply.Buf, utility.DecodeError(reply.Err)
 }
 
 func (fp *FProxy) WriteFile(
@@ -675,7 +675,7 @@ func (fp *FProxy) WriteFile(
 			id, err)
 		return 0, err
 	}
-	return 0, utility.DecodeError(reply.Err)
+	return reply.Num, utility.DecodeError(reply.Err)
 }
 
 func (fp *FProxy) ReadSymlink(

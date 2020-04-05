@@ -89,6 +89,8 @@ type RNode struct {
 
 	NLock    *sync.RWMutex
 	NCanLock int32 // 0 for can lock
+
+	NAddr string
 }
 
 type RNodeErr struct {
@@ -189,6 +191,14 @@ func (rn *RNode) Lock() error {
 func (rn *RNode) Unlock() {
 	log.Printf("unlock node: id=%v", rn.ID())
 	rn.NLock.Unlock()
+}
+
+func (rn *RNode) Addr() string {
+	return rn.NAddr
+}
+
+func (rn *RNode) SetAddr(addr string) {
+	rn.NAddr = addr
 }
 
 ////////////////////////////////////////////////////////////////////////

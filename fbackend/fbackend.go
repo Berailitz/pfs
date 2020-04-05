@@ -180,6 +180,7 @@ func (fb *FBackEnd) LoadRemoteNode(ctx context.Context, id uint64, isRead bool) 
 	}
 
 	if node := utility.FromPbNode(pbNode); node != nil {
+		node.SetAddr(addr)
 		return node, nil
 	} else {
 		return nil, &FBackEndErr{msg: fmt.Sprintf("load node parse fail error: id=%v, isRead=%v", id, isRead)}

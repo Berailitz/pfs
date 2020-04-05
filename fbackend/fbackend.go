@@ -795,13 +795,17 @@ func (fb *FBackEnd) Rename(
 
 	// If the new name exists already in the new parent, make sure it's not a
 	// non-empty directory, then delete it.
-	newParent, err := fb.LoadNodeForWrite(ctx, uint64(op.NewParent))
-	if err != nil {
-		return err
+	newParent := oldParent
+	if op.NewParent != op.OldParent {
+		newParent, err = fb.LoadNodeForWrite(ctx, uint64(op.NewParent))
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = fb.UnlockNode(ctx, newParent)
+		}()
 	}
-	defer func() {
-		err = fb.UnlockNode(ctx, newParent)
-	}()
+
 	existingID, _, ok := newParent.LookUpChild(op.NewName)
 	if ok {
 		var existing *rnode.RNode

@@ -1072,17 +1072,18 @@ func (fb *FBackEnd) ReadFile(
 	// Serve the request.
 	buf = make([]byte, length)
 	bytesReadI, err := node.ReadAt(buf, int64(offset))
+	bytesRead = uint64(bytesReadI)
 
 	// Don't return EOF errors; we just indicate EOF to fuse using a short read.
 	if err == io.EOF {
-		log.Printf("readfile meets EOF, return nil: id=%v, length=%v, offset=%v", id, length, offset)
+		log.Printf("readfile meets EOF, return nil: id=%v, length=%v, bytesRead=%v, offset=%v",
+			id, length, bytesRead, offset)
 		err = nil
 	}
 
 	if err != nil {
 		log.Printf("readfile error: id=%v, length=%v, offset=%v, err=%+v", id, length, offset, err)
 	}
-	bytesRead = uint64(bytesReadI)
 	log.Printf("fb readfile success: id=%v, length=%v, offset=%v, bytesRead=%v", id, length, offset, bytesRead)
 	return
 }

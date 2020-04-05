@@ -17,6 +17,12 @@ import (
 	"google.golang.org/grpc"
 )
 
+type RemoteErr struct {
+	msg string
+}
+
+var _ = (error)((*RemoteErr)(nil))
+
 func BuildGCli(addr string, gopts []grpc.DialOption) (pb.RemoteTreeClient, error) {
 	log.Printf("build gcli: addr=%v", addr)
 	conn, err := grpc.Dial(addr, gopts...)
@@ -139,7 +145,11 @@ func FromPbNode(node *pb.Node) *rnode.RNode {
 
 func DecodeError(perr *pb.Error) error {
 	if perr != nil && perr.Status != 0 {
-		return fmt.Errorf(perr.Msg)
+		return &RemoteErr{perr.Msg}
 	}
 	return nil
+}
+
+func (e *RemoteErr) Error() string {
+	return fmt.Sprintf("remote err: %v", e.msg)
 }

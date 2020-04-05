@@ -771,12 +771,12 @@ func (fb *FBackEnd) Rename(
 	existingID, _, ok := newParent.LookUpChild(op.NewName)
 	if ok {
 		var existing *rnode.RNode
-		existing, err = fb.LoadNodeForWrite(ctx, existingID)
+		existing, err = fb.LoadNodeForRead(ctx, existingID)
 		if err != nil {
 			return err
 		}
 		defer func() {
-			err = fb.UnlockNode(ctx, existing)
+			err = fb.RUnlockNode(ctx, existing)
 		}()
 
 		var buf [4096]byte

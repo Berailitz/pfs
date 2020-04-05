@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/Berailitz/pfs/idallocator"
+
 	"github.com/jacobsa/fuse/fuseops"
 )
 
@@ -24,11 +26,11 @@ type Manager interface {
 }
 
 type RManager struct {
-	NodeOwner    sync.Map // [uint64]uint64
-	Owners       sync.Map // [uint64]string
-	OwnerCounter [MaxOwnerID]uint64
-	NextNodeID   uint64
-	NextOwnerID  uint64
+	NodeOwner      sync.Map // [uint64]uint64
+	Owners         sync.Map // [uint64]string
+	OwnerCounter   [MaxOwnerID]uint64
+	nodeAllocator  *idallocator.IDAllocator
+	ownerAllocator *idallocator.IDAllocator
 }
 
 var _ = (Manager)((*RManager)(nil))
@@ -59,9 +61,7 @@ func (m *RManager) QueryAddr(ownerID uint64) string {
 
 func (m *RManager) Allocate(ownerID uint64) uint64 {
 	if _, ok := m.Owners.Load(ownerID); ok {
-		id := m.NextNodeID
-		atomic.AddUint64(&m.OwnerCounter[ownerID], 1)
-		m.NextNodeID++
+		id := m.nodeAllocator.Allocate()
 		m.NodeOwner.Store(id, ownerID)
 		return id
 	}
@@ -81,10 +81,9 @@ func (m *RManager) Deallocate(nodeID uint64) bool {
 
 // RegisterOwner return 0 if err
 func (m *RManager) RegisterOwner(addr string) uint64 {
-	ownerID := m.NextOwnerID
+	ownerID := m.ownerAllocator.Allocate()
 	if ownerID <= MaxOwnerID {
 		m.Owners.Store(ownerID, addr)
-		m.NextOwnerID++
 		return ownerID
 	}
 	return 0
@@ -113,7 +112,7 @@ func (m *RManager) AllocateRoot(ownerID uint64) bool {
 // NewRManager do not register or allocate
 func NewRManager() *RManager {
 	return &RManager{
-		NextNodeID:  RootNodeID + 1, // since root is assigned by AllocateRoot, not allocated
-		NextOwnerID: FirstOwnerID,
+		nodeAllocator:  idallocator.NewIDAllocator(RootNodeID + 1), // since root is assigned by AllocateRoot, not allocated
+		ownerAllocator: idallocator.NewIDAllocator(FirstOwnerID),
 	}
 }

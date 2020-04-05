@@ -16,6 +16,7 @@ type GCliPool struct {
 	local string
 }
 
+// TODO: return error
 func (p *GCliPool) Load(addr string) pb.RemoteTreeClient {
 	if addr == "" {
 		log.Printf("gclipool load cli empty addr error: addr=%v", addr)

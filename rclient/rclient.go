@@ -36,7 +36,7 @@ func (c *RClient) QueryOwner(nodeID uint64) string {
 		log.Printf("query owner error: nodeID=%v, err=%+v", nodeID, err)
 		return ""
 	}
-	log.Printf("query owner success: nodeID=%v", nodeID)
+	log.Printf("query owner success: nodeID=%v, addr=%v", nodeID, addr.Addr)
 	return addr.Addr
 }
 

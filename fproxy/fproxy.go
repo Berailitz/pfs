@@ -153,6 +153,7 @@ func (fp *FProxy) LookUpInode(
 	ctx context.Context,
 	parentID uint64,
 	name string) (uint64, fuseops.InodeAttributes, error) {
+	log.Printf("fp look up inode: parent=%v, name=%v", parentID, name)
 	if fp.IsLocalNode(ctx, parentID) {
 		return fp.fb.LookUpInode(ctx, parentID, name)
 	}
@@ -177,6 +178,7 @@ func (fp *FProxy) LookUpInode(
 func (fp *FProxy) GetInodeAttributes(
 	ctx context.Context,
 	id uint64) (fuseops.InodeAttributes, error) {
+	log.Printf("fp get inode attr: id=%v", id)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.GetInodeAttributes(ctx, id)
 	}
@@ -201,6 +203,8 @@ func (fp *FProxy) SetInodeAttributes(
 	ctx context.Context,
 	id uint64,
 	param fbackend.SetInodeAttributesParam) (fuseops.InodeAttributes, error) {
+	log.Printf("fp set inode attr: id=%v, param=%+v",
+		id, param)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.SetInodeAttributes(ctx, id, param)
 	}
@@ -232,6 +236,8 @@ func (fp *FProxy) MkDir(
 	parentID uint64,
 	name string,
 	mode os.FileMode) (uint64, fuseops.InodeAttributes, error) {
+	log.Printf("fp mkdir: parent=%v, name=%v, mode=%v",
+		parentID, name, mode)
 	if fp.IsLocalNode(ctx, parentID) {
 		return fp.fb.MkDir(ctx, parentID, name, mode)
 	}
@@ -260,6 +266,8 @@ func (fp *FProxy) CreateNode(
 	parentID uint64,
 	name string,
 	mode os.FileMode) (fuseops.ChildInodeEntry, error) {
+	log.Printf("fp create node: parent=%v, name=%v, mode=%v",
+		parentID, name, mode)
 	if fp.IsLocalNode(ctx, parentID) {
 		return fp.fb.CreateNode(ctx, parentID, name, mode)
 	}
@@ -289,6 +297,8 @@ func (fp *FProxy) CreateFile(
 	name string,
 	mode os.FileMode,
 	flags uint32) (fuseops.ChildInodeEntry, uint64, error) {
+	log.Printf("fp create file: parent=%v, name=%v, mode=%v, flags=%v",
+		parentID, name, mode, flags)
 	if fp.IsLocalNode(ctx, parentID) {
 		return fp.fb.CreateFile(ctx, parentID, name, mode, flags)
 	}
@@ -317,6 +327,8 @@ func (fp *FProxy) CreateSymlink(
 	parentID uint64,
 	name string,
 	target string) (uint64, fuseops.InodeAttributes, error) {
+	log.Printf("fp create symlink: parent=%v, name=%v, target=%v",
+		parentID, name, target)
 	if fp.IsLocalNode(ctx, parentID) {
 		return fp.fb.CreateSymlink(ctx, parentID, name, target)
 	}
@@ -345,6 +357,8 @@ func (fp *FProxy) CreateLink(
 	parentID uint64,
 	name string,
 	targetID uint64) (fuseops.InodeAttributes, error) {
+	log.Printf("fp create link: parent=%v, name=%v, target=%v",
+		parentID, name, targetID)
 	if fp.IsLocalNode(ctx, parentID) {
 		return fp.fb.CreateLink(ctx, parentID, name, targetID)
 	}
@@ -372,6 +386,7 @@ func (fp *FProxy) CreateLink(
 func (fp *FProxy) Rename(
 	ctx context.Context,
 	op fuseops.RenameOp) (err error) {
+	log.Printf("fp rename: op=%#v", op)
 	if fp.IsLocalNode(ctx, uint64(op.NewParent)) && fp.IsLocalNode(ctx, uint64(op.OldParent)) &&
 		fp.isChildLocal(ctx, uint64(op.OldParent), op.OldName) {
 		return fp.fb.Rename(ctx, op)
@@ -401,6 +416,7 @@ func (fp *FProxy) Rename(
 func (fp *FProxy) RmDir(
 	ctx context.Context,
 	op fuseops.RmDirOp) (err error) {
+	log.Printf("fp rmdir: op=%#v", op)
 	if fp.IsLocalNode(ctx, uint64(op.Parent)) &&
 		fp.isChildLocal(ctx, uint64(op.Parent), op.Name) {
 		return fp.fb.RmDir(ctx, op)
@@ -428,6 +444,7 @@ func (fp *FProxy) RmDir(
 func (fp *FProxy) Unlink(
 	ctx context.Context,
 	op fuseops.UnlinkOp) (err error) {
+	log.Printf("fp unlink: op=%#v", op)
 	if fp.IsLocalNode(ctx, uint64(op.Parent)) &&
 		fp.isChildLocal(ctx, uint64(op.Parent), op.Name) {
 		return fp.fb.Unlink(ctx, op)
@@ -456,6 +473,7 @@ func (fp *FProxy) OpenDir(
 	ctx context.Context,
 	id uint64,
 	flags uint32) (handle uint64, err error) {
+	log.Printf("fp opendir: id=%v, flags=%v", id, flags)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.OpenDir(ctx, id, flags)
 	}
@@ -490,6 +508,8 @@ func (fp *FProxy) ReadDir(
 	id uint64,
 	length uint64,
 	offset uint64) (bytesRead uint64, buf []byte, err error) {
+	log.Printf("fp readdir: id=%v, len=%v, offset=%v",
+		id, length, offset)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.ReadDir(ctx, id, length, offset)
 	}
@@ -516,6 +536,7 @@ func (fp *FProxy) ReadDir(
 func (fp *FProxy) ReleaseHandle(
 	ctx context.Context,
 	h uint64) error {
+	log.Printf("fp release dir: h=%v", h)
 	if rh := fp.LoadRemoteHandle(ctx, h); rh != nil {
 		addr := rh.addr
 		gcli, err := fp.pool.Load(addr)
@@ -538,6 +559,7 @@ func (fp *FProxy) ReleaseHandle(
 }
 
 func (fp *FProxy) OpenFile(ctx context.Context, id uint64, flags uint32) (handle uint64, err error) {
+	log.Printf("fp openfile: id=%v, flags=%v", id, flags)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.OpenFile(ctx, id, flags)
 	}
@@ -572,6 +594,7 @@ func (fp *FProxy) ReadFile(
 	id uint64,
 	length uint64,
 	offset uint64) (bytesRead uint64, buf []byte, err error) {
+	log.Printf("fp readfile success: id=%v, length=%v, offset=%v", id, length, offset)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.ReadFile(ctx, id, length, offset)
 	}
@@ -600,6 +623,7 @@ func (fp *FProxy) WriteFile(
 	id uint64,
 	offset uint64,
 	data []byte) (uint64, error) {
+	log.Printf("write file: id=%v, offset=%v, data=%v", id, offset, data)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.WriteFile(ctx, id, offset, data)
 	}
@@ -626,6 +650,7 @@ func (fp *FProxy) WriteFile(
 func (fp *FProxy) ReadSymlink(
 	ctx context.Context,
 	id uint64) (target string, err error) {
+	log.Printf("fp read symlink: id=%v", id)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.ReadSymlink(ctx, id)
 	}
@@ -651,6 +676,8 @@ func (fp *FProxy) GetXattr(ctx context.Context,
 	id uint64,
 	name string,
 	length uint64) (bytesRead uint64, dst []byte, err error) {
+	log.Printf("fp get xattr: id=%v, name=%v, length=%v",
+		id, name, length)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.GetXattr(ctx, id, name, length)
 	}
@@ -677,6 +704,8 @@ func (fp *FProxy) GetXattr(ctx context.Context,
 func (fp *FProxy) ListXattr(ctx context.Context,
 	id uint64,
 	length uint64) (bytesRead uint64, dst []byte, err error) {
+	log.Printf("fp list xattr: id=%v, length=%v",
+		id, length)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.ListXattr(ctx, id, length)
 	}
@@ -700,6 +729,7 @@ func (fp *FProxy) ListXattr(ctx context.Context,
 }
 
 func (fp *FProxy) RemoveXattr(ctx context.Context, id uint64, name string) error {
+	log.Printf("fp rm xattr: id=%v, name=%v", id, name)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.RemoveXattr(ctx, id, name)
 	}
@@ -723,6 +753,7 @@ func (fp *FProxy) RemoveXattr(ctx context.Context, id uint64, name string) error
 }
 
 func (fp *FProxy) SetXattr(ctx context.Context, op fuseops.SetXattrOp) error {
+	log.Printf("fp set xattr: op=%#v", op)
 	if fp.IsLocalNode(ctx, uint64(op.Inode)) {
 		return fp.fb.SetXattr(ctx, op)
 	}
@@ -750,6 +781,7 @@ func (fp *FProxy) Fallocate(ctx context.Context,
 	id uint64,
 	mode uint32,
 	length uint64) error {
+	log.Printf("fp fallocate: id=%v, mode=%v, len=%v", id, mode, length)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.Fallocate(ctx, id, mode, length)
 	}

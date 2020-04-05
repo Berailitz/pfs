@@ -330,6 +330,7 @@ func (fb *FBackEnd) AllocateHandle(
 func (fb *FBackEnd) ReleaseHandle(
 	ctx context.Context,
 	h uint64) error {
+	log.Printf("fb release dir: h=%v", h)
 	if _, err := fb.LoadHandle(ctx, h); err == nil {
 		fb.handleMap.Delete(h)
 		return nil
@@ -395,6 +396,7 @@ func (fb *FBackEnd) LookUpInode(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb look up inode: parent=%v, name=%v", parentID, name)
 	// Grab the parent directory.
 	parent, err := fb.LoadNodeForRead(ctx, parentID)
 	if err != nil {
@@ -430,6 +432,7 @@ func (fb *FBackEnd) GetInodeAttributes(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb get inode attr: id=%v", id)
 	// Grab the rnode.RNode.
 	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
@@ -451,6 +454,8 @@ func (fb *FBackEnd) SetInodeAttributes(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb set inode attr: id=%v, param=%+v",
+		id, param)
 	// Grab the rnode.RNode.
 	node, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
@@ -486,6 +491,8 @@ func (fb *FBackEnd) MkDir(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb mkdir: parent=%v, name=%v, mode=%v",
+		parentID, name, mode)
 	// Grab the parent, which we will update shortly.
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
@@ -530,6 +537,8 @@ func (fb *FBackEnd) CreateNode(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb create node: parent=%v, name=%v, mode=%v",
+		parentID, name, mode)
 	// Grab the parent, which we will update shortly.
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
@@ -589,6 +598,8 @@ func (fb *FBackEnd) CreateFile(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb create file: parent=%v, name=%v, mode=%v, flags=%v",
+		parentID, name, mode, flags)
 	// Grab the parent, which we will update shortly.
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
@@ -652,6 +663,8 @@ func (fb *FBackEnd) CreateSymlink(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb create symlink: parent=%v, name=%v, target=%v",
+		parentID, name, target)
 	// Grab the parent, which we will update shortly.
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
@@ -703,6 +716,8 @@ func (fb *FBackEnd) CreateLink(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb create link: parent=%v, name=%v, target=%v",
+		parentID, name, targetID)
 	// Grab the parent, which we will update shortly.
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
@@ -748,6 +763,7 @@ func (fb *FBackEnd) Rename(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb rename: op=%#v", op)
 	// Ask the old parent for the child's rnode.RNode ID and type.
 	oldParent, err := fb.LoadNodeForWrite(ctx, uint64(op.OldParent))
 	if err != nil {
@@ -810,6 +826,7 @@ func (fb *FBackEnd) RmDir(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb rmdir: op=%#v", op)
 	// Grab the parent, which we will update shortly.
 	parent, err := fb.LoadNodeForWrite(ctx, uint64(op.Parent))
 	if err != nil {
@@ -861,6 +878,7 @@ func (fb *FBackEnd) Unlink(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb unlink: op=%#v", op)
 	// Grab the parent, which we will update shortly.
 	parent, err := fb.LoadNodeForWrite(ctx, uint64(op.Parent))
 	if err != nil {
@@ -907,6 +925,7 @@ func (fb *FBackEnd) OpenDir(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb opendir: id=%v, flags=%v", id, flags)
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
@@ -943,6 +962,8 @@ func (fb *FBackEnd) ReadDir(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb readdir: id=%v, len=%v, offset=%v",
+		id, length, offset)
 	// Grab the directory.
 	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
@@ -981,6 +1002,7 @@ func (fb *FBackEnd) OpenFile(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb openfile: id=%v, flags=%v", id, flags)
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
@@ -1017,6 +1039,7 @@ func (fb *FBackEnd) ReadFile(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb readfile success: id=%v, length=%v, offset=%v", id, length, offset)
 	// Find the rnode.RNode in question.
 	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
@@ -1052,6 +1075,7 @@ func (fb *FBackEnd) WriteFile(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("write file: id=%v, offset=%v, data=%v", id, offset, data)
 	// Find the rnode.RNode in question.
 	node, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
@@ -1095,6 +1119,7 @@ func (fb *FBackEnd) ReadSymlink(
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fp read symlink: id=%v", id)
 	// Find the rnode.RNode in question.
 	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
@@ -1118,6 +1143,8 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb get xattr: id=%v, name=%v, length=%v",
+		id, name, length)
 	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("get xattr err: err=%v", err.Error())
@@ -1150,6 +1177,8 @@ func (fb *FBackEnd) ListXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb list xattr: id=%v, length=%v",
+		id, length)
 	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("list xattr err: err=%v", err.Error())
@@ -1183,6 +1212,7 @@ func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb rm xattr: id=%v, name=%v", id, name)
 	node, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		log.Printf("remove xattr err: err=%v", err.Error())
@@ -1207,6 +1237,7 @@ func (fb *FBackEnd) SetXattr(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb set xattr: op=%#v", op)
 	node, err := fb.LoadNodeForWrite(ctx, uint64(op.Inode))
 	if err != nil {
 		log.Printf("set xattr err: err=%v", err.Error())
@@ -1244,6 +1275,7 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 	fb.lock()
 	defer fb.unlock()
 
+	log.Printf("fb fallocate: id=%v, mode=%v, len=%v", id, mode, length)
 	node, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		log.Printf("fallocate err: err=%v", err.Error())

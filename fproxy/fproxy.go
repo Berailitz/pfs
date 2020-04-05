@@ -35,6 +35,7 @@ type FProxy struct {
 	pcli *rclient.RClient
 	pool *gclipool.GCliPool
 
+	allcator        *idallocator.IDAllocator
 	remoteHandleMap sync.Map // [uint64]remoteHandle
 }
 
@@ -76,9 +77,10 @@ func NewFProxy(
 	// Set up the root rnode.RNode.
 
 	return &FProxy{
-		fb:   fb,
-		pcli: pcli,
-		pool: gclipool.NewGCliPool(gopts, localAddr),
+		fb:       fb,
+		pcli:     pcli,
+		pool:     gclipool.NewGCliPool(gopts, localAddr),
+		allcator: allcator,
 	}
 }
 
@@ -319,7 +321,18 @@ func (fp *FProxy) CreateFile(
 		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
 		return fuseops.ChildInodeEntry{}, 0, err
 	}
-	return utility.FromPbEntry(*reply.Entry), reply.Handle, utility.DecodeError(reply.Err)
+
+	err = utility.DecodeError(reply.Err)
+	remoteHandle := reply.Handle
+	if err != nil || remoteHandle <= 0 {
+		log.Printf("rpc create file error: id=%v, remoteHandle=%v, perr=%+v",
+			remoteHandle, remoteHandle, err)
+	}
+	localHandle := fp.allcator.Allocate()
+	fp.StoreRemoteHandle(ctx, localHandle, remoteHandle, addr)
+	log.Printf("fp create remote file success: parent=%v, name=%v, mode=%v, flags=%v, remoteHandle=%v, localHandle=%v",
+		parentID, name, mode, flags, remoteHandle, localHandle)
+	return utility.FromPbEntry(*reply.Entry), localHandle, nil
 }
 
 func (fp *FProxy) CreateSymlink(
@@ -495,12 +508,14 @@ func (fp *FProxy) OpenDir(
 	}
 
 	err = utility.DecodeError(reply.Err)
-	h := reply.Num
-	if err != nil || h <= 0 {
-		log.Printf("rpc opendir error: id=%v, h=%v, perr=%+v",
-			id, h, err)
+	remoteHandle := reply.Num
+	if err != nil || remoteHandle <= 0 {
+		log.Printf("rpc opendir error: id=%v, remoteHandle=%v, perr=%+v",
+			id, remoteHandle, err)
 	}
-	return h, err
+	localHandle := fp.allcator.Allocate()
+	fp.StoreRemoteHandle(ctx, localHandle, remoteHandle, addr)
+	return localHandle, nil
 }
 
 func (fp *FProxy) ReadDir(
@@ -536,8 +551,9 @@ func (fp *FProxy) ReadDir(
 func (fp *FProxy) ReleaseHandle(
 	ctx context.Context,
 	h uint64) error {
-	log.Printf("fp release dir: h=%v", h)
+	log.Printf("release handle: handleID=%v", h)
 	if rh := fp.LoadRemoteHandle(ctx, h); rh != nil {
+		log.Printf("rpc release remote handle: handleID=%v", h)
 		addr := rh.addr
 		gcli, err := fp.pool.Load(addr)
 		if err != nil {
@@ -548,13 +564,26 @@ func (fp *FProxy) ReleaseHandle(
 			Id: rh.handle,
 		})
 		if err != nil {
-			log.Printf("rpc release handle error: local id=%v, remote id=%v, err=%+v",
+			log.Printf("rpc release remote handle error: local id=%v, remote id=%v, err=%+v",
 				h, rh.handle, err)
 			return err
 		}
-		return utility.DecodeError(perr)
+		if err := utility.DecodeError(perr); err != nil {
+			log.Printf("rpc release remote handle remote error: local id=%v, remote id=%v, err=%+v",
+				h, rh.handle, err)
+			return err
+		}
+		if err := fp.ReleaseRemoteHandle(ctx, h); err != nil {
+			log.Printf("rpc release remote handle release map error: local id=%v, remote id=%v, err=%+v",
+				h, rh.handle, err)
+			return err
+		}
+		log.Printf("rpc release remote handle success: local id=%v, remote id=%v",
+			h, rh.handle)
+		return nil
 	}
 
+	log.Printf("release local handle: handleID=%v", h)
 	return fp.fb.ReleaseHandle(ctx, h)
 }
 
@@ -581,12 +610,14 @@ func (fp *FProxy) OpenFile(ctx context.Context, id uint64, flags uint32) (handle
 	}
 
 	err = utility.DecodeError(reply.Err)
-	h := reply.Num
-	if err != nil || h <= 0 {
+	remoteHandle := reply.Num
+	if err != nil || remoteHandle <= 0 {
 		log.Printf("rpc openfile error: id=%v, h=%v, perr=%+v",
-			id, h, err)
+			id, remoteHandle, err)
 	}
-	return h, err
+	localHandle := fp.allcator.Allocate()
+	fp.StoreRemoteHandle(ctx, localHandle, remoteHandle, addr)
+	return localHandle, nil
 }
 
 func (fp *FProxy) ReadFile(
@@ -807,6 +838,21 @@ func (fp *FProxy) Fallocate(ctx context.Context,
 
 func (fp *FProxy) IsLocalNode(ctx context.Context, id uint64) bool {
 	return fp.fb.IsLocal(ctx, id)
+}
+
+func (fp *FProxy) ReleaseRemoteHandle(ctx context.Context, remoteHandleID uint64) error {
+	if rh := fp.LoadRemoteHandle(ctx, remoteHandleID); rh != nil {
+		fp.remoteHandleMap.Delete(remoteHandleID)
+		return nil
+	}
+	return &FPErr{fmt.Sprintf("release remote handle no handle err: remoteHandleID=%v", remoteHandleID)}
+}
+
+func (fp *FProxy) StoreRemoteHandle(ctx context.Context, localHandleID uint64, remoteHandleID uint64, addr string) {
+	fp.remoteHandleMap.Store(localHandleID, remoteHandle{
+		handle: remoteHandleID,
+		addr:   addr,
+	})
 }
 
 func (fp *FProxy) LoadRemoteHandle(ctx context.Context, id uint64) *remoteHandle {

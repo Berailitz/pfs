@@ -84,10 +84,6 @@ func (fp *FProxy) buillNoGCliErr(addr string) error {
 	return &FPErr{msg: fmt.Sprintf("no gcli: addr=%v", addr)}
 }
 
-func (fp *FProxy) buillNotSupportedErr(operation string) error {
-	return &FPErr{msg: fmt.Sprintf("not supported: %v", operation)}
-}
-
 ////////////////////////////////////////////////////////////////////////
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
@@ -352,24 +348,23 @@ func (fp *FProxy) CreateLink(
 	}
 
 	// TODO: Parent owner start and acquire child
-	return fuseops.InodeAttributes{}, fp.buillNotSupportedErr(
-		fmt.Sprintf("CreateSymlink: parentID=%v, name=%v, targetID=%v", parentID, name, targetID))
-	//addr := fp.pcli.QueryOwner(parentID)
-	//gcli := fp.pool.Load(addr)
-	//if gcli == nil {
-	//	return fuseops.InodeAttributes{}, fp.buillNoGCliErr(addr)
-	//}
-	//
-	//reply, err := gcli.CreateLink(ctx, &pb.CreateLinkRequest{
-	//	Id:       parentID,
-	//	Name:     name,
-	//	TargetID: targetID,
-	//})
-	//if err != nil {
-	//	log.Printf("rpc set inode attr error: id=%v, err=%+v", id, err)
-	//	return fuseops.InodeAttributes{}, err
-	//}
-	//return utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
+	addr := fp.pcli.QueryOwner(parentID)
+	gcli := fp.pool.Load(addr)
+	if gcli == nil {
+		return fuseops.InodeAttributes{}, fp.buillNoGCliErr(addr)
+	}
+
+	reply, err := gcli.CreateLink(ctx, &pb.CreateLinkRequest{
+		Id:       parentID,
+		Name:     name,
+		TargetID: targetID,
+	})
+	if err != nil {
+		log.Printf("rpc create link error: parentID=%v, name=%v, targetID=%v, err=%+v",
+			parentID, name, targetID, err)
+		return fuseops.InodeAttributes{}, err
+	}
+	return utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
 }
 
 func (fp *FProxy) Rename(
@@ -381,7 +376,24 @@ func (fp *FProxy) Rename(
 	}
 
 	// TODO: NewParent owner start and acquire child, OldParent owner rm OldChild, rm node, NewParent add child
-	return fp.buillNotSupportedErr(fmt.Sprintf("rename: op=%#v", op))
+	addr := fp.pcli.QueryOwner(uint64(op.NewParent))
+	gcli := fp.pool.Load(addr)
+	if gcli == nil {
+		return fp.buillNoGCliErr(addr)
+	}
+
+	perr, err := gcli.Rename(ctx, &pb.RenameRequest{
+		OldParent: uint64(op.OldParent),
+		OldName:   op.OldName,
+		NewParent: uint64(op.NewParent),
+		NewName:   op.NewName,
+	})
+	if err != nil {
+		log.Printf("rpc rename error: OldParent=%v, OldName=%v, NewParent=%v, NewName=%v, err=%+v",
+			op.OldParent, op.OldName, op.NewParent, op.NewName, err)
+		return err
+	}
+	return utility.DecodeError(perr)
 }
 
 func (fp *FProxy) RmDir(
@@ -393,7 +405,22 @@ func (fp *FProxy) RmDir(
 	}
 
 	// TODO: Parent owner start, Child owner rm node
-	return fp.buillNotSupportedErr(fmt.Sprintf("rmdir: op=%#v", op))
+	addr := fp.pcli.QueryOwner(uint64(op.Parent))
+	gcli := fp.pool.Load(addr)
+	if gcli == nil {
+		return fp.buillNoGCliErr(addr)
+	}
+
+	perr, err := gcli.RmDir(ctx, &pb.RmDirRequest{
+		Parent: uint64(op.Parent),
+		Name:   op.Name,
+	})
+	if err != nil {
+		log.Printf("rpc rmdir error: Parent=%v, Name=%v, err=%+v",
+			op.Parent, op.Name, err)
+		return err
+	}
+	return utility.DecodeError(perr)
 }
 
 func (fp *FProxy) Unlink(
@@ -405,7 +432,22 @@ func (fp *FProxy) Unlink(
 	}
 
 	// TODO: Parent owner start and acquire child
-	return fp.buillNotSupportedErr(fmt.Sprintf("unlink: op=%#v", op))
+	addr := fp.pcli.QueryOwner(uint64(op.Parent))
+	gcli := fp.pool.Load(addr)
+	if gcli == nil {
+		return fp.buillNoGCliErr(addr)
+	}
+
+	perr, err := gcli.Unlink(ctx, &pb.UnlinkRequest{
+		Parent: uint64(op.Parent),
+		Name:   op.Name,
+	})
+	if err != nil {
+		log.Printf("rpc unlink error: Parent=%v, Name=%v, err=%+v",
+			op.Parent, op.Name, err)
+		return err
+	}
+	return utility.DecodeError(perr)
 }
 
 func (fp *FProxy) OpenDir(

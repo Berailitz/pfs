@@ -412,7 +412,7 @@ func (lfs *LFS) OpenFile(
 func (lfs *LFS) ReadFile(
 	ctx context.Context,
 	op *fuseops.ReadFileOp) error {
-	log.Printf("readfile success: id=%v, len=%v, offset=%v", op.Inode, len(op.Dst), op.Offset)
+	log.Printf("readfile: id=%v, len=%v, offset=%v", op.Inode, len(op.Dst), op.Offset)
 	bytesRead, dst, err := lfs.fp.ReadFile(ctx, uint64(op.Inode), uint64(len(op.Dst)), uint64(op.Offset))
 
 	if err != nil {

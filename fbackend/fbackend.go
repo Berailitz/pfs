@@ -423,8 +423,9 @@ func (fb *FBackEnd) LookUpInode(
 		err = fb.RUnlockNode(ctx, child)
 	}()
 
-	log.Printf("fb look up inode success: parent=%v, name=%v", parentID, name)
-	return childID, child.Attrs(), nil
+	attr := child.Attrs()
+	log.Printf("fb look up inode success: parent=%v, name=%v, attr=%+v", parentID, name, attr)
+	return childID, attr, nil
 }
 
 func (fb *FBackEnd) GetInodeAttributes(
@@ -445,8 +446,9 @@ func (fb *FBackEnd) GetInodeAttributes(
 	}()
 
 	// Fill in the response.
-	log.Printf("fb get inode attr success: id=%v", id)
-	return node.Attrs(), nil
+	attr := node.Attrs()
+	log.Printf("fb get inode attr success: id=%v, attr=%+v", id, attr)
+	return attr, nil
 }
 
 func (fb *FBackEnd) SetInodeAttributes(

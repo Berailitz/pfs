@@ -4,11 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"os/user"
 	"strconv"
+	"sync"
 
 	"github.com/Berailitz/pfs/fproxy"
 
@@ -58,14 +60,37 @@ func currentGid() uint32 {
 	return uint32(gid)
 }
 
-func startTest(testCmd string) {
-	log.Printf("run test cmd: cmd=%v", testCmd)
+func startTest(wg *sync.WaitGroup, testCmd string, testLog string) {
+	log.Printf("run test cmd: cmd=%v, testLog=%v", testCmd, testLog)
+	defer func() {
+		log.Printf("test cmd finished success: cmd=%v, testLog=%v", testCmd, testLog)
+		wg.Done()
+	}()
+
+	f, err := os.OpenFile(testLog, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		log.Fatalf("test open log error: testLog=%v", testLog)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Printf("test close log error: testLog=%v, err=%+v", testLog, err)
+		}
+	}()
+	mwriter := io.MultiWriter(os.Stdout, f)
+
 	cmd := exec.Command("bash", "-c", testCmd)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = mwriter
+	cmd.Stderr = mwriter
 
 	if err := cmd.Start(); err != nil {
 		log.Fatalf("start test script error: err=%+v", err)
+		return
+	}
+	log.Printf("test cmd start success: cmd=%v, testLog=%v", testCmd, testLog)
+
+	if err := cmd.Wait(); err != nil {
+		log.Printf("test wait cmd error: cmd=%v, testLog=%v, err=%+v", testCmd, testLog, err)
+		return
 	}
 }
 
@@ -77,6 +102,7 @@ func main() {
 	host := flag.String("host", "127.0.0.1", "The server host")
 	master := flag.String("master", "127.0.0.1:10000", "The master server addr")
 	testCmd := flag.String("testCmd", "", "Script to test.")
+	testLog := flag.String("testLog", "testlog.txt", "Log file to write test output.")
 	flag.Parse()
 	ctx := context.Background()
 
@@ -125,14 +151,25 @@ func main() {
 		}
 	}(&isGracefulStop)
 
+	wg := sync.WaitGroup{}
 	if *testCmd != "" {
-		startTest(*testCmd)
+		wg.Add(1)
+		go startTest(&wg, *testCmd, *testLog)
 	}
 
-	log.Printf("join mfs")
-	if err := mfs.Join(ctx); err != nil {
-		log.Fatalf("mfs join error: err=%+v", err)
-	} else {
-		isGracefulStop = true
-	}
+	wg.Add(1)
+	go func() {
+		log.Printf("join mfs")
+		defer func() {
+			log.Printf("mfs exited")
+			wg.Done()
+		}()
+		if err := mfs.Join(ctx); err != nil {
+			log.Fatalf("mfs join error: err=%+v", err)
+		} else {
+			isGracefulStop = true
+		}
+	}()
+
+	wg.Wait()
 }

@@ -27,7 +27,7 @@ const initialHandle = 1
 
 type remoteHandle struct {
 	handle uint64
-	owner  uint64
+	addr   string
 }
 
 type FProxy struct {
@@ -517,7 +517,7 @@ func (fp *FProxy) ReleaseHandle(
 	ctx context.Context,
 	h uint64) error {
 	if rh := fp.LoadRemoteHandle(ctx, h); rh != nil {
-		addr := fp.pcli.QueryAddr(rh.owner)
+		addr := rh.addr
 		gcli, err := fp.pool.Load(addr)
 		if err != nil {
 			return err

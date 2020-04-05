@@ -119,8 +119,7 @@ func NewFBackEnd(
 
 	// Set up the root rnode.RNode.
 	if err := fb.MakeRoot(); err != nil {
-		log.Printf("make root error: err=%+v", err)
-		return nil
+		log.Printf("make root error, use remote root: err=%+v", err)
 	}
 
 	return fb

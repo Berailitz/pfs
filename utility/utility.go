@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-var AttributesCacheTime = time.Second * 1
+var AttributesCacheTime = time.Second * 0
 
 type RemoteErr struct {
 	msg string

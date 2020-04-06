@@ -406,6 +406,7 @@ func (lfs *LFS) OpenFile(
 	}
 	op.Handle = fuseops.HandleID(handle)
 	op.UseDirectIO = true
+	op.KeepPageCache = false
 
 	log.Printf("openfile success: op=%+v", op)
 	return nil

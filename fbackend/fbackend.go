@@ -1,17 +1,3 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package fbackend
 
 import (
@@ -46,13 +32,9 @@ import (
 )
 
 type FBackEnd struct {
-	// The UID and GID that every rnode.RNode receives.
 	uid uint32
 	gid uint32
 
-	/////////////////////////
-	// Mutable state
-	/////////////////////////
 	mu sync.RWMutex
 
 	nodes sync.Map // [uint64]*rnode.RNode
@@ -84,11 +66,6 @@ type SetInodeAttributesParam struct {
 	HasMtime bool
 }
 
-// Create a file system that stores data and metadata in memory.
-//
-// The supplied UID/GID pair will own the root rnode.RNode. This file system does no
-// permissions checking, and should therefore be mounted with the
-// default_permissions option.
 func NewFBackEnd(
 	uid uint32,
 	gid uint32,
@@ -125,9 +102,6 @@ func NewFBackEnd(
 	return fb
 }
 
-////////////////////////////////////////////////////////////////////////
-// Helpers
-////////////////////////////////////////////////////////////////////////
 func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
 	node, err := fb.LoadLocalNode(ctx, id)
 
@@ -391,10 +365,6 @@ func (fb *FBackEnd) deallocateInode(ctx context.Context, id uint64) error {
 	log.Printf("deallocate success: id=%v", id)
 	return nil
 }
-
-////////////////////////////////////////////////////////////////////////
-// FileSystem methods
-////////////////////////////////////////////////////////////////////////
 
 func (fb *FBackEnd) LookUpInode(
 	ctx context.Context,

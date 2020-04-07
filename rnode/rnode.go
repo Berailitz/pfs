@@ -1,17 +1,3 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package rnode
 
 import (
@@ -37,10 +23,6 @@ var (
 	RNodeCanNotLockErr = &RNodeErr{"can not lock"}
 )
 
-// Common attributes for files and directories.
-//
-// External synchronization is required.
-
 type RNodeAttr struct {
 	// The current attributes of this RNode.
 	//
@@ -62,27 +44,11 @@ type RNodeAttr struct {
 
 type RNode struct {
 	NID uint64
-	/////////////////////////
-	// Mutable state
-	/////////////////////////
+
 	RNodeAttr
 
-	// For directories, entries describing the children of the directory. Unused
-	// entries are of type DT_Unknown.
-	//
-	// This array can never be shortened, nor can its elements be moved, because
-	// we use its indices for Dirent.Offset, which is exposed to the user who
-	// might be calling readdir in a loop while concurrently modifying the
-	// directory. Unused entries can, however, be reused.
-	//
-	// INVARIANT: If !IsDir(), len(entries) == 0
-	// INVARIANT: For each i, entries[i].Offset == i+1
-	// INVARIANT: Contains no duplicate names in used entries.
 	NEntries []fuse.Dirent
 
-	// For files, the current contents of the file.
-	//
-	// INVARIANT: If !IsFile(), len(contents) == 0
 	NContents []byte
 
 	NLock    *sync.RWMutex
@@ -198,10 +164,6 @@ func (rn *RNode) Addr() string {
 func (rn *RNode) SetAddr(addr string) {
 	rn.NAddr = addr
 }
-
-////////////////////////////////////////////////////////////////////////
-// Helpers
-////////////////////////////////////////////////////////////////////////
 
 // Create a new RNode with the supplied attributes, which need not contain
 // time-related information (the RNode object will take care of that).

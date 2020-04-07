@@ -30,6 +30,7 @@ import (
 type LFS struct {
 	root *LNode
 	c    *fuse.Conn
+	fp   *fproxy.FProxy
 }
 
 var _ = (fs.FS)((*LFS)(nil))
@@ -52,6 +53,7 @@ func NewLFS(
 	}
 	return &LFS{
 		root: NewLNode(manager.RootNodeID, fp),
+		fp:   fp,
 	}
 }
 
@@ -71,7 +73,9 @@ func (lfs *LFS) Mount(dir, fsName, fsType, volumeName string) (err error) {
 
 // Serve blocks until umount or error
 func (lfs *LFS) Serve() error {
-	return fs.Serve(lfs.c, lfs)
+	return fs.Serve(lfs.c, lfs, &fs.Config{
+		Debug: fuseDebug,
+	})
 }
 
 func (lfs *LFS) Umount() error {
@@ -80,4 +84,8 @@ func (lfs *LFS) Umount() error {
 
 func (e *LFSErr) Error() string {
 	return fmt.Sprintf("lfs error: %v", e.msg)
+}
+
+func fuseDebug(msg interface{}) {
+	log.Printf("DEBUG: msg=%s\n", msg)
 }

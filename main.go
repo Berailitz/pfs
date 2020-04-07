@@ -4,8 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os/user"
-	"strconv"
 	"sync"
 
 	"github.com/Berailitz/pfs/utility"
@@ -23,34 +21,6 @@ var (
 	gitCommit string
 	buildTime string
 )
-
-func currentUid() uint32 {
-	user, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-
-	uid, err := strconv.ParseUint(user.Uid, 10, 32)
-	if err != nil {
-		panic(err)
-	}
-
-	return uint32(uid)
-}
-
-func currentGid() uint32 {
-	user, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-
-	gid, err := strconv.ParseUint(user.Gid, 10, 32)
-	if err != nil {
-		panic(err)
-	}
-
-	return uint32(gid)
-}
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -89,7 +59,7 @@ func main() {
 	}()
 
 	log.Printf("create fp: master=%v, localAddr=%v, gopts=%+v", *master, localAddr, gopts)
-	fp := fproxy.NewFProxy(currentUid(), currentGid(), *master, localAddr, gopts)
+	fp := fproxy.NewFProxy(utility.GetUID(), utility.GetGID(), *master, localAddr, gopts)
 	rsvr.RegisterFProxy(fp)
 
 	lfsvr := lfs.NewLFS(fp)

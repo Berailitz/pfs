@@ -118,7 +118,7 @@ func (fp *FProxy) RUnlockNode(ctx context.Context, id uint64) error {
 		log.Printf("rpc runlock node error: id=%v, err=%+V", id, err)
 		return err
 	}
-	return utility.DecodeError(perr)
+	return utility.FromPbErr(perr)
 }
 
 func (fp *FProxy) UnlockNode(ctx context.Context, node *rnode.RNode) error {
@@ -142,7 +142,7 @@ func (fp *FProxy) UnlockNode(ctx context.Context, node *rnode.RNode) error {
 		log.Printf("rpc unlock node error: id=%v, err=%+V", id, err)
 		return err
 	}
-	return utility.DecodeError(perr)
+	return utility.FromPbErr(perr)
 }
 
 func (fp *FProxy) LookUpInode(
@@ -170,7 +170,7 @@ func (fp *FProxy) LookUpInode(
 		return 0, fuse.Attr{}, err
 	}
 	log.Printf("rpc look up inode success: parentID=%v, name=%v", parentID, name)
-	return reply.Id, utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
+	return reply.Id, utility.FromPbAttr(*reply.Attr), utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) GetInodeAttributes(
@@ -194,7 +194,7 @@ func (fp *FProxy) GetInodeAttributes(
 		log.Printf("rpc get inode attr error: id=%v, err=%+v", id, err)
 		return fuse.Attr{}, err
 	}
-	return utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
+	return utility.FromPbAttr(*reply.Attr), utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) SetInodeAttributes(
@@ -226,7 +226,7 @@ func (fp *FProxy) SetInodeAttributes(
 		log.Printf("rpc set inode attr error: id=%v, err=%+v", id, err)
 		return fuse.Attr{}, err
 	}
-	return utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
+	return utility.FromPbAttr(*reply.Attr), utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) MkDir(
@@ -255,7 +255,7 @@ func (fp *FProxy) MkDir(
 		log.Printf("rpc mkdir error: parentID=%v, name=%v, err=%+v", parentID, name, err)
 		return 0, err
 	}
-	return reply.Id, utility.DecodeError(reply.Err)
+	return reply.Id, utility.FromPbErr(reply.Err)
 }
 
 // LOCKS_REQUIRED(fp.mu)
@@ -285,7 +285,7 @@ func (fp *FProxy) CreateNode(
 		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
 		return 0, err
 	}
-	return reply.Num, utility.DecodeError(reply.Err)
+	return reply.Num, utility.FromPbErr(reply.Err)
 }
 
 // LOCKS_REQUIRED(fp.mu)
@@ -318,7 +318,7 @@ func (fp *FProxy) CreateFile(
 		return 0, 0, err
 	}
 
-	err = utility.DecodeError(reply.Err)
+	err = utility.FromPbErr(reply.Err)
 	remoteHandle := reply.Handle
 	if err != nil || remoteHandle <= 0 {
 		log.Printf("rpc create file error: id=%v, remoteHandle=%v, perr=%+v",
@@ -358,7 +358,7 @@ func (fp *FProxy) CreateSymlink(
 			parentID, name, target, err)
 		return 0, err
 	}
-	return reply.Num, utility.DecodeError(reply.Err)
+	return reply.Num, utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) CreateLink(
@@ -389,7 +389,7 @@ func (fp *FProxy) CreateLink(
 			parentID, name, targetID, err)
 		return 0, err
 	}
-	return reply.Num, utility.DecodeError(reply.Err)
+	return reply.Num, utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) Rename(
@@ -423,7 +423,7 @@ func (fp *FProxy) Rename(
 			oldParent, oldName, newParent, newName, err)
 		return err
 	}
-	return utility.DecodeError(perr)
+	return utility.FromPbErr(perr)
 }
 
 func (fp *FProxy) Unlink(
@@ -451,7 +451,7 @@ func (fp *FProxy) Unlink(
 		log.Printf("rpc fp unlink error: parent=%v, name=%v, err=%+v", parent, name, err)
 		return err
 	}
-	return utility.DecodeError(perr)
+	return utility.FromPbErr(perr)
 }
 
 func (fp *FProxy) Open(
@@ -479,7 +479,7 @@ func (fp *FProxy) Open(
 		return 0, err
 	}
 
-	err = utility.DecodeError(reply.Err)
+	err = utility.FromPbErr(reply.Err)
 	remoteHandle := reply.Num
 	if err != nil || remoteHandle <= 0 {
 		log.Printf("rpc opendir error: id=%v, remoteHandle=%v, perr=%+v",
@@ -512,7 +512,7 @@ func (fp *FProxy) ReadDirAll(
 			id, err)
 		return nil, err
 	}
-	return utility.FromPbDirents(reply.Dirents), utility.DecodeError(reply.Err)
+	return utility.FromPbDirents(reply.Dirents), utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) ReleaseHandle(
@@ -535,7 +535,7 @@ func (fp *FProxy) ReleaseHandle(
 				h, rh.handle, err)
 			return err
 		}
-		if err := utility.DecodeError(perr); err != nil {
+		if err := utility.FromPbErr(perr); err != nil {
 			log.Printf("rpc release remote handle remote error: local id=%v, remote id=%v, err=%+v",
 				h, rh.handle, err)
 			return err
@@ -580,7 +580,7 @@ func (fp *FProxy) ReadFile(
 			id, err)
 		return 0, nil, err
 	}
-	return reply.BytesRead, reply.Buf, utility.DecodeError(reply.Err)
+	return reply.BytesRead, reply.Buf, utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) WriteFile(
@@ -609,7 +609,7 @@ func (fp *FProxy) WriteFile(
 			id, err)
 		return 0, err
 	}
-	return reply.Num, utility.DecodeError(reply.Err)
+	return reply.Num, utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) ReadSymlink(
@@ -634,7 +634,7 @@ func (fp *FProxy) ReadSymlink(
 			id, err)
 		return "", err
 	}
-	return "", utility.DecodeError(reply.Err)
+	return "", utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) GetXattr(ctx context.Context,
@@ -663,7 +663,7 @@ func (fp *FProxy) GetXattr(ctx context.Context,
 			id, err)
 		return 0, nil, err
 	}
-	return 0, nil, utility.DecodeError(reply.Err)
+	return 0, nil, utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) ListXattr(ctx context.Context,
@@ -690,7 +690,7 @@ func (fp *FProxy) ListXattr(ctx context.Context,
 			id, err)
 		return 0, nil, err
 	}
-	return 0, nil, utility.DecodeError(reply.Err)
+	return 0, nil, utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) RemoveXattr(ctx context.Context, id uint64, name string) error {
@@ -714,7 +714,7 @@ func (fp *FProxy) RemoveXattr(ctx context.Context, id uint64, name string) error
 			id, err)
 		return err
 	}
-	return utility.DecodeError(reply)
+	return utility.FromPbErr(reply)
 }
 
 func (fp *FProxy) SetXattr(ctx context.Context, id uint64, name string, flags uint32, value []byte) error {
@@ -740,7 +740,7 @@ func (fp *FProxy) SetXattr(ctx context.Context, id uint64, name string, flags ui
 			id, name, flags, value, err)
 		return err
 	}
-	return utility.DecodeError(reply)
+	return utility.FromPbErr(reply)
 }
 
 func (fp *FProxy) Fallocate(ctx context.Context,
@@ -768,7 +768,7 @@ func (fp *FProxy) Fallocate(ctx context.Context,
 			id, mode, length, err)
 		return err
 	}
-	return utility.DecodeError(reply)
+	return utility.FromPbErr(reply)
 }
 
 func (fp *FProxy) IsLocalNode(ctx context.Context, id uint64) bool {

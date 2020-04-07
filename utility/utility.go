@@ -121,7 +121,7 @@ func FromPbNode(node *pb.Node) *rnode.RNode {
 	}
 }
 
-func DecodeError(perr *pb.Error) error {
+func FromPbErr(perr *pb.Error) error {
 	if perr != nil && perr.Status != 0 {
 		return &RemoteErr{perr.Msg}
 	}

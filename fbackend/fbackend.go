@@ -215,7 +215,7 @@ func (fb *FBackEnd) doUnlockRemoteNode(ctx context.Context, node *rnode.RNode, i
 		return err
 	}
 
-	if err := utility.DecodeError(perr); err != nil {
+	if err := utility.FromPbErr(perr); err != nil {
 		log.Printf("unlock remote node error: id=%v, isRead=%v, err=%+v", id, isRead, err)
 		return err
 	}

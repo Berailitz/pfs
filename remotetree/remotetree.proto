@@ -256,7 +256,7 @@ message Dirent {
 }
 
 message Error {
-    int64 status = 1;
+    uint64 status = 1;
     string msg = 2;
 }
 

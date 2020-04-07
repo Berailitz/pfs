@@ -87,6 +87,7 @@ Private workspace for Golang.
  1. No file operation needs to manage locks, except for open/create/release, for all other operations are executed after open/create and before close. 
 
 # Plan
+1. created child saves locally
 1. manager use `ctx`
 1. avoid dead lock: rename lock older node first
 1. node lock

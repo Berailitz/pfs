@@ -73,9 +73,7 @@ func (ln *LNode) Attr(ctx context.Context, attr *fuse.Attr) (err error) {
 
 func (ln *LNode) Getattr(ctx context.Context, req *fuse.GetattrRequest, resp *fuse.GetattrResponse) (err error) {
 	ln.CheckRequest(ctx, req)
-	attr, err := ln.fp.GetInodeAttributes(ctx, ln.id)
-	resp.Attr = attr
-	return
+	return ln.Attr(ctx, &resp.Attr)
 }
 
 func (ln *LNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fuse.SetattrResponse) (err error) {

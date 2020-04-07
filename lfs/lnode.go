@@ -15,8 +15,9 @@ import (
 )
 
 type LNode struct {
-	id uint64
-	fp *fproxy.FProxy
+	id  uint64
+	fp  *fproxy.FProxy
+	svr *fs.Server
 }
 
 var _ = (fs.Node)((*LNode)(nil))
@@ -41,15 +42,16 @@ var _ = (fs.NodeListxattrer)((*LNode)(nil))
 var _ = (fs.NodeSetxattrer)((*LNode)(nil))
 var _ = (fs.NodeRemovexattrer)((*LNode)(nil))
 
-func NewLNode(id uint64, fp *fproxy.FProxy) *LNode {
+func NewLNode(id uint64, fp *fproxy.FProxy, svr *fs.Server) *LNode {
 	return &LNode{
-		id: id,
-		fp: fp,
+		id:  id,
+		fp:  fp,
+		svr: svr,
 	}
 }
 
 func (ln *LNode) New(id uint64) *LNode {
-	return NewLNode(id, ln.fp)
+	return NewLNode(id, ln.fp, ln.svr)
 }
 
 func (ln *LNode) NewOtherHandle(otherNode, hid uint64) *LHandle {
@@ -66,9 +68,22 @@ func (ln *LNode) CheckRequest(ctx context.Context, r fuse.Request) {
 	}
 }
 
+func (ln *LNode) InvalidateAttr(ctx context.Context) error {
+	if err := ln.svr.InvalidateNodeAttr(ln); err != nil && err != fuse.ErrNotCached {
+		log.Printf("invalidate attr error: node=%s, err=%+v", ln, err)
+		return err
+	}
+	return nil
+}
+
 func (ln *LNode) Attr(ctx context.Context, attr *fuse.Attr) (err error) {
-	*attr, err = ln.fp.GetInodeAttributes(ctx, ln.id)
-	return
+	if *attr, err = ln.fp.GetInodeAttributes(ctx, ln.id); err != nil {
+		return err
+	}
+	if err := ln.InvalidateAttr(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (ln *LNode) Getattr(ctx context.Context, req *fuse.GetattrRequest, resp *fuse.GetattrResponse) (err error) {
@@ -86,6 +101,12 @@ func (ln *LNode) Setattr(ctx context.Context, req *fuse.SetattrRequest, resp *fu
 		HasMode:  req.Valid.Mode(),
 		HasMtime: req.Valid.Mtime(),
 	})
+	if err != nil {
+		return err
+	}
+	if err := ln.InvalidateAttr(ctx); err != nil {
+		return err
+	}
 	resp.Attr = attr
 	return
 }

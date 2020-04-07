@@ -31,6 +31,7 @@ type LFS struct {
 	root *LNode
 	c    *fuse.Conn
 	fp   *fproxy.FProxy
+	svr  *fs.Server
 }
 
 var _ = (fs.FS)((*LFS)(nil))
@@ -52,8 +53,7 @@ func NewLFS(
 		log.Fatalf("nil fbackend error")
 	}
 	return &LFS{
-		root: NewLNode(manager.RootNodeID, fp),
-		fp:   fp,
+		fp: fp,
 	}
 }
 
@@ -68,14 +68,19 @@ func (lfs *LFS) Root() (fs.Node, error) {
 // Serve blocks until umount or error
 func (lfs *LFS) Mount(dir, fsName, fsType, volumeName string) (err error) {
 	lfs.c, err = fuse.Mount(dir, fuse.FSName(fsName), fuse.Subtype(fsType), fuse.VolumeName(volumeName))
+	lfs.svr = fs.New(lfs.c, &fs.Config{
+		Debug: fuseDebug,
+	})
+	lfs.root = NewLNode(manager.RootNodeID, lfs.fp, lfs.svr)
 	return err
 }
 
 // Serve blocks until umount or error
 func (lfs *LFS) Serve() error {
-	return fs.Serve(lfs.c, lfs, &fs.Config{
-		Debug: fuseDebug,
-	})
+	if lfs.svr == nil || lfs.root == nil {
+		return &LFSErr{"lfs serve nil svr or root error"}
+	}
+	return lfs.svr.Serve(lfs)
 }
 
 func (lfs *LFS) Umount() error {

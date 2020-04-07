@@ -14,8 +14,6 @@ import (
 
 	"github.com/Berailitz/pfs/utility"
 
-	"github.com/jacobsa/fuse/fuseops"
-
 	"github.com/Berailitz/pfs/manager"
 
 	"github.com/Berailitz/pfs/fbackend"
@@ -122,7 +120,7 @@ func (s *RServer) SetInodeAttributes(ctx context.Context, req *pb.SetInodeAttrib
 }
 
 func (s *RServer) MkDir(ctx context.Context, req *pb.MkDirRequest) (*pb.MkDirReply, error) {
-	id, attr, err := s.fp.MkDir(ctx, req.Id, req.Name, os.FileMode(req.Mode))
+	id, err := s.fp.MkDir(ctx, req.Id, req.Name, os.FileMode(req.Mode))
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = &pb.Error{
@@ -131,14 +129,13 @@ func (s *RServer) MkDir(ctx context.Context, req *pb.MkDirRequest) (*pb.MkDirRep
 		}
 	}
 	return &pb.MkDirReply{
-		Id:   id,
-		Err:  perr,
-		Attr: utility.ToPbAttr(attr),
+		Id:  id,
+		Err: perr,
 	}, nil
 }
 
-func (s *RServer) CreateNode(ctx context.Context, req *pb.CreateNodeRequest) (*pb.CreateNodeReply, error) {
-	entry, err := s.fp.CreateNode(ctx, req.Id, req.Name, os.FileMode(req.Mode))
+func (s *RServer) CreateNode(ctx context.Context, req *pb.CreateNodeRequest) (*pb.Uint64Reply, error) {
+	id, err := s.fp.CreateNode(ctx, req.Id, req.Name, os.FileMode(req.Mode))
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = &pb.Error{
@@ -146,14 +143,14 @@ func (s *RServer) CreateNode(ctx context.Context, req *pb.CreateNodeRequest) (*p
 			Msg:    err.Error(),
 		}
 	}
-	return &pb.CreateNodeReply{
-		Entry: utility.ToPbEntry(entry),
-		Err:   perr,
+	return &pb.Uint64Reply{
+		Num: id,
+		Err: perr,
 	}, nil
 }
 
 func (s *RServer) CreateFile(ctx context.Context, req *pb.CreateFileRequest) (*pb.CreateFileReply, error) {
-	entry, handle, err := s.fp.CreateFile(ctx, req.Id, req.Name, os.FileMode(req.Mode), req.Flags)
+	nid, handle, err := s.fp.CreateFile(ctx, req.Id, req.Name, os.FileMode(req.Mode), req.Flags)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = &pb.Error{
@@ -162,14 +159,14 @@ func (s *RServer) CreateFile(ctx context.Context, req *pb.CreateFileRequest) (*p
 		}
 	}
 	return &pb.CreateFileReply{
-		Entry:  utility.ToPbEntry(entry),
+		Id:     nid,
 		Handle: handle,
 		Err:    perr,
 	}, nil
 }
 
-func (s *RServer) CreateSymlink(ctx context.Context, req *pb.CreateSymlinkRequest) (*pb.CreateSymlinkReply, error) {
-	id, attr, err := s.fp.CreateSymlink(ctx, req.Id, req.Name, req.Target)
+func (s *RServer) CreateSymlink(ctx context.Context, req *pb.CreateSymlinkRequest) (*pb.Uint64Reply, error) {
+	id, err := s.fp.CreateSymlink(ctx, req.Id, req.Name, req.Target)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = &pb.Error{
@@ -177,15 +174,14 @@ func (s *RServer) CreateSymlink(ctx context.Context, req *pb.CreateSymlinkReques
 			Msg:    err.Error(),
 		}
 	}
-	return &pb.CreateSymlinkReply{
-		Attr: utility.ToPbAttr(attr),
-		Id:   id,
-		Err:  perr,
+	return &pb.Uint64Reply{
+		Num: id,
+		Err: perr,
 	}, nil
 }
 
-func (s *RServer) CreateLink(ctx context.Context, req *pb.CreateLinkRequest) (*pb.CreateLinkReply, error) {
-	attr, err := s.fp.CreateLink(ctx, req.Id, req.Name, req.TargetID)
+func (s *RServer) CreateLink(ctx context.Context, req *pb.CreateLinkRequest) (*pb.Uint64Reply, error) {
+	id, err := s.fp.CreateLink(ctx, req.Id, req.Name, req.TargetID)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = &pb.Error{
@@ -193,34 +189,14 @@ func (s *RServer) CreateLink(ctx context.Context, req *pb.CreateLinkRequest) (*p
 			Msg:    err.Error(),
 		}
 	}
-	return &pb.CreateLinkReply{
-		Attr: utility.ToPbAttr(attr),
-		Err:  perr,
+	return &pb.Uint64Reply{
+		Num: id,
+		Err: perr,
 	}, nil
 }
 
 func (s *RServer) Rename(ctx context.Context, req *pb.RenameRequest) (*pb.Error, error) {
-	err := s.fp.Rename(ctx, fuseops.RenameOp{
-		OldParent: fuseops.InodeID(req.OldParent),
-		OldName:   req.OldName,
-		NewParent: fuseops.InodeID(req.NewParent),
-		NewName:   req.NewName,
-	})
-	var perr *pb.Error = &pb.Error{}
-	if err != nil {
-		perr = &pb.Error{
-			Status: 1,
-			Msg:    err.Error(),
-		}
-	}
-	return perr, nil
-}
-
-func (s *RServer) RmDir(ctx context.Context, req *pb.RmDirRequest) (*pb.Error, error) {
-	err := s.fp.RmDir(ctx, fuseops.RmDirOp{
-		Parent: fuseops.InodeID(req.Parent),
-		Name:   req.Name,
-	})
+	err := s.fp.Rename(ctx, req.OldParent, req.OldName, req.NewParent, req.NewName)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = &pb.Error{
@@ -232,10 +208,7 @@ func (s *RServer) RmDir(ctx context.Context, req *pb.RmDirRequest) (*pb.Error, e
 }
 
 func (s *RServer) Unlink(ctx context.Context, req *pb.UnlinkRequest) (*pb.Error, error) {
-	err := s.fp.Unlink(ctx, fuseops.UnlinkOp{
-		Parent: fuseops.InodeID(req.Parent),
-		Name:   req.Name,
-	})
+	err := s.fp.Unlink(ctx, req.Parent, req.Name)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = &pb.Error{
@@ -246,8 +219,8 @@ func (s *RServer) Unlink(ctx context.Context, req *pb.UnlinkRequest) (*pb.Error,
 	return perr, nil
 }
 
-func (s *RServer) OpenDir(ctx context.Context, req *pb.OpenXRequest) (*pb.Uint64Reply, error) {
-	h, err := s.fp.OpenDir(ctx, req.Id, req.Flags)
+func (s *RServer) Open(ctx context.Context, req *pb.OpenXRequest) (*pb.Uint64Reply, error) {
+	h, err := s.fp.Open(ctx, req.Id, req.Flags)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = &pb.Error{
@@ -260,8 +233,8 @@ func (s *RServer) OpenDir(ctx context.Context, req *pb.OpenXRequest) (*pb.Uint64
 		Num: h,
 	}, nil
 }
-func (s *RServer) ReadDir(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXReply, error) {
-	bytesRead, buf, err := s.fp.ReadDir(ctx, req.Id, req.Length, req.Offset)
+func (s *RServer) ReadDir(ctx context.Context, req *pb.UInt64ID) (*pb.ReadDirReply, error) {
+	dirents, err := s.fp.ReadDirAll(ctx, req.Id)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = &pb.Error{
@@ -269,10 +242,9 @@ func (s *RServer) ReadDir(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXR
 			Msg:    err.Error(),
 		}
 	}
-	return &pb.ReadXReply{
-		Err:       perr,
-		BytesRead: bytesRead,
-		Buf:       buf,
+	return &pb.ReadDirReply{
+		Err:     perr,
+		Dirents: utility.ToPbDirents(dirents),
 	}, nil
 }
 
@@ -286,21 +258,6 @@ func (s *RServer) ReleaseHandle(ctx context.Context, req *pb.UInt64ID) (*pb.Erro
 		}
 	}
 	return perr, nil
-}
-
-func (s *RServer) OpenFile(ctx context.Context, req *pb.OpenXRequest) (*pb.Uint64Reply, error) {
-	h, err := s.fp.OpenFile(ctx, req.Id, req.Flags)
-	var perr *pb.Error = &pb.Error{}
-	if err != nil {
-		perr = &pb.Error{
-			Status: 1,
-			Msg:    err.Error(),
-		}
-	}
-	return &pb.Uint64Reply{
-		Err: perr,
-		Num: h,
-	}, nil
 }
 
 func (s *RServer) ReadFile(ctx context.Context, req *pb.ReadXRequest) (*pb.ReadXReply, error) {
@@ -394,12 +351,7 @@ func (s *RServer) RemoveXattr(ctx context.Context, req *pb.RemoveXattrRequest) (
 }
 
 func (s *RServer) SetXattr(ctx context.Context, req *pb.SetXattrRequest) (*pb.Error, error) {
-	err := s.fp.SetXattr(ctx, fuseops.SetXattrOp{
-		Inode: fuseops.InodeID(req.Id),
-		Name:  req.Name,
-		Value: req.Value,
-		Flags: req.Flag,
-	})
+	err := s.fp.SetXattr(ctx, req.Id, req.Name, req.Flag, req.Value)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = &pb.Error{

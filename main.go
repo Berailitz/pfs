@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -19,8 +18,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/Berailitz/pfs/rserver"
-
-	"github.com/jacobsa/fuse"
 )
 
 var (
@@ -100,8 +97,10 @@ func main() {
 	dir := flag.String("dir", "", "Dir to mount.")
 	testCmd := flag.String("testCmd", "", "Script to test.")
 	testLog := flag.String("testLog", "testlog.txt", "Log file to write test output.")
+	fsName := flag.String("fsName", "pfs", "Name of the filesystem.")
+	fsType := flag.String("fsType", "pfs", "Type of the filesystem.")
+	volumeName := flag.String("volumeName", "PVolume", "Name of the volume to mount.")
 	flag.Parse()
-	ctx := context.Background()
 
 	if *dir == "" {
 		log.Fatalf("no dir specified, exit")
@@ -128,52 +127,44 @@ func main() {
 	fp := fproxy.NewFProxy(currentUid(), currentGid(), *master, localAddr, gopts)
 	rsvr.RegisterFProxy(fp)
 
-	cfg := fuse.MountConfig{}
-	if *debug {
-		cfg.DebugLogger = log.New(os.Stderr, "fuse: ", 0)
+	lfsvr := lfs.NewLFS(fp)
+	log.Printf("mount fs: dir=%v, fsName=%v, fsType=%v, volumeName=%v",
+		*dir, *fsName, *fsType, *volumeName)
+	if err := lfsvr.Mount(*dir, *fsName, *fsType, *volumeName); err != nil {
+		log.Fatalf("lfs mount error: dir=%v, fsName=%v, fsType=%v, volumeName=%v, err=%+v",
+			*dir, *fsName, *fsType, *volumeName, err)
 	}
-	if cfg.OpContext == nil {
-		cfg.OpContext = ctx
-	}
-
-	log.Printf("mount fs: dir=%v", *dir)
-	isGracefulStop := false
-	fsvr := lfs.NewLFSServer(lfs.NewLFS(currentUid(), currentGid(), fp))
-	// Mount the file system.
-	mfs, err := fuse.Mount(*dir, fsvr, &cfg)
-	if err != nil {
-		log.Fatalf("mount fs error: dir=%v, err=%+v", dir, err)
-	}
-	defer func(_isGracefulStop *bool) {
-		if *_isGracefulStop {
-			log.Printf("no need to unmount fs: dir=%v", *dir)
-			return
-		}
-		log.Printf("unmount fs: dir=%v", *dir)
-		if err := fuse.Unmount(*dir); err != nil {
-			log.Fatalf("unmount fs error: dir=%v, err=%+v", dir, err)
-		}
-	}(&isGracefulStop)
 
 	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		log.Printf("serve fs")
+		isGracefulStop := false
+		if err := lfsvr.Serve(); err != nil {
+			log.Fatalf("lfs serve error: err=%+v", err)
+		} else {
+			isGracefulStop = true
+		}
+
+		defer func(_isGracefulStop *bool) {
+			if *_isGracefulStop {
+				log.Printf("lfs graceful stopped, no need to umount")
+				return
+			}
+
+			log.Printf("lfs serve error, unmount it")
+			if err := lfsvr.Umount(); err != nil {
+				log.Printf("lfs unmount fs error: err=%+v", err)
+			}
+		}(&isGracefulStop)
+	}()
+
 	if *testCmd != "" {
 		wg.Add(1)
 		go startTest(&wg, *testCmd, *testLog)
 	}
-
-	wg.Add(1)
-	go func() {
-		log.Printf("join mfs")
-		defer func() {
-			log.Printf("mfs exited")
-			wg.Done()
-		}()
-		if err := mfs.Join(ctx); err != nil {
-			log.Fatalf("mfs join error: err=%+v", err)
-		} else {
-			isGracefulStop = true
-		}
-	}()
 
 	wg.Wait()
 }

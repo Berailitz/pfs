@@ -24,6 +24,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Berailitz/pfs/manager"
+
+	"bazil.org/fuse"
+
 	"github.com/Berailitz/pfs/idallocator"
 
 	pb "github.com/Berailitz/pfs/remotetree"
@@ -38,14 +42,10 @@ import (
 
 	"github.com/Berailitz/pfs/rclient"
 
-	"github.com/jacobsa/fuse"
-	"github.com/jacobsa/fuse/fuseops"
-	"github.com/jacobsa/fuse/fuseutil"
 	"golang.org/x/sys/unix"
 )
 
 type FBackEnd struct {
-	fuseutil.NotImplementedFileSystem
 	// The UID and GID that every rnode.RNode receives.
 	uid uint32
 	gid uint32
@@ -292,12 +292,24 @@ func (fb *FBackEnd) MakeRoot() error {
 		log.Printf("make root allocate root error")
 		return &FBackEndErr{"make root allocate root error"}
 	}
-	rootAttrs := fuseops.InodeAttributes{
-		Mode: 0700 | os.ModeDir,
-		Uid:  fb.uid,
-		Gid:  fb.gid,
+	rootAttrs := fuse.Attr{
+		Valid:     0,
+		Inode:     manager.RootNodeID,
+		Size:      0,
+		Blocks:    0,
+		Atime:     time.Time{},
+		Mtime:     time.Time{},
+		Ctime:     time.Time{},
+		Crtime:    time.Time{},
+		Mode:      0666 | os.ModeDir,
+		Nlink:     1,
+		Uid:       fb.uid,
+		Gid:       fb.gid,
+		Rdev:      0,
+		Flags:     0,
+		BlockSize: 0,
 	}
-	if err := fb.storeNode(uint64(fuseops.RootInodeID), rnode.NewRNode(rootAttrs, fuseops.RootInodeID)); err != nil {
+	if err := fb.storeNode(manager.RootNodeID, rnode.NewRNode(rootAttrs, manager.RootNodeID)); err != nil {
 		log.Printf("make root store node error")
 		return err
 	}
@@ -330,12 +342,13 @@ func (fb *FBackEnd) AllocateHandle(
 func (fb *FBackEnd) ReleaseHandle(
 	ctx context.Context,
 	h uint64) error {
-	log.Printf("fb release dir: h=%v", h)
+	log.Printf("fb release: h=%v", h)
 	if _, err := fb.LoadHandle(ctx, h); err == nil {
 		fb.handleMap.Delete(h)
+		log.Printf("fb release success: h=%v", h)
 		return nil
 	}
-	return &FBackEndErr{fmt.Sprintf("release handle not found error: handle=%v", h)}
+	return &FBackEndErr{fmt.Sprintf("release not found error: handle=%v", h)}
 }
 
 func (fb *FBackEnd) lock() {
@@ -350,7 +363,7 @@ func (fb *FBackEnd) unlock() {
 //
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) allocateInode(
-	attrs fuseops.InodeAttributes) (uint64, *rnode.RNode) {
+	attrs fuse.Attr) (uint64, *rnode.RNode) {
 	// Create the rnode.RNode.
 	id := fb.mcli.Allocate()
 	if id > 0 {
@@ -383,16 +396,10 @@ func (fb *FBackEnd) deallocateInode(ctx context.Context, id uint64) error {
 // FileSystem methods
 ////////////////////////////////////////////////////////////////////////
 
-func (fb *FBackEnd) StatFS(
-	ctx context.Context,
-	op *fuseops.StatFSOp) error {
-	return nil
-}
-
 func (fb *FBackEnd) LookUpInode(
 	ctx context.Context,
 	parentID uint64,
-	name string) (_ uint64, _ fuseops.InodeAttributes, err error) {
+	name string) (_ uint64, _ fuse.Attr, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -401,26 +408,40 @@ func (fb *FBackEnd) LookUpInode(
 	parent, err := fb.LoadNodeForRead(ctx, parentID)
 	if err != nil {
 		log.Printf("look up inode load prarent err: err=%v", err.Error())
-		return 0, fuseops.InodeAttributes{}, err
+		return 0, fuse.Attr{}, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, parent)
+		if uerr := fb.RUnlockNode(ctx, parent); uerr != nil {
+			log.Printf("rlock node error: id=%v, err=%+v", parent.ID(), uerr)
+			if err != nil {
+				log.Printf("runlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Does the directory have an entry with the given name?
 	childID, _, ok := parent.LookUpChild(name)
 	if !ok {
-		return 0, fuseops.InodeAttributes{}, fuse.ENOENT
+		err = syscall.ENOENT
+		log.Printf("fb look up inode child not exists error: parent=%v, name=%v, err=%v", parentID, name, err)
+		return 0, fuse.Attr{}, err
 	}
 
 	// Grab the child.
 	child, err := fb.LoadNodeForRead(ctx, childID)
 	if err != nil {
 		log.Printf("look up inode load child err: err=%v", err.Error())
-		return 0, fuseops.InodeAttributes{}, err
+		return 0, fuse.Attr{}, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, child)
+		if uerr := fb.RUnlockNode(ctx, child); uerr != nil {
+			log.Printf("rlock node error: id=%v, err=%+v", child.ID(), uerr)
+			if err != nil {
+				log.Printf("runlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	attr := child.Attrs()
@@ -430,7 +451,7 @@ func (fb *FBackEnd) LookUpInode(
 
 func (fb *FBackEnd) GetInodeAttributes(
 	ctx context.Context,
-	id uint64) (_ fuseops.InodeAttributes, err error) {
+	id uint64) (_ fuse.Attr, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -439,10 +460,16 @@ func (fb *FBackEnd) GetInodeAttributes(
 	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("get node attr err: err=%v", err.Error())
-		return fuseops.InodeAttributes{}, err
+		return fuse.Attr{}, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, node)
+		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+			log.Printf("rlock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("runlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Fill in the response.
@@ -454,7 +481,7 @@ func (fb *FBackEnd) GetInodeAttributes(
 func (fb *FBackEnd) SetInodeAttributes(
 	ctx context.Context,
 	id uint64,
-	param SetInodeAttributesParam) (_ fuseops.InodeAttributes, err error) {
+	param SetInodeAttributesParam) (_ fuse.Attr, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -464,10 +491,16 @@ func (fb *FBackEnd) SetInodeAttributes(
 	node, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		log.Printf("set node attr err: err=%v", err.Error())
-		return fuseops.InodeAttributes{}, err
+		return fuse.Attr{}, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, node)
+		if uerr := fb.UnlockNode(ctx, node); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Handle the request.
@@ -493,7 +526,7 @@ func (fb *FBackEnd) MkDir(
 	ctx context.Context,
 	parentID uint64,
 	name string,
-	mode os.FileMode) (_ uint64, _ fuseops.InodeAttributes, err error) {
+	mode os.FileMode) (_ uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -503,21 +536,27 @@ func (fb *FBackEnd) MkDir(
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("mkdir err: err=%v", err.Error())
-		return 0, fuseops.InodeAttributes{}, err
+		return 0, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parent)
+		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", parent.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
 	// duplicate.
 	_, _, exists := parent.LookUpChild(name)
 	if exists {
-		return 0, fuseops.InodeAttributes{}, fuse.EEXIST
+		return 0, fuse.EEXIST
 	}
 
 	// Set up attributes from the child.
-	childAttrs := fuseops.InodeAttributes{
+	childAttrs := fuse.Attr{
 		Nlink: 1,
 		Mode:  mode,
 		Uid:   fb.uid,
@@ -525,15 +564,15 @@ func (fb *FBackEnd) MkDir(
 	}
 
 	// Allocate a child.
-	childID, child := fb.allocateInode(childAttrs)
+	childID, _ := fb.allocateInode(childAttrs)
 
 	// Add an entry in the parent.
-	parent.AddChild(childID, name, fuseutil.DT_Directory)
+	parent.AddChild(childID, name, fuse.DT_Dir)
 
 	// Fill in the response.
-	log.Printf("fb mkdir success: parent=%v, name=%v, mode=%v",
-		parentID, name, mode)
-	return childID, child.Attrs(), nil
+	log.Printf("fb mkdir success: parent=%v, name=%v, mode=%v, childID=%v",
+		parentID, name, mode, childID)
+	return childID, nil
 }
 
 // LOCKS_REQUIRED(fb.mu)
@@ -541,7 +580,7 @@ func (fb *FBackEnd) CreateNode(
 	ctx context.Context,
 	parentID uint64,
 	name string,
-	mode os.FileMode) (_ fuseops.ChildInodeEntry, err error) {
+	mode os.FileMode) (_ uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -551,22 +590,28 @@ func (fb *FBackEnd) CreateNode(
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("create node err: err=%v", err.Error())
-		return fuseops.ChildInodeEntry{}, err
+		return 0, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parent)
+		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", parent.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
 	// duplicate.
 	_, _, exists := parent.LookUpChild(name)
 	if exists {
-		return fuseops.ChildInodeEntry{}, fuse.EEXIST
+		return 0, fuse.EEXIST
 	}
 
 	// Set up attributes for the child.
 	now := time.Now()
-	childAttrs := fuseops.InodeAttributes{
+	childAttrs := fuse.Attr{
 		Nlink:  1,
 		Mode:   mode,
 		Atime:  now,
@@ -578,24 +623,15 @@ func (fb *FBackEnd) CreateNode(
 	}
 
 	// Allocate a child.
-	childID, child := fb.allocateInode(childAttrs)
+	childID, _ := fb.allocateInode(childAttrs)
 
 	// Add an entry in the parent.
-	parent.AddChild(childID, name, fuseutil.DT_File)
+	parent.AddChild(childID, name, fuse.DT_File)
 
 	// Fill in the response entry.
-	var entry fuseops.ChildInodeEntry
-	entry.Child = fuseops.InodeID(childID)
-	entry.Attributes = child.Attrs()
-
-	// We don't spontaneously mutate, so the kernel can cache as long as it wants
-	// (since it also handles invalidation).
-	entry.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
-	entry.EntryExpiration = entry.AttributesExpiration
-
 	log.Printf("fb create node success: parent=%v, name=%v, mode=%v",
 		parentID, name, mode)
-	return entry, nil
+	return childID, nil
 }
 
 // LOCKS_REQUIRED(fb.mu)
@@ -604,7 +640,7 @@ func (fb *FBackEnd) CreateFile(
 	parentID uint64,
 	name string,
 	mode os.FileMode,
-	flags uint32) (_ fuseops.ChildInodeEntry, _ uint64, err error) {
+	flags uint32) (_ uint64, _ uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -614,22 +650,28 @@ func (fb *FBackEnd) CreateFile(
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("create file err: err=%v", err.Error())
-		return fuseops.ChildInodeEntry{}, 0, err
+		return 0, 0, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parent)
+		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", parent.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
 	// duplicate.
 	_, _, exists := parent.LookUpChild(name)
 	if exists {
-		return fuseops.ChildInodeEntry{}, 0, fuse.EEXIST
+		return 0, 0, fuse.EEXIST
 	}
 
 	// Set up attributes for the child.
 	now := time.Now()
-	childAttrs := fuseops.InodeAttributes{
+	childAttrs := fuse.Attr{
 		Nlink:  1,
 		Mode:   mode,
 		Atime:  now,
@@ -641,37 +683,27 @@ func (fb *FBackEnd) CreateFile(
 	}
 
 	// Allocate a child.
-	childID, child := fb.allocateInode(childAttrs)
+	childID, _ := fb.allocateInode(childAttrs)
 
 	// Add an entry in the parent.
-	parent.AddChild(childID, name, fuseutil.DT_File)
-
-	// Fill in the response entry.
-	var entry fuseops.ChildInodeEntry
-	entry.Child = fuseops.InodeID(childID)
-	entry.Attributes = child.Attrs()
-
+	parent.AddChild(childID, name, fuse.DT_File)
 	handle, err := fb.AllocateHandle(ctx, childID)
+
 	if err != nil {
 		log.Printf("create file allocate handle err: err=%v", err.Error())
-		return fuseops.ChildInodeEntry{}, 0, err
+		return 0, 0, err
 	}
 
-	// We don't spontaneously mutate, so the kernel can cache as long as it wants
-	// (since it also handles invalidation).
-	entry.AttributesExpiration = time.Now().Add(utility.AttributesCacheTime)
-	entry.EntryExpiration = entry.AttributesExpiration
-
-	log.Printf("fb create file success: parent=%v, name=%v, mode=%v, flags=%v",
-		parentID, name, mode, flags)
-	return entry, handle, nil
+	log.Printf("fb create file success: parent=%v, name=%v, mode=%v, flags=%v, childID=%v, handle=%v",
+		parentID, name, mode, flags, childID, handle)
+	return childID, handle, nil
 }
 
 func (fb *FBackEnd) CreateSymlink(
 	ctx context.Context,
 	parentID uint64,
 	name string,
-	target string) (_ uint64, _ fuseops.InodeAttributes, err error) {
+	target string) (_ uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -681,22 +713,28 @@ func (fb *FBackEnd) CreateSymlink(
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("create symlink err: err=%v", err.Error())
-		return 0, fuseops.InodeAttributes{}, err
+		return 0, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parent)
+		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", parent.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
 	// duplicate.
 	_, _, exists := parent.LookUpChild(name)
 	if exists {
-		return 0, fuseops.InodeAttributes{}, fuse.EEXIST
+		return 0, fuse.EEXIST
 	}
 
 	// Set up attributes from the child.
 	now := time.Now()
-	childAttrs := fuseops.InodeAttributes{
+	childAttrs := fuse.Attr{
 		Nlink:  1,
 		Mode:   0444 | os.ModeSymlink,
 		Atime:  now,
@@ -714,19 +752,19 @@ func (fb *FBackEnd) CreateSymlink(
 	child.SetTarget(target)
 
 	// Add an entry in the parent.
-	parent.AddChild(childID, name, fuseutil.DT_Link)
+	parent.AddChild(childID, name, fuse.DT_Link)
 
 	// Fill in the response entry.
 	log.Printf("fb create symlink success: parent=%v, name=%v, target=%v",
 		parentID, name, target)
-	return childID, child.Attrs(), nil
+	return childID, nil
 }
 
 func (fb *FBackEnd) CreateLink(
 	ctx context.Context,
 	parentID uint64,
 	name string,
-	targetID uint64) (_ fuseops.InodeAttributes, err error) {
+	targetID uint64) (_ uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -736,27 +774,39 @@ func (fb *FBackEnd) CreateLink(
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("create link load parent err: err=%v", err.Error())
-		return fuseops.InodeAttributes{}, err
+		return 0, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parent)
+		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", parent.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Ensure that the name doesn't already exist, so we don't wind up with a
 	// duplicate.
 	_, _, exists := parent.LookUpChild(name)
 	if exists {
-		return fuseops.InodeAttributes{}, fuse.EEXIST
+		return 0, fuse.EEXIST
 	}
 
 	// Get the target rnode.RNode to be linked
 	target, err := fb.LoadNodeForWrite(ctx, targetID)
 	if err != nil {
 		log.Printf("create link load target err: err=%v", err.Error())
-		return fuseops.InodeAttributes{}, err
+		return 0, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, target)
+		if uerr := fb.UnlockNode(ctx, target); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", target.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Update the attributes
@@ -765,50 +815,66 @@ func (fb *FBackEnd) CreateLink(
 	target.IncrNlink()
 
 	// Add an entry in the parent.
-	parent.AddChild(targetID, name, fuseutil.DT_File)
+	parent.AddChild(targetID, name, fuse.DT_File)
 
 	// Return the response.
 	log.Printf("fb create link success: parent=%v, name=%v, target=%v",
 		parentID, name, targetID)
-	return target.Attrs(), nil
+	return targetID, nil
 }
 
 func (fb *FBackEnd) Rename(
 	ctx context.Context,
-	op fuseops.RenameOp) (err error) {
+	oldParent uint64,
+	oldName string,
+	newParent uint64,
+	newName string) (err error) {
 	fb.lock()
 	defer fb.unlock()
 
-	log.Printf("fb rename: op=%#v", op)
+	log.Printf("fb rename: oldParent=%v, olaName=%v, newParent=%v, newName=%v",
+		oldParent, oldName, newParent, newName)
 	// Ask the old parent for the child's rnode.RNode ID and type.
-	oldParent, err := fb.LoadNodeForWrite(ctx, uint64(op.OldParent))
+	oldParentNode, err := fb.LoadNodeForWrite(ctx, oldParent)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, oldParent)
+		if uerr := fb.UnlockNode(ctx, oldParentNode); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", oldParentNode.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
-	childID, childType, ok := oldParent.LookUpChild(op.OldName)
+	childID, childType, ok := oldParentNode.LookUpChild(oldName)
 
 	if !ok {
-		err = fuse.ENOENT
+		err = syscall.ENOENT
 		return
 	}
 
 	// If the new name exists already in the new parent, make sure it's not a
 	// non-empty directory, then delete it.
-	newParent := oldParent
-	if op.NewParent != op.OldParent {
-		newParent, err = fb.LoadNodeForWrite(ctx, uint64(op.NewParent))
+	newParentNode := oldParentNode
+	if newParent != oldParent {
+		newParentNode, err = fb.LoadNodeForWrite(ctx, newParent)
 		if err != nil {
 			return err
 		}
 		defer func() {
-			err = fb.UnlockNode(ctx, newParent)
+			if uerr := fb.UnlockNode(ctx, newParentNode); uerr != nil {
+				log.Printf("lock node error: id=%v, err=%+v", newParentNode.ID(), uerr)
+				if err != nil {
+					log.Printf("unlock node error overwrite method error: err=%+v", err)
+				}
+				err = uerr
+			}
 		}()
 	}
 
-	existingID, _, ok := newParent.LookUpChild(op.NewName)
+	existingID, _, ok := newParentNode.LookUpChild(newName)
 	if ok {
 		var existing *rnode.RNode
 		existing, err = fb.LoadNodeForRead(ctx, existingID)
@@ -816,104 +882,64 @@ func (fb *FBackEnd) Rename(
 			return err
 		}
 		defer func() {
-			err = fb.RUnlockNode(ctx, existing)
+			if uerr := fb.RUnlockNode(ctx, existing); uerr != nil {
+				log.Printf("rlock node error: id=%v, err=%+v", existing.ID(), uerr)
+				if err != nil {
+					log.Printf("runlock node error overwrite method error: err=%+v", err)
+				}
+				err = uerr
+			}
 		}()
 
-		var buf [4096]byte
-		if existing.IsDir() && existing.ReadDir(buf[:], 0) > 0 {
-			err = fuse.ENOTEMPTY
+		if existing.IsDir() {
+			err = fuse.ToErrno(&FBackEndErr{fmt.Sprintf("rename target is dir error: newName=%v", newName)})
 			return err
 		}
 
-		newParent.RemoveChild(op.NewName)
+		newParentNode.RemoveChild(newName)
 	}
 
 	// Link the new name.
-	newParent.AddChild(
+	newParentNode.AddChild(
 		childID,
-		op.NewName,
+		newName,
 		childType)
 
 	// Finally, remove the old name from the old parent.
-	oldParent.RemoveChild(op.OldName)
+	oldParentNode.RemoveChild(oldName)
 
-	log.Printf("fb rename success: op=%#v", op)
-	return
-}
-
-func (fb *FBackEnd) RmDir(
-	ctx context.Context,
-	op fuseops.RmDirOp) (err error) {
-	fb.lock()
-	defer fb.unlock()
-
-	log.Printf("fb rmdir: op=%#v", op)
-	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(ctx, uint64(op.Parent))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = fb.UnlockNode(ctx, parent)
-	}()
-
-	// Find the child within the parent.
-	childID, _, ok := parent.LookUpChild(op.Name)
-	if !ok {
-		err = fuse.ENOENT
-		return
-	}
-
-	// Grab the child.
-	child, err := fb.LoadNodeForWrite(ctx, childID)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = fb.UnlockNode(ctx, child)
-	}()
-
-	// Make sure the child is empty.
-	if child.Len() != 0 {
-		err = fuse.ENOTEMPTY
-		return
-	}
-
-	// Remove the entry within the parent.
-	parent.RemoveChild(op.Name)
-
-	// Mark the child as unlinked.
-	child.DecrNlink()
-	if child.IsLost() {
-		if err := fb.deallocateInode(ctx, childID); err != nil {
-			return err
-		}
-	}
-
-	log.Printf("fb rmdir success: op=%#v", op)
+	log.Printf("fb rename success: oldParent=%v, olaName=%v, newParent=%v, newName=%v",
+		oldParent, oldName, newParent, newName)
 	return
 }
 
 func (fb *FBackEnd) Unlink(
 	ctx context.Context,
-	op fuseops.UnlinkOp) (err error) {
+	parent uint64,
+	name string) (err error) {
 	fb.lock()
 	defer fb.unlock()
 
-	log.Printf("fb unlink: op=%#v", op)
+	log.Printf("fb unlink: parent=%v, name=%v", parent, name)
 	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(ctx, uint64(op.Parent))
+	parentNode, err := fb.LoadNodeForWrite(ctx, uint64(parent))
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, parent)
+		if uerr := fb.UnlockNode(ctx, parentNode); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", parentNode.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Find the child within the parent.
-	childID, _, ok := parent.LookUpChild(op.Name)
+	childID, _, ok := parentNode.LookUpChild(name)
 	if !ok {
-		err = fuse.ENOENT
+		err = syscall.ENOENT
 		return
 	}
 
@@ -923,11 +949,19 @@ func (fb *FBackEnd) Unlink(
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, child)
+		if fb.IsLocal(ctx, childID) {
+			if uerr := fb.UnlockNode(ctx, child); uerr != nil {
+				log.Printf("lock node error: id=%v, err=%+v", child.ID(), uerr)
+				if err != nil {
+					log.Printf("unlock node error overwrite method error: err=%+v", err)
+				}
+				err = uerr
+			}
+		}
 	}()
 
 	// Remove the entry within the parent.
-	parent.RemoveChild(op.Name)
+	parentNode.RemoveChild(name)
 
 	// Mark the child as unlinked.
 	child.DecrNlink()
@@ -937,18 +971,18 @@ func (fb *FBackEnd) Unlink(
 		}
 	}
 
-	log.Printf("fb unlink success: op=%#v", op)
+	log.Printf("fb unlink success: parent=%v, name=%v", parent, name)
 	return
 }
 
-func (fb *FBackEnd) OpenDir(
+func (fb *FBackEnd) Open(
 	ctx context.Context,
 	id uint64,
 	flags uint32) (handle uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
-	log.Printf("fb opendir: id=%v, flags=%v", id, flags)
+	log.Printf("fb open: id=%v, flags=%v", id, flags)
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
@@ -958,18 +992,24 @@ func (fb *FBackEnd) OpenDir(
 		return 0, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, node)
+		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+			log.Printf("rlock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("runlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
-	if !node.IsDir() {
-		err := &FBackEndErr{msg: fmt.Sprintf("open dir non-dir error: id=%v", id)}
-		log.Printf(err.Error())
-		return 0, err
-	}
+	//if !node.IsDir() {
+	//	err := &FBackEndErr{msg: fmt.Sprintf("open dir non-dir error: id=%v", id)}
+	//	log.Printf(err.Error())
+	//	return 0, err
+	//}
 
 	handle, err = fb.AllocateHandle(ctx, id)
 	if err != nil {
-		log.Printf("open dir allocate handle err: id=%v, err=%v", id, err.Error())
+		log.Printf("open allocate handle err: id=%v, err=%v", id, err.Error())
 		return 0, err
 	}
 
@@ -979,31 +1019,31 @@ func (fb *FBackEnd) OpenDir(
 
 func (fb *FBackEnd) ReadDir(
 	ctx context.Context,
-	id uint64,
-	length uint64,
-	offset uint64) (bytesRead uint64, buf []byte, err error) {
+	id uint64) ([]fuse.Dirent, error) {
 	fb.lock()
 	defer fb.unlock()
 
-	log.Printf("fb readdir: id=%v, len=%v, offset=%v",
-		id, length, offset)
+	log.Printf("fb readdir: id=%v", id)
 	// Grab the directory.
 	node, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		log.Printf("read dir err: err=%v", err.Error())
-		return
+		return nil, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, node)
+		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+			log.Printf("rlock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("runlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
-	buf = make([]byte, length)
-	// Serve the request.
-	bytesRead = uint64(node.ReadDir(buf, int(offset)))
+	dirents := node.ReadDir()
 
-	log.Printf("fb readdir success: id=%v, len=%v, offset=%v, bytesRead=%v",
-		id, length, offset, bytesRead)
-	return
+	log.Printf("fb readdir success: id=%v, dirents=%+v", id, dirents)
+	return dirents, nil
 }
 
 func (fb *FBackEnd) ReleaseDirHandle(
@@ -1037,7 +1077,13 @@ func (fb *FBackEnd) OpenFile(
 		return 0, err
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, node)
+		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+			log.Printf("rlock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("runlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	if !node.IsFile() {
@@ -1072,7 +1118,13 @@ func (fb *FBackEnd) ReadFile(
 		return
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, node)
+		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+			log.Printf("rlock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("runlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Serve the request.
@@ -1110,7 +1162,13 @@ func (fb *FBackEnd) WriteFile(
 		return 0, err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, node)
+		if uerr := fb.UnlockNode(ctx, node); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Serve the request.
@@ -1155,7 +1213,13 @@ func (fb *FBackEnd) ReadSymlink(
 		return
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, node)
+		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+			log.Printf("rlock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("runlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	// Serve the request.
@@ -1180,7 +1244,13 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 		return
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, node)
+		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+			log.Printf("rlock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("runlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	if value, ok := node.Xattrs()[name]; ok {
@@ -1193,7 +1263,7 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 			return
 		}
 	} else {
-		err = fuse.ENOATTR
+		err = syscall.ENODATA
 		return
 	}
 
@@ -1216,7 +1286,13 @@ func (fb *FBackEnd) ListXattr(ctx context.Context,
 		return
 	}
 	defer func() {
-		err = fb.RUnlockNode(ctx, node)
+		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+			log.Printf("rlock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("runlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	dst = make([]byte, length)
@@ -1252,7 +1328,13 @@ func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, node)
+		if uerr := fb.UnlockNode(ctx, node); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	if _, ok := node.Xattrs()[name]; ok {
@@ -1260,7 +1342,7 @@ func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 		delete(xattrs, name)
 		node.SetXattrs(xattrs)
 	} else {
-		return fuse.ENOATTR
+		return syscall.ENOENT
 	}
 
 	log.Printf("fb rm xattr success: id=%v, name=%v", id, name)
@@ -1268,40 +1350,51 @@ func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 }
 
 func (fb *FBackEnd) SetXattr(ctx context.Context,
-	op fuseops.SetXattrOp) (err error) {
+	id uint64,
+	name string,
+	flags uint32,
+	value []byte) (err error) {
 	fb.lock()
 	defer fb.unlock()
 
-	log.Printf("fb set xattr: op=%#v", op)
-	node, err := fb.LoadNodeForWrite(ctx, uint64(op.Inode))
+	log.Printf("fb set xattr: id=%v, name=%v, flag=%v, value=%X", id, name, flags, value)
+	node, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
-		log.Printf("set xattr err: err=%v", err.Error())
+		log.Printf("fb set xattr load node error: id=%v, name=%v, flag=%v, value=%X",
+			id, name, flags, value, err)
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, node)
+		if uerr := fb.UnlockNode(ctx, node); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
-	_, hasAttr := node.Xattrs()[op.Name]
+	_, hasAttr := node.Xattrs()[name]
 
-	switch op.Flags {
+	switch flags {
 	case unix.XATTR_CREATE:
 		if hasAttr {
-			return fuse.EEXIST
+			return syscall.EEXIST
 		}
 	case unix.XATTR_REPLACE:
 		if !hasAttr {
-			return fuse.ENOATTR
+			return syscall.ENOENT
 		}
 	}
 
-	value := make([]byte, len(op.Value))
-	copy(value, op.Value)
+	localValue := make([]byte, len(value))
+	copy(localValue, value)
 	xattrs := node.Xattrs()
-	xattrs[op.Name] = value
+	xattrs[name] = localValue
 	node.SetXattrs(xattrs)
 
-	log.Printf("fb set xattr success: op=%#v", op)
+	log.Printf("fb set xattr success: id=%v, name=%v, flag=%v, value=%X",
+		id, name, flags, value)
 	return nil
 }
 
@@ -1319,7 +1412,13 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 		return err
 	}
 	defer func() {
-		err = fb.UnlockNode(ctx, node)
+		if uerr := fb.UnlockNode(ctx, node); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", node.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
 	}()
 
 	err = node.Fallocate(mode, length, length)

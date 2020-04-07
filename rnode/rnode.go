@@ -25,9 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jacobsa/fuse"
-	"github.com/jacobsa/fuse/fuseops"
-	"github.com/jacobsa/fuse/fuseutil"
+	"bazil.org/fuse"
 )
 
 const (
@@ -49,7 +47,7 @@ type RNodeAttr struct {
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
 	// INVARIANT: !(IsDir() && IsSymlink())
 	// INVARIANT: attrs.Size == len(contents)
-	NAttr     fuseops.InodeAttributes
+	NAttr     fuse.Attr
 	mtimeLock sync.Mutex
 	ctimeLock sync.Mutex
 
@@ -80,7 +78,7 @@ type RNode struct {
 	// INVARIANT: If !IsDir(), len(entries) == 0
 	// INVARIANT: For each i, entries[i].Offset == i+1
 	// INVARIANT: Contains no duplicate names in used entries.
-	NEntries []fuseutil.Dirent
+	NEntries []fuse.Dirent
 
 	// For files, the current contents of the file.
 	//
@@ -103,15 +101,15 @@ func (rn *RNode) ID() uint64 {
 	return rn.NID
 }
 
-func (rna *RNodeAttr) Attrs() fuseops.InodeAttributes {
+func (rna *RNodeAttr) Attrs() fuse.Attr {
 	return rna.NAttr
 }
 
-func (rn *RNode) Entries() []fuseutil.Dirent {
+func (rn *RNode) Entries() []fuse.Dirent {
 	return rn.NEntries
 }
 
-func (rn *RNode) SetEntries(entries []fuseutil.Dirent) {
+func (rn *RNode) SetEntries(entries []fuse.Dirent) {
 	rn.NEntries = entries
 }
 
@@ -207,9 +205,10 @@ func (rn *RNode) SetAddr(addr string) {
 
 // Create a new RNode with the supplied attributes, which need not contain
 // time-related information (the RNode object will take care of that).
-func NewRNode(attrs fuseops.InodeAttributes, id uint64) *RNode {
+func NewRNode(attrs fuse.Attr, id uint64) *RNode {
 	// Update time info.
 	now := time.Now()
+	attrs.Inode = id
 	attrs.Mtime = now
 	attrs.Crtime = now
 
@@ -250,17 +249,17 @@ func (rn *RNode) CheckInvariants() {
 		panic(fmt.Sprintf("Unexpected entries length: %d", len(rn.Entries())))
 	}
 
-	// INVARIANT: For each i, entries[i].Offset == i+1
-	for i, e := range rn.Entries() {
-		if !(e.Offset == fuseops.DirOffset(i+1)) {
-			panic(fmt.Sprintf("Unexpected offset for index %d: %d", i, e.Offset))
-		}
-	}
+	//// INVARIANT: For each i, entries[i].Offset == i+1
+	//for i, e := range rn.Entries() {
+	//	if !(e.Offset == fuseops.DirOffset(i+1)) {
+	//		panic(fmt.Sprintf("Unexpected offset for index %d: %d", i, e.Offset))
+	//	}
+	//}
 
 	// INVARIANT: Contains no duplicate names in used entries.
 	childNames := make(map[string]struct{})
 	for _, e := range rn.Entries() {
-		if e.Type != fuseutil.DT_Unknown {
+		if e.Type != fuse.DT_Unknown {
 			if _, ok := childNames[e.Name]; ok {
 				panic(fmt.Sprintf("Duplicate name: %s", e.Name))
 			}
@@ -302,7 +301,7 @@ func (rn *RNode) findChild(name string) (i int, ok bool) {
 		panic("findChild called on non-directory.")
 	}
 
-	var e fuseutil.Dirent
+	var e fuse.Dirent
 	for i, e = range rn.Entries() {
 		if e.Name == name {
 			return i, true
@@ -322,7 +321,7 @@ func (rn *RNode) findChild(name string) (i int, ok bool) {
 func (rn *RNode) Len() int {
 	var n int
 	for _, e := range rn.Entries() {
-		if e.Type != fuseutil.DT_Unknown {
+		if e.Type != fuse.DT_Unknown {
 			n++
 		}
 	}
@@ -335,7 +334,7 @@ func (rn *RNode) Len() int {
 // REQUIRES: rn.IsDir()
 func (rn *RNode) LookUpChild(name string) (
 	id uint64,
-	typ fuseutil.DirentType,
+	typ fuse.DirentType,
 	ok bool) {
 	index, ok := rn.findChild(name)
 	if ok {
@@ -349,11 +348,11 @@ func (rn *RNode) LookUpChild(name string) (
 // Add an entry for a child.
 //
 // REQUIRES: rn.IsDir()
-// REQUIRES: dt != fuseutil.DT_Unknown
+// REQUIRES: dt != fuse.DT_Unknown
 func (rn *RNode) AddChild(
 	id uint64,
 	name string,
-	dt fuseutil.DirentType) {
+	dt fuse.DirentType) {
 	var index int
 
 	// Update the modification time.
@@ -363,20 +362,20 @@ func (rn *RNode) AddChild(
 	// field.
 	defer func() {
 		entries := rn.Entries()
-		entries[index].Offset = fuseops.DirOffset(index + 1)
+		//entries[index].Offset = fuseops.DirOffset(index + 1)
 		rn.SetEntries(entries)
 	}()
 
 	// Set up the entry.
-	e := fuseutil.Dirent{
-		Inode: fuseops.InodeID(id),
+	e := fuse.Dirent{
+		Inode: id,
 		Name:  name,
 		Type:  dt,
 	}
 
 	// Look for a gap in which we can insert it.
 	for index = range rn.Entries() {
-		if rn.Entries()[index].Type == fuseutil.DT_Unknown {
+		if rn.Entries()[index].Type == fuse.DT_Unknown {
 			entries := rn.Entries()
 			entries[index] = e
 			rn.SetEntries(entries)
@@ -405,39 +404,19 @@ func (rn *RNode) RemoveChild(name string) {
 
 	// Mark it as unused.
 	entries := rn.Entries()
-	entries[i] = fuseutil.Dirent{
-		Type:   fuseutil.DT_Unknown,
-		Offset: fuseops.DirOffset(i + 1),
-	}
-	rn.SetEntries(entries)
+	entries[len(entries)-1], entries[i] = entries[i], entries[len(entries)-1]
+	rn.SetEntries(entries[:len(entries)-1])
 }
 
 // Serve a ReadDir request.
 //
 // REQUIRES: rn.IsDir()
-func (rn *RNode) ReadDir(p []byte, offset int) int {
+func (rn *RNode) ReadDir() []fuse.Dirent {
 	if !rn.IsDir() {
 		panic("ReadDir called on non-directory.")
 	}
 
-	var n int
-	for i := offset; i < len(rn.Entries()); i++ {
-		e := rn.Entries()[i]
-
-		// Skip unused entries.
-		if e.Type == fuseutil.DT_Unknown {
-			continue
-		}
-
-		tmp := fuseutil.WriteDirent(p[n:], rn.Entries()[i])
-		if tmp == 0 {
-			break
-		}
-
-		n += tmp
-	}
-
-	return n
+	return rn.NEntries
 }
 
 // Read from the file's contents. See documentation for ioutil.ReaderAt.

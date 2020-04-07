@@ -7,6 +7,7 @@ import (
 	"os"
 	"sync"
 
+	"bazil.org/fuse"
 	"github.com/Berailitz/pfs/idallocator"
 
 	"github.com/Berailitz/pfs/rnode"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/Berailitz/pfs/fbackend"
 	"github.com/Berailitz/pfs/rclient"
-	"github.com/jacobsa/fuse/fuseops"
 )
 
 const initialHandle = 1
@@ -145,25 +145,20 @@ func (fp *FProxy) UnlockNode(ctx context.Context, node *rnode.RNode) error {
 	return utility.DecodeError(perr)
 }
 
-func (fp *FProxy) StatFS(
-	ctx context.Context,
-	op *fuseops.StatFSOp) error {
-	return nil
-}
-
 func (fp *FProxy) LookUpInode(
 	ctx context.Context,
 	parentID uint64,
-	name string) (uint64, fuseops.InodeAttributes, error) {
+	name string) (uint64, fuse.Attr, error) {
 	log.Printf("fp look up inode: parent=%v, name=%v", parentID, name)
 	if fp.IsLocalNode(ctx, parentID) {
+		log.Printf("fp local look up inode: parent=%v, name=%v", parentID, name)
 		return fp.fb.LookUpInode(ctx, parentID, name)
 	}
 
 	addr := fp.pcli.QueryOwner(parentID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
-		return 0, fuseops.InodeAttributes{}, err
+		return 0, fuse.Attr{}, err
 	}
 
 	reply, err := gcli.LookUpInode(ctx, &pb.LookUpInodeRequest{
@@ -172,14 +167,15 @@ func (fp *FProxy) LookUpInode(
 	})
 	if err != nil {
 		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
-		return 0, fuseops.InodeAttributes{}, err
+		return 0, fuse.Attr{}, err
 	}
+	log.Printf("rpc look up inode success: parentID=%v, name=%v", parentID, name)
 	return reply.Id, utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
 }
 
 func (fp *FProxy) GetInodeAttributes(
 	ctx context.Context,
-	id uint64) (fuseops.InodeAttributes, error) {
+	id uint64) (fuse.Attr, error) {
 	log.Printf("fp get inode attr: id=%v", id)
 	if fp.IsLocalNode(ctx, id) {
 		return fp.fb.GetInodeAttributes(ctx, id)
@@ -188,7 +184,7 @@ func (fp *FProxy) GetInodeAttributes(
 	addr := fp.pcli.QueryOwner(id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
-		return fuseops.InodeAttributes{}, err
+		return fuse.Attr{}, err
 	}
 
 	reply, err := gcli.GetInodeAttributes(ctx, &pb.UInt64ID{
@@ -196,7 +192,7 @@ func (fp *FProxy) GetInodeAttributes(
 	})
 	if err != nil {
 		log.Printf("rpc get inode attr error: id=%v, err=%+v", id, err)
-		return fuseops.InodeAttributes{}, err
+		return fuse.Attr{}, err
 	}
 	return utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
 }
@@ -204,7 +200,7 @@ func (fp *FProxy) GetInodeAttributes(
 func (fp *FProxy) SetInodeAttributes(
 	ctx context.Context,
 	id uint64,
-	param fbackend.SetInodeAttributesParam) (fuseops.InodeAttributes, error) {
+	param fbackend.SetInodeAttributesParam) (fuse.Attr, error) {
 	log.Printf("fp set inode attr: id=%v, param=%+v",
 		id, param)
 	if fp.IsLocalNode(ctx, id) {
@@ -214,7 +210,7 @@ func (fp *FProxy) SetInodeAttributes(
 	addr := fp.pcli.QueryOwner(id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
-		return fuseops.InodeAttributes{}, err
+		return fuse.Attr{}, err
 	}
 
 	reply, err := gcli.SetInodeAttributes(ctx, &pb.SetInodeAttributesRequest{
@@ -228,7 +224,7 @@ func (fp *FProxy) SetInodeAttributes(
 	})
 	if err != nil {
 		log.Printf("rpc set inode attr error: id=%v, err=%+v", id, err)
-		return fuseops.InodeAttributes{}, err
+		return fuse.Attr{}, err
 	}
 	return utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
 }
@@ -237,7 +233,7 @@ func (fp *FProxy) MkDir(
 	ctx context.Context,
 	parentID uint64,
 	name string,
-	mode os.FileMode) (uint64, fuseops.InodeAttributes, error) {
+	mode os.FileMode) (uint64, error) {
 	log.Printf("fp mkdir: parent=%v, name=%v, mode=%v",
 		parentID, name, mode)
 	if fp.IsLocalNode(ctx, parentID) {
@@ -247,7 +243,7 @@ func (fp *FProxy) MkDir(
 	addr := fp.pcli.QueryOwner(parentID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
-		return 0, fuseops.InodeAttributes{}, err
+		return 0, err
 	}
 
 	reply, err := gcli.MkDir(ctx, &pb.MkDirRequest{
@@ -257,9 +253,9 @@ func (fp *FProxy) MkDir(
 	})
 	if err != nil {
 		log.Printf("rpc mkdir error: parentID=%v, name=%v, err=%+v", parentID, name, err)
-		return 0, fuseops.InodeAttributes{}, err
+		return 0, err
 	}
-	return reply.Id, utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
+	return reply.Id, utility.DecodeError(reply.Err)
 }
 
 // LOCKS_REQUIRED(fp.mu)
@@ -267,7 +263,7 @@ func (fp *FProxy) CreateNode(
 	ctx context.Context,
 	parentID uint64,
 	name string,
-	mode os.FileMode) (fuseops.ChildInodeEntry, error) {
+	mode os.FileMode) (uint64, error) {
 	log.Printf("fp create node: parent=%v, name=%v, mode=%v",
 		parentID, name, mode)
 	if fp.IsLocalNode(ctx, parentID) {
@@ -277,7 +273,7 @@ func (fp *FProxy) CreateNode(
 	addr := fp.pcli.QueryOwner(parentID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
-		return fuseops.ChildInodeEntry{}, err
+		return 0, err
 	}
 
 	reply, err := gcli.CreateNode(ctx, &pb.CreateNodeRequest{
@@ -287,9 +283,9 @@ func (fp *FProxy) CreateNode(
 	})
 	if err != nil {
 		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
-		return fuseops.ChildInodeEntry{}, err
+		return 0, err
 	}
-	return utility.FromPbEntry(*reply.Entry), utility.DecodeError(reply.Err)
+	return reply.Num, utility.DecodeError(reply.Err)
 }
 
 // LOCKS_REQUIRED(fp.mu)
@@ -298,7 +294,7 @@ func (fp *FProxy) CreateFile(
 	parentID uint64,
 	name string,
 	mode os.FileMode,
-	flags uint32) (fuseops.ChildInodeEntry, uint64, error) {
+	flags uint32) (uint64, uint64, error) {
 	log.Printf("fp create file: parent=%v, name=%v, mode=%v, flags=%v",
 		parentID, name, mode, flags)
 	if fp.IsLocalNode(ctx, parentID) {
@@ -308,7 +304,7 @@ func (fp *FProxy) CreateFile(
 	addr := fp.pcli.QueryOwner(parentID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
-		return fuseops.ChildInodeEntry{}, 0, err
+		return 0, 0, err
 	}
 
 	reply, err := gcli.CreateFile(ctx, &pb.CreateFileRequest{
@@ -319,7 +315,7 @@ func (fp *FProxy) CreateFile(
 	})
 	if err != nil {
 		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
-		return fuseops.ChildInodeEntry{}, 0, err
+		return 0, 0, err
 	}
 
 	err = utility.DecodeError(reply.Err)
@@ -332,14 +328,14 @@ func (fp *FProxy) CreateFile(
 	fp.StoreRemoteHandle(ctx, localHandle, remoteHandle, addr)
 	log.Printf("fp create remote file success: parent=%v, name=%v, mode=%v, flags=%v, remoteHandle=%v, localHandle=%v",
 		parentID, name, mode, flags, remoteHandle, localHandle)
-	return utility.FromPbEntry(*reply.Entry), localHandle, nil
+	return reply.Id, localHandle, nil
 }
 
 func (fp *FProxy) CreateSymlink(
 	ctx context.Context,
 	parentID uint64,
 	name string,
-	target string) (uint64, fuseops.InodeAttributes, error) {
+	target string) (uint64, error) {
 	log.Printf("fp create symlink: parent=%v, name=%v, target=%v",
 		parentID, name, target)
 	if fp.IsLocalNode(ctx, parentID) {
@@ -349,7 +345,7 @@ func (fp *FProxy) CreateSymlink(
 	addr := fp.pcli.QueryOwner(parentID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
-		return 0, fuseops.InodeAttributes{}, err
+		return 0, err
 	}
 
 	reply, err := gcli.CreateSymlink(ctx, &pb.CreateSymlinkRequest{
@@ -360,16 +356,16 @@ func (fp *FProxy) CreateSymlink(
 	if err != nil {
 		log.Printf("rpc create symlink error: parentID=%v, name=%v, target=%v, err=%+v",
 			parentID, name, target, err)
-		return 0, fuseops.InodeAttributes{}, err
+		return 0, err
 	}
-	return reply.Id, utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
+	return reply.Num, utility.DecodeError(reply.Err)
 }
 
 func (fp *FProxy) CreateLink(
 	ctx context.Context,
 	parentID uint64,
 	name string,
-	targetID uint64) (fuseops.InodeAttributes, error) {
+	targetID uint64) (uint64, error) {
 	log.Printf("fp create link: parent=%v, name=%v, target=%v",
 		parentID, name, targetID)
 	if fp.IsLocalNode(ctx, parentID) {
@@ -380,7 +376,7 @@ func (fp *FProxy) CreateLink(
 	addr := fp.pcli.QueryOwner(parentID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
-		return fuseops.InodeAttributes{}, err
+		return 0, err
 	}
 
 	reply, err := gcli.CreateLink(ctx, &pb.CreateLinkRequest{
@@ -391,64 +387,40 @@ func (fp *FProxy) CreateLink(
 	if err != nil {
 		log.Printf("rpc create link error: parentID=%v, name=%v, targetID=%v, err=%+v",
 			parentID, name, targetID, err)
-		return fuseops.InodeAttributes{}, err
+		return 0, err
 	}
-	return utility.FromPbAttr(*reply.Attr), utility.DecodeError(reply.Err)
+	return reply.Num, utility.DecodeError(reply.Err)
 }
 
 func (fp *FProxy) Rename(
 	ctx context.Context,
-	op fuseops.RenameOp) (err error) {
-	log.Printf("fp rename: op=%#v", op)
-	if fp.IsLocalNode(ctx, uint64(op.NewParent)) && fp.IsLocalNode(ctx, uint64(op.OldParent)) &&
-		fp.isChildLocal(ctx, uint64(op.OldParent), op.OldName) {
-		return fp.fb.Rename(ctx, op)
+	oldParent uint64,
+	oldName string,
+	newParent uint64,
+	newName string) (err error) {
+	log.Printf("fp rename: oldParent=%v, oldName=%v, newParent=%v, newName=%v",
+		oldParent, oldName, newParent, newName)
+	if fp.IsLocalNode(ctx, newParent) && fp.IsLocalNode(ctx, oldParent) &&
+		fp.isChildLocal(ctx, oldParent, oldName) {
+		return fp.fb.Rename(ctx, oldParent, oldName, newParent, newName)
 	}
 
 	// TODO: NewParent owner start and acquire child, OldParent owner rm OldChild, rm node, NewParent add child
-	addr := fp.pcli.QueryOwner(uint64(op.NewParent))
+	addr := fp.pcli.QueryOwner(newParent)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
 	}
 
 	perr, err := gcli.Rename(ctx, &pb.RenameRequest{
-		OldParent: uint64(op.OldParent),
-		OldName:   op.OldName,
-		NewParent: uint64(op.NewParent),
-		NewName:   op.NewName,
+		OldParent: oldParent,
+		OldName:   oldName,
+		NewParent: newParent,
+		NewName:   newName,
 	})
 	if err != nil {
-		log.Printf("rpc rename error: OldParent=%v, OldName=%v, NewParent=%v, NewName=%v, err=%+v",
-			op.OldParent, op.OldName, op.NewParent, op.NewName, err)
-		return err
-	}
-	return utility.DecodeError(perr)
-}
-
-func (fp *FProxy) RmDir(
-	ctx context.Context,
-	op fuseops.RmDirOp) (err error) {
-	log.Printf("fp rmdir: op=%#v", op)
-	if fp.IsLocalNode(ctx, uint64(op.Parent)) &&
-		fp.isChildLocal(ctx, uint64(op.Parent), op.Name) {
-		return fp.fb.RmDir(ctx, op)
-	}
-
-	// TODO: Parent owner start, Child owner rm node
-	addr := fp.pcli.QueryOwner(uint64(op.Parent))
-	gcli, err := fp.pool.Load(addr)
-	if err != nil {
-		return err
-	}
-
-	perr, err := gcli.RmDir(ctx, &pb.RmDirRequest{
-		Parent: uint64(op.Parent),
-		Name:   op.Name,
-	})
-	if err != nil {
-		log.Printf("rpc rmdir error: Parent=%v, Name=%v, err=%+v",
-			op.Parent, op.Name, err)
+		log.Printf("rpc fp rename: oldParent=%v, oldName=%v, newParent=%v, newName=%v, err=%+v",
+			oldParent, oldName, newParent, newName, err)
 		return err
 	}
 	return utility.DecodeError(perr)
@@ -456,39 +428,39 @@ func (fp *FProxy) RmDir(
 
 func (fp *FProxy) Unlink(
 	ctx context.Context,
-	op fuseops.UnlinkOp) (err error) {
-	log.Printf("fp unlink: op=%#v", op)
-	if fp.IsLocalNode(ctx, uint64(op.Parent)) &&
-		fp.isChildLocal(ctx, uint64(op.Parent), op.Name) {
-		return fp.fb.Unlink(ctx, op)
+	parent uint64,
+	name string) (err error) {
+	log.Printf("fp unlink: parent=%v, name=%v", parent, name)
+	if fp.IsLocalNode(ctx, parent) &&
+		fp.isChildLocal(ctx, parent, name) {
+		return fp.fb.Unlink(ctx, parent, name)
 	}
 
 	// TODO: Parent owner start and acquire child
-	addr := fp.pcli.QueryOwner(uint64(op.Parent))
+	addr := fp.pcli.QueryOwner(parent)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
 	}
 
 	perr, err := gcli.Unlink(ctx, &pb.UnlinkRequest{
-		Parent: uint64(op.Parent),
-		Name:   op.Name,
+		Parent: parent,
+		Name:   name,
 	})
 	if err != nil {
-		log.Printf("rpc unlink error: Parent=%v, Name=%v, err=%+v",
-			op.Parent, op.Name, err)
+		log.Printf("rpc fp unlink error: parent=%v, name=%v, err=%+v", parent, name, err)
 		return err
 	}
 	return utility.DecodeError(perr)
 }
 
-func (fp *FProxy) OpenDir(
+func (fp *FProxy) Open(
 	ctx context.Context,
 	id uint64,
 	flags uint32) (handle uint64, err error) {
 	log.Printf("fp opendir: id=%v, flags=%v", id, flags)
 	if fp.IsLocalNode(ctx, id) {
-		return fp.fb.OpenDir(ctx, id, flags)
+		return fp.fb.Open(ctx, id, flags)
 	}
 
 	addr := fp.pcli.QueryOwner(id)
@@ -497,7 +469,7 @@ func (fp *FProxy) OpenDir(
 		return 0, err
 	}
 
-	reply, err := gcli.OpenDir(ctx, &pb.OpenXRequest{
+	reply, err := gcli.Open(ctx, &pb.OpenXRequest{
 		Id:    id,
 		Flags: flags,
 	})
@@ -518,34 +490,29 @@ func (fp *FProxy) OpenDir(
 	return localHandle, nil
 }
 
-func (fp *FProxy) ReadDir(
+func (fp *FProxy) ReadDirAll(
 	ctx context.Context,
-	id uint64,
-	length uint64,
-	offset uint64) (bytesRead uint64, buf []byte, err error) {
-	log.Printf("fp readdir: id=%v, len=%v, offset=%v",
-		id, length, offset)
+	id uint64) ([]fuse.Dirent, error) {
+	log.Printf("fp readdir: id=%v", id)
 	if fp.IsLocalNode(ctx, id) {
-		return fp.fb.ReadDir(ctx, id, length, offset)
+		return fp.fb.ReadDir(ctx, id)
 	}
 
 	addr := fp.pcli.QueryOwner(id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
-		return 0, nil, err
+		return nil, err
 	}
 
-	reply, err := gcli.ReadDir(ctx, &pb.ReadXRequest{
-		Id:     id,
-		Length: length,
-		Offset: offset,
+	reply, err := gcli.ReadDir(ctx, &pb.UInt64ID{
+		Id: id,
 	})
 	if err != nil {
 		log.Printf("rpc opendir error: id=%v, err=%+v",
 			id, err)
-		return 0, nil, err
+		return nil, err
 	}
-	return reply.BytesRead, reply.Buf, utility.DecodeError(reply.Err)
+	return utility.FromPbDirents(reply.Dirents), utility.DecodeError(reply.Err)
 }
 
 func (fp *FProxy) ReleaseHandle(
@@ -585,39 +552,6 @@ func (fp *FProxy) ReleaseHandle(
 
 	log.Printf("release local handle: handleID=%v", h)
 	return fp.fb.ReleaseHandle(ctx, h)
-}
-
-func (fp *FProxy) OpenFile(ctx context.Context, id uint64, flags uint32) (handle uint64, err error) {
-	log.Printf("fp openfile: id=%v, flags=%v", id, flags)
-	if fp.IsLocalNode(ctx, id) {
-		return fp.fb.OpenFile(ctx, id, flags)
-	}
-
-	addr := fp.pcli.QueryOwner(id)
-	gcli, err := fp.pool.Load(addr)
-	if err != nil {
-		return 0, err
-	}
-
-	reply, err := gcli.OpenFile(ctx, &pb.OpenXRequest{
-		Id:    id,
-		Flags: flags,
-	})
-	if err != nil {
-		log.Printf("rpc openfile error: id=%v, err=%+v",
-			id, err)
-		return 0, err
-	}
-
-	err = utility.DecodeError(reply.Err)
-	remoteHandle := reply.Num
-	if err != nil || remoteHandle <= 0 {
-		log.Printf("rpc openfile error: id=%v, h=%v, perr=%+v",
-			id, remoteHandle, err)
-	}
-	localHandle := fp.allcator.Allocate()
-	fp.StoreRemoteHandle(ctx, localHandle, remoteHandle, addr)
-	return localHandle, nil
 }
 
 func (fp *FProxy) ReadFile(
@@ -783,26 +717,27 @@ func (fp *FProxy) RemoveXattr(ctx context.Context, id uint64, name string) error
 	return utility.DecodeError(reply)
 }
 
-func (fp *FProxy) SetXattr(ctx context.Context, op fuseops.SetXattrOp) error {
-	log.Printf("fp set xattr: op=%#v", op)
-	if fp.IsLocalNode(ctx, uint64(op.Inode)) {
-		return fp.fb.SetXattr(ctx, op)
+func (fp *FProxy) SetXattr(ctx context.Context, id uint64, name string, flags uint32, value []byte) error {
+	log.Printf("fp set xattr: id=%v, name=%v, flag=%v, value=%X", id, name, flags, value)
+	if fp.IsLocalNode(ctx, id) {
+		return fp.fb.SetXattr(ctx, id, name, flags, value)
 	}
 
-	addr := fp.pcli.QueryOwner(uint64(op.Inode))
+	addr := fp.pcli.QueryOwner(id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
 	}
 
 	reply, err := gcli.SetXattr(ctx, &pb.SetXattrRequest{
-		Id:    uint64(op.Inode),
-		Name:  op.Name,
-		Value: op.Value,
-		Flag:  op.Flags,
+		Id:    id,
+		Name:  name,
+		Value: value,
+		Flag:  flags,
 	})
 	if err != nil {
-		log.Printf("rpc setxattr error: op=%#v, err=%+v", op, err)
+		log.Printf("rpc fp set xattr err: id=%v, name=%v, flag=%v, value=%X",
+			id, name, flags, value, err)
 		return err
 	}
 	return utility.DecodeError(reply)

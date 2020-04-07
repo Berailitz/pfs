@@ -16,17 +16,16 @@ service RemoteTree {
     rpc GetInodeAttributes(UInt64ID) returns (GetInodeAttributesReply) {}
     rpc SetInodeAttributes(SetInodeAttributesRequest) returns (SetInodeAttributesReply) {}
     rpc MkDir(MkDirRequest) returns (MkDirReply) {}
-    rpc CreateNode(CreateNodeRequest) returns (CreateNodeReply) {}
+    rpc CreateNode(CreateNodeRequest) returns (Uint64Reply) {}
     rpc CreateFile(CreateFileRequest) returns (CreateFileReply) {}
-    rpc CreateSymlink(CreateSymlinkRequest) returns (CreateSymlinkReply) {}
-    rpc CreateLink(CreateLinkRequest) returns (CreateLinkReply) {}
+    rpc CreateSymlink(CreateSymlinkRequest) returns (Uint64Reply) {}
+    rpc CreateLink(CreateLinkRequest) returns (Uint64Reply) {}
     rpc Rename(RenameRequest) returns (Error) {}
     rpc RmDir(RmDirRequest) returns (Error) {}
     rpc Unlink(UnlinkRequest) returns (Error) {}
-    rpc OpenDir(OpenXRequest) returns (Uint64Reply) {}
-    rpc ReadDir(ReadXRequest) returns (ReadXReply) {}
+    rpc Open(OpenXRequest) returns (Uint64Reply) {}
+    rpc ReadDir(UInt64ID) returns (ReadDirReply) {}
     rpc ReleaseHandle(UInt64ID) returns (Error) {}
-    rpc OpenFile(OpenXRequest) returns (Uint64Reply) {}
     rpc ReadFile(ReadXRequest) returns (ReadXReply) {}
     rpc WriteFile(WriteXRequest) returns (Uint64Reply) {}
     rpc ReadSymlink(UInt64ID) returns (ReadSymlinkReply) {}
@@ -100,7 +99,6 @@ message MkDirRequest {
 message MkDirReply {
     Error err = 1;
     uint64 id = 2;
-    InodeAttributes attr = 3;
 }
 
 message CreateNodeRequest {
@@ -111,7 +109,7 @@ message CreateNodeRequest {
 
 message CreateNodeReply {
     Error err = 1;
-    ChildInodeEntry entry = 2;
+    uint64 id = 2;
 }
 
 message CreateFileRequest {
@@ -123,7 +121,7 @@ message CreateFileRequest {
 
 message CreateFileReply {
     Error err = 1;
-    ChildInodeEntry entry = 2;
+    uint64 id = 2;
     uint64 handle = 3;
 }
 
@@ -137,17 +135,6 @@ message CreateLinkRequest {
     uint64 id = 1;
     string name = 2;
     uint64 targetID = 3;
-}
-
-message CreateSymlinkReply {
-    Error err = 1;
-    uint64 id = 2;
-    InodeAttributes attr = 3;
-}
-
-message CreateLinkReply {
-    Error err = 1;
-    InodeAttributes attr = 2;
 }
 
 message RenameRequest {
@@ -187,6 +174,11 @@ message ReadXReply {
     Error err = 1;
     uint64 bytesRead = 2;
     bytes buf = 3;
+}
+
+message ReadDirReply {
+    Error err = 1;
+    repeated Dirent dirents = 2;
 }
 
 message WriteXRequest {

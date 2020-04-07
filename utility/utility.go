@@ -7,11 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"bazil.org/fuse"
 	"github.com/Berailitz/pfs/rnode"
-
-	"github.com/jacobsa/fuse/fuseutil"
-
-	"github.com/jacobsa/fuse/fuseops"
 
 	pb "github.com/Berailitz/pfs/remotetree"
 	"google.golang.org/grpc"
@@ -36,7 +33,7 @@ func BuildGCli(addr string, gopts []grpc.DialOption) (pb.RemoteTreeClient, error
 	return pb.NewRemoteTreeClient(conn), nil
 }
 
-func ToPbAttr(attr fuseops.InodeAttributes) *pb.InodeAttributes {
+func ToPbAttr(attr fuse.Attr) *pb.InodeAttributes {
 	return &pb.InodeAttributes{
 		Size:   attr.Size,
 		Nlink:  attr.Nlink,
@@ -50,8 +47,8 @@ func ToPbAttr(attr fuseops.InodeAttributes) *pb.InodeAttributes {
 	}
 }
 
-func FromPbAttr(attr pb.InodeAttributes) fuseops.InodeAttributes {
-	return fuseops.InodeAttributes{
+func FromPbAttr(attr pb.InodeAttributes) fuse.Attr {
+	return fuse.Attr{
 		Size:   attr.Size,
 		Nlink:  attr.Nlink,
 		Mode:   os.FileMode(attr.Mode),
@@ -64,45 +61,24 @@ func FromPbAttr(attr pb.InodeAttributes) fuseops.InodeAttributes {
 	}
 }
 
-func ToPbEntry(entry fuseops.ChildInodeEntry) *pb.ChildInodeEntry {
-	return &pb.ChildInodeEntry{
-		Child:                uint64(entry.Child),
-		Generation:           uint64(entry.Generation),
-		Attributes:           ToPbAttr(entry.Attributes),
-		AttributesExpiration: entry.AttributesExpiration.Unix(),
-		EntryExpiration:      entry.EntryExpiration.Unix(),
-	}
-}
-
-func FromPbEntry(entry pb.ChildInodeEntry) fuseops.ChildInodeEntry {
-	return fuseops.ChildInodeEntry{
-		Child:                fuseops.InodeID(entry.Child),
-		Generation:           fuseops.GenerationNumber(entry.Generation),
-		Attributes:           FromPbAttr(*entry.Attributes),
-		AttributesExpiration: time.Unix(entry.AttributesExpiration, 0),
-		EntryExpiration:      time.Unix(entry.EntryExpiration, 0),
-	}
-}
-
-func ToPbDirent(dirent fuseutil.Dirent) *pb.Dirent {
+func ToPbDirent(dirent fuse.Dirent) *pb.Dirent {
 	return &pb.Dirent{
-		Offset: uint64(dirent.Offset),
-		Inode:  uint64(dirent.Inode),
+		Offset: 0,
+		Inode:  dirent.Inode,
 		Name:   dirent.Name,
 		Type:   uint32(dirent.Type),
 	}
 }
 
-func FromPbDirent(dirent pb.Dirent) fuseutil.Dirent {
-	return fuseutil.Dirent{
-		Offset: fuseops.DirOffset(dirent.Offset),
-		Inode:  fuseops.InodeID(dirent.Inode),
-		Name:   dirent.Name,
-		Type:   fuseutil.DirentType(dirent.Type),
+func FromPbDirent(dirent pb.Dirent) fuse.Dirent {
+	return fuse.Dirent{
+		Inode: dirent.Inode,
+		Type:  fuse.DirentType(dirent.Type),
+		Name:  dirent.Name,
 	}
 }
 
-func ToPbDirents(dirents []fuseutil.Dirent) []*pb.Dirent {
+func ToPbDirents(dirents []fuse.Dirent) []*pb.Dirent {
 	r := make([]*pb.Dirent, len(dirents))
 	for i, d := range dirents {
 		r[i] = ToPbDirent(d)
@@ -110,8 +86,8 @@ func ToPbDirents(dirents []fuseutil.Dirent) []*pb.Dirent {
 	return r
 }
 
-func FromPbDirents(dirents []*pb.Dirent) []fuseutil.Dirent {
-	r := make([]fuseutil.Dirent, len(dirents))
+func FromPbDirents(dirents []*pb.Dirent) []fuse.Dirent {
+	r := make([]fuse.Dirent, len(dirents))
 	for i, d := range dirents {
 		r[i] = FromPbDirent(*d)
 	}

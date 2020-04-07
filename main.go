@@ -3,13 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	"os"
-	"os/exec"
 	"os/user"
 	"strconv"
 	"sync"
+
+	"github.com/Berailitz/pfs/utility"
 
 	"github.com/Berailitz/pfs/fproxy"
 
@@ -51,40 +50,6 @@ func currentGid() uint32 {
 	}
 
 	return uint32(gid)
-}
-
-func startTest(wg *sync.WaitGroup, testCmd string, testLog string) {
-	log.Printf("run test cmd: cmd=%v, testLog=%v", testCmd, testLog)
-	defer func() {
-		log.Printf("test cmd finished success: cmd=%v, testLog=%v", testCmd, testLog)
-		wg.Done()
-	}()
-
-	f, err := os.OpenFile(testLog, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		log.Fatalf("test open log error: testLog=%v", testLog)
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			log.Printf("test close log error: testLog=%v, err=%+v", testLog, err)
-		}
-	}()
-	mwriter := io.MultiWriter(os.Stdout, f)
-
-	cmd := exec.Command("bash", "-c", testCmd)
-	cmd.Stdout = mwriter
-	cmd.Stderr = mwriter
-
-	if err := cmd.Start(); err != nil {
-		log.Fatalf("start test script error: err=%+v", err)
-		return
-	}
-	log.Printf("test cmd start success: cmd=%v, testLog=%v", testCmd, testLog)
-
-	if err := cmd.Wait(); err != nil {
-		log.Printf("test wait cmd error: cmd=%v, testLog=%v, err=%+v", testCmd, testLog, err)
-		return
-	}
 }
 
 func main() {
@@ -163,7 +128,7 @@ func main() {
 
 	if *testCmd != "" {
 		wg.Add(1)
-		go startTest(&wg, *testCmd, *testLog)
+		go utility.StartCMD(&wg, *testCmd, *testLog)
 	}
 
 	wg.Wait()

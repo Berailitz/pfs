@@ -2,6 +2,7 @@ package lfs
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"syscall"
 
@@ -209,4 +210,8 @@ func (ln *LNode) Setxattr(ctx context.Context, req *fuse.SetxattrRequest) error 
 func (ln *LNode) Removexattr(ctx context.Context, req *fuse.RemovexattrRequest) error {
 	ln.CheckRequest(ctx, req)
 	return ln.fp.RemoveXattr(ctx, ln.id, req.Name)
+}
+
+func (ln *LNode) String() string {
+	return fmt.Sprintf("LN(0x%x)", ln.id)
 }

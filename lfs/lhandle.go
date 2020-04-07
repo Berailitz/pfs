@@ -2,6 +2,7 @@ package lfs
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"bazil.org/fuse"
@@ -76,4 +77,8 @@ func (lh *LHandle) Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse
 func (lh *LHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	lh.CheckRequest(ctx, req, uint64(req.Handle))
 	return lh.fp.ReleaseHandle(ctx, lh.id)
+}
+
+func (lh *LHandle) String() string {
+	return fmt.Sprintf("LH(0x%x|0x%x)", lh.id, lh.node)
 }

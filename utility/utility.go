@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"syscall"
 	"time"
 
 	"bazil.org/fuse"
@@ -13,6 +14,8 @@ import (
 	pb "github.com/Berailitz/pfs/remotetree"
 	"google.golang.org/grpc"
 )
+
+const MagicPbErrStatus uint64 = 0x435b681a4d5623c4
 
 var AttributesCacheTime = time.Second * 0
 
@@ -121,9 +124,29 @@ func FromPbNode(node *pb.Node) *rnode.RNode {
 	}
 }
 
+func ToPbErr(err error) *pb.Error {
+	if err != nil {
+		if serr, ok := err.(syscall.Errno); ok {
+			return &pb.Error{
+				Status: uint64(serr),
+			}
+		} else {
+			return &pb.Error{
+				Status: MagicPbErrStatus,
+				Msg:    err.Error(),
+			}
+		}
+	}
+	return &pb.Error{}
+}
+
 func FromPbErr(perr *pb.Error) error {
 	if perr != nil && perr.Status != 0 {
-		return &RemoteErr{perr.Msg}
+		if perr.Msg == "" {
+			return syscall.Errno(perr.Status)
+		} else {
+			return &RemoteErr{perr.Msg}
+		}
 	}
 	return nil
 }

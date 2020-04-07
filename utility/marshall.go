@@ -1,8 +1,6 @@
 package utility
 
 import (
-	"fmt"
-	"log"
 	"os"
 	"sync"
 	"syscall"
@@ -12,29 +10,9 @@ import (
 	"github.com/Berailitz/pfs/rnode"
 
 	pb "github.com/Berailitz/pfs/remotetree"
-	"google.golang.org/grpc"
 )
 
 const MagicPbErrStatus uint64 = 0x435b681a4d5623c4
-
-var AttributesCacheTime = time.Second * 0
-
-type RemoteErr struct {
-	msg string
-}
-
-var _ = (error)((*RemoteErr)(nil))
-
-func BuildGCli(addr string, gopts []grpc.DialOption) (pb.RemoteTreeClient, error) {
-	log.Printf("build gcli: addr=%v", addr)
-	conn, err := grpc.Dial(addr, gopts...)
-	if err != nil {
-		log.Printf("new rcli fial error: addr=%v, opts=%#v, err=%+V",
-			addr, gopts, err)
-		return nil, err
-	}
-	return pb.NewRemoteTreeClient(conn), nil
-}
 
 func ToPbAttr(attr fuse.Attr) *pb.InodeAttributes {
 	return &pb.InodeAttributes{
@@ -149,8 +127,4 @@ func FromPbErr(perr *pb.Error) error {
 		}
 	}
 	return nil
-}
-
-func (e *RemoteErr) Error() string {
-	return fmt.Sprintf("remote err: %v", e.msg)
 }

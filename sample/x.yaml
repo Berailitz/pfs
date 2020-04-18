@@ -1,0 +1,11 @@
+---
+pfs:
+  - debug: false
+    port: 10000
+    host: 127.0.0.1
+    master: "127.0.0.1:10000"
+    dir: "x"
+    fsName: "pfs"
+    fsType: "pfs"
+    volumeName: "pfs"
+...

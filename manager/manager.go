@@ -31,6 +31,9 @@ type RManager struct {
 	OwnerCounter   [MaxOwnerID]uint64
 	nodeAllocator  *idallocator.IDAllocator
 	ownerAllocator *idallocator.IDAllocator
+
+	muOwnerMapRead sync.Mutex
+	ownerMapRead   map[uint64]string
 }
 
 var _ = (Manager)((*RManager)(nil))
@@ -83,7 +86,12 @@ func (m *RManager) Deallocate(nodeID uint64) bool {
 func (m *RManager) RegisterOwner(addr string) uint64 {
 	ownerID := m.ownerAllocator.Allocate()
 	if ownerID <= MaxOwnerID {
+		m.muOwnerMapRead.Lock()
+		defer m.muOwnerMapRead.Unlock()
+
 		m.Owners.Store(ownerID, addr)
+		m.ownerMapRead[ownerID] = addr
+
 		return ownerID
 	}
 	return 0
@@ -91,7 +99,12 @@ func (m *RManager) RegisterOwner(addr string) uint64 {
 
 func (m *RManager) RemoveOwner(ownerID uint64) bool {
 	if atomic.LoadUint64(&m.OwnerCounter[ownerID]) == 0 {
+		m.muOwnerMapRead.Lock()
+		defer m.muOwnerMapRead.Unlock()
+
 		m.Owners.Delete(ownerID)
+		delete(m.ownerMapRead, ownerID)
+
 		return true
 	}
 	return false
@@ -114,5 +127,6 @@ func NewRManager() *RManager {
 	return &RManager{
 		nodeAllocator:  idallocator.NewIDAllocator(RootNodeID + 1), // since root is assigned by AllocateRoot, not allocated
 		ownerAllocator: idallocator.NewIDAllocator(FirstOwnerID),
+		ownerMapRead:   map[uint64]string{},
 	}
 }

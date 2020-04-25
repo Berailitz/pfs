@@ -180,7 +180,7 @@ func (c *RClient) Ping(dst uint64) int64 {
 	return tof
 }
 
-func (c *RClient) GetID() uint64 {
+func (c *RClient) ID() uint64 {
 	return c.id
 }
 

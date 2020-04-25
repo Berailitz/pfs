@@ -88,7 +88,7 @@ func NewFProxy(
 }
 
 func (fp *FProxy) Ping(ctx context.Context, msg *pb.PingMsg) (*pb.PingMsg, error) {
-	if msg.Dst == fp.pcli.GetID() {
+	if msg.Dst == fp.pcli.ID() {
 		return msg, nil
 	}
 
@@ -108,7 +108,7 @@ func (fp *FProxy) Ping(ctx context.Context, msg *pb.PingMsg) (*pb.PingMsg, error
 
 func (fp *FProxy) GetOwnerMap(ctx context.Context) (map[uint64]string, error) {
 	mid, addr := fp.ma.QueryMaster()
-	if mid == fp.pcli.GetID() {
+	if mid == fp.pcli.ID() {
 		return fp.ma.CopyOwnerMap(), nil
 	}
 

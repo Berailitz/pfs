@@ -629,28 +629,6 @@ func (fb *FBackEnd) CreateFile(
 
 	log.Printf("fb create file: parent=%v, name=%v, mode=%v, flags=%v",
 		parentID, name, mode, flags)
-	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(ctx, parentID)
-	if err != nil {
-		log.Printf("create file err: err=%v", err.Error())
-		return 0, 0, err
-	}
-	defer func() {
-		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
-			log.Printf("lock node error: id=%v, err=%+v", parent.ID(), uerr)
-			if err != nil {
-				log.Printf("unlock node error overwrite method error: err=%+v", err)
-			}
-			err = uerr
-		}
-	}()
-
-	// Ensure that the name doesn't already exist, so we don't wind up with a
-	// duplicate.
-	_, _, exists := parent.LookUpChild(name)
-	if exists {
-		return 0, 0, fuse.EEXIST
-	}
 
 	// Set up attributes for the child.
 	now := time.Now()
@@ -667,6 +645,34 @@ func (fb *FBackEnd) CreateFile(
 
 	// Allocate a child.
 	childID, _ := fb.allocateInode(childAttrs)
+	defer func() {
+		if err != nil {
+			if derr := fb.deallocateInode(ctx, childID); derr != nil {
+				log.Printf("create file deallocate node error: childID=%v, derr=%+V", childID, derr)
+			}
+		}
+	}()
+
+	// Grab the parent, which we will update shortly.
+	var parent *rnode.RNode
+	if parent, err := fb.LoadLocalNodeForWrite(ctx, parentID); err == nil {
+		defer func() {
+			if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
+				log.Printf("lock node error: id=%v, err=%+v", parent.ID(), uerr)
+				if err != nil {
+					log.Printf("unlock node error overwrite method error: err=%+v", err)
+				}
+				err = uerr
+			}
+		}()
+	}
+
+	// Ensure that the name doesn't already exist, so we don't wind up with a
+	// duplicate.
+	_, _, exists := parent.LookUpChild(name)
+	if exists {
+		return 0, 0, fuse.EEXIST
+	}
 
 	// Add an entry in the parent.
 	parent.AddChild(childID, name, fuse.DT_File)

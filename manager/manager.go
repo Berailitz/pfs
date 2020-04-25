@@ -22,6 +22,7 @@ type Manager interface {
 	Deallocate(nodeID uint64) bool
 	RegisterOwner(addr string) uint64
 	RemoveOwner(ownerID uint64) bool
+	CopyOwnerMap() map[uint64]string
 	AllocateRoot(ownerID uint64) bool
 }
 
@@ -108,6 +109,17 @@ func (m *RManager) RemoveOwner(ownerID uint64) bool {
 		return true
 	}
 	return false
+}
+
+func (m *RManager) CopyOwnerMap() map[uint64]string {
+	m.muOwnerMapRead.Lock()
+	defer m.muOwnerMapRead.Unlock()
+
+	output := make(map[uint64]string, len(m.ownerMapRead))
+	for k, v := range m.ownerMapRead {
+		output[k] = v
+	}
+	return output
 }
 
 // AllocateRoot returns true if ownerID acquires the root node, false otherwise.

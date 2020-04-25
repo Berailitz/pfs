@@ -625,6 +625,14 @@ func (fb *FBackEnd) CreateNode(
 	log.Printf("fb create node: parent=%v, name=%v, mode=%v",
 		parentID, name, mode)
 
+	addr := fb.mcli.QueryOwner(parentID)
+	gcli, err := fb.pool.Load(addr)
+	if err != nil {
+		log.Printf("fb create node query gcli: parentID=%v, err=%+v",
+			parentID, err)
+		return 0, err
+	}
+
 	// Set up attributes for the child.
 	now := time.Now()
 	childAttrs := fuse.Attr{
@@ -648,36 +656,23 @@ func (fb *FBackEnd) CreateNode(
 		}
 	}()
 
-	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(ctx, parentID)
-	if err != nil {
-		log.Printf("create node err: err=%v", err.Error())
+	reply, gerr := gcli.AttachChild(ctx, &pb.AttachChildRequest{
+		ParentID: parentID,
+		ChildID:  childID,
+		Name:     name,
+		Dt:       uint32(fuse.DT_File),
+		DoOpen:   false,
+	})
+	if gerr != nil {
+		log.Printf("fb create node rpc attach child error: parentID=%v, childID=%v name=%v, err=%+v",
+			parentID, childID, name, err)
 		return 0, err
 	}
-	defer func() {
-		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
-			log.Printf("lock node error: id=%v, err=%+v", parent.ID(), uerr)
-			if err != nil {
-				log.Printf("unlock node error overwrite method error: err=%+v", err)
-			}
-			err = uerr
-		}
-	}()
+	err = utility.FromPbErr(reply.Err)
 
-	// Ensure that the name doesn't already exist, so we don't wind up with a
-	// duplicate.
-	_, _, exists := parent.LookUpChild(name)
-	if exists {
-		return 0, fuse.EEXIST
-	}
-
-	// Add an entry in the parent.
-	parent.AddChild(childID, name, fuse.DT_File)
-
-	// Fill in the response entry.
-	log.Printf("fb create node success: parent=%v, name=%v, mode=%v",
-		parentID, name, mode)
-	return childID, nil
+	log.Printf("fb create node result: parent=%v, name=%v, mode=%v, childID=%v, err=%+v",
+		parentID, name, mode, childID, err)
+	return childID, err
 }
 
 // LOCKS_REQUIRED(fb.mu)

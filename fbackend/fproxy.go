@@ -62,9 +62,10 @@ func NewFProxy(
 	if pcli == nil {
 		log.Fatalf("nil pcli error")
 	}
+	localID := pcli.RegisterSelf(localAddr)
 
 	allcator := idallocator.NewIDAllocator(initialHandle)
-	fb := NewFBackEnd(uid, gid, masterAddr, localAddr, gopts, allcator)
+	fb := NewFBackEnd(uid, gid, masterAddr, localAddr, gopts, allcator, localID)
 	if fb == nil {
 		log.Fatalf("new fp nil fb error: uid=%v, gid=%v, masterAddr=%v, localAddr=%v, gopts=%+v",
 			uid, gid, masterAddr, localAddr, gopts)

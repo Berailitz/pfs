@@ -32,6 +32,10 @@ type RServer struct {
 	ma     *manager.RManager
 }
 
+func (s *RServer) Ping(ctx context.Context, req *pb.PingMsg) (*pb.PingMsg, error) {
+	return s.fp.Ping(ctx, req)
+}
+
 func (s *RServer) FetchNode(ctx context.Context, req *pb.NodeIsReadRequest) (*pb.Node, error) {
 	node, err := s.fp.LoadNode(ctx, req.Id, req.IsRead)
 	if err != nil {

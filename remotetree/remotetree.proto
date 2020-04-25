@@ -24,6 +24,7 @@ service RemoteTree {
     rpc Rename(RenameRequest) returns (Error) {}
     rpc RmDir(RmDirRequest) returns (Error) {}
     rpc Unlink(UnlinkRequest) returns (Error) {}
+    rpc DetachChild(UnlinkRequest) returns (Error) {}
     rpc Open(OpenXRequest) returns (Uint64Reply) {}
     rpc ReadDir(UInt64ID) returns (ReadDirReply) {}
     rpc ReleaseHandle(UInt64ID) returns (Error) {}

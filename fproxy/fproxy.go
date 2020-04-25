@@ -221,29 +221,37 @@ func (fp *FProxy) MkDir(
 	parentID uint64,
 	name string,
 	mode os.FileMode) (uint64, error) {
-	log.Printf("fp mkdir: parent=%v, name=%v, mode=%v",
-		parentID, name, mode)
-	if fp.IsLocalNode(ctx, parentID) {
-		return fp.fb.MkDir(ctx, parentID, name, mode)
-	}
-
-	addr := fp.pcli.QueryOwner(parentID)
-	gcli, err := fp.pool.Load(addr)
-	if err != nil {
-		return 0, err
-	}
-
-	reply, err := gcli.MkDir(ctx, &pb.MkDirRequest{
-		Id:   parentID,
-		Name: name,
-		Mode: uint32(mode),
-	})
-	if err != nil {
-		log.Printf("rpc mkdir error: parentID=%v, name=%v, err=%+v", parentID, name, err)
-		return 0, err
-	}
-	return reply.Id, utility.FromPbErr(reply.Err)
+	return fp.fb.MkDir(ctx, parentID, name, mode)
 }
+
+//func (fp *FProxy) MkDir(
+//	ctx context.Context,
+//	parentID uint64,
+//	name string,
+//	mode os.FileMode) (uint64, error) {
+//	log.Printf("fp mkdir: parent=%v, name=%v, mode=%v",
+//		parentID, name, mode)
+//	if fp.IsLocalNode(ctx, parentID) {
+//		return fp.fb.MkDir(ctx, parentID, name, mode)
+//	}
+//
+//	addr := fp.pcli.QueryOwner(parentID)
+//	gcli, err := fp.pool.Load(addr)
+//	if err != nil {
+//		return 0, err
+//	}
+//
+//	reply, err := gcli.MkDir(ctx, &pb.MkDirRequest{
+//		Id:   parentID,
+//		Name: name,
+//		Mode: uint32(mode),
+//	})
+//	if err != nil {
+//		log.Printf("rpc mkdir error: parentID=%v, name=%v, err=%+v", parentID, name, err)
+//		return 0, err
+//	}
+//	return reply.Id, utility.FromPbErr(reply.Err)
+//}
 
 // LOCKS_REQUIRED(fp.mu)
 func (fp *FProxy) CreateNode(
@@ -251,29 +259,38 @@ func (fp *FProxy) CreateNode(
 	parentID uint64,
 	name string,
 	mode os.FileMode) (uint64, error) {
-	log.Printf("fp create node: parent=%v, name=%v, mode=%v",
-		parentID, name, mode)
-	if fp.IsLocalNode(ctx, parentID) {
-		return fp.fb.CreateNode(ctx, parentID, name, mode)
-	}
-
-	addr := fp.pcli.QueryOwner(parentID)
-	gcli, err := fp.pool.Load(addr)
-	if err != nil {
-		return 0, err
-	}
-
-	reply, err := gcli.CreateNode(ctx, &pb.CreateNodeRequest{
-		Id:   parentID,
-		Name: name,
-		Mode: uint32(mode),
-	})
-	if err != nil {
-		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
-		return 0, err
-	}
-	return reply.Num, utility.FromPbErr(reply.Err)
+	return fp.fb.CreateNode(ctx, parentID, name, mode)
 }
+
+//// LOCKS_REQUIRED(fp.mu)
+//func (fp *FProxy) CreateNode(
+//	ctx context.Context,
+//	parentID uint64,
+//	name string,
+//	mode os.FileMode) (uint64, error) {
+//	log.Printf("fp create node: parent=%v, name=%v, mode=%v",
+//		parentID, name, mode)
+//	if fp.IsLocalNode(ctx, parentID) {
+//		return fp.fb.CreateNode(ctx, parentID, name, mode)
+//	}
+//
+//	addr := fp.pcli.QueryOwner(parentID)
+//	gcli, err := fp.pool.Load(addr)
+//	if err != nil {
+//		return 0, err
+//	}
+//
+//	reply, err := gcli.CreateNode(ctx, &pb.CreateNodeRequest{
+//		Id:   parentID,
+//		Name: name,
+//		Mode: uint32(mode),
+//	})
+//	if err != nil {
+//		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
+//		return 0, err
+//	}
+//	return reply.Num, utility.FromPbErr(reply.Err)
+//}
 
 // LOCKS_REQUIRED(fp.mu)
 func (fp *FProxy) CreateFile(
@@ -282,41 +299,51 @@ func (fp *FProxy) CreateFile(
 	name string,
 	mode os.FileMode,
 	flags uint32) (uint64, uint64, error) {
-	log.Printf("fp create file: parent=%v, name=%v, mode=%v, flags=%v",
-		parentID, name, mode, flags)
-	if fp.IsLocalNode(ctx, parentID) {
-		return fp.fb.CreateFile(ctx, parentID, name, mode, flags)
-	}
-
-	addr := fp.pcli.QueryOwner(parentID)
-	gcli, err := fp.pool.Load(addr)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	reply, err := gcli.CreateFile(ctx, &pb.CreateFileRequest{
-		Id:    parentID,
-		Name:  name,
-		Mode:  uint32(mode),
-		Flags: flags,
-	})
-	if err != nil {
-		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
-		return 0, 0, err
-	}
-
-	err = utility.FromPbErr(reply.Err)
-	remoteHandle := reply.Handle
-	if err != nil || remoteHandle <= 0 {
-		log.Printf("rpc create file error: id=%v, remoteHandle=%v, perr=%+v",
-			remoteHandle, remoteHandle, err)
-	}
-	localHandle := fp.allcator.Allocate()
-	fp.StoreRemoteHandle(ctx, localHandle, remoteHandle, addr)
-	log.Printf("fp create remote file success: parent=%v, name=%v, mode=%v, flags=%v, remoteHandle=%v, localHandle=%v",
-		parentID, name, mode, flags, remoteHandle, localHandle)
-	return reply.Id, localHandle, nil
+	return fp.fb.CreateFile(ctx, parentID, name, mode, flags)
 }
+
+//// LOCKS_REQUIRED(fp.mu)
+//func (fp *FProxy) CreateFile(
+//	ctx context.Context,
+//	parentID uint64,
+//	name string,
+//	mode os.FileMode,
+//	flags uint32) (uint64, uint64, error) {
+//	log.Printf("fp create file: parent=%v, name=%v, mode=%v, flags=%v",
+//		parentID, name, mode, flags)
+//	if fp.IsLocalNode(ctx, parentID) {
+//		return fp.fb.CreateFile(ctx, parentID, name, mode, flags)
+//	}
+//
+//	addr := fp.pcli.QueryOwner(parentID)
+//	gcli, err := fp.pool.Load(addr)
+//	if err != nil {
+//		return 0, 0, err
+//	}
+//
+//	reply, err := gcli.CreateFile(ctx, &pb.CreateFileRequest{
+//		Id:    parentID,
+//		Name:  name,
+//		Mode:  uint32(mode),
+//		Flags: flags,
+//	})
+//	if err != nil {
+//		log.Printf("rpc look up inode error: parentID=%v, name=%v, err=%+v", parentID, name, err)
+//		return 0, 0, err
+//	}
+//
+//	err = utility.FromPbErr(reply.Err)
+//	remoteHandle := reply.Handle
+//	if err != nil || remoteHandle <= 0 {
+//		log.Printf("rpc create file error: id=%v, remoteHandle=%v, perr=%+v",
+//			remoteHandle, remoteHandle, err)
+//	}
+//	localHandle := fp.allcator.Allocate()
+//	fp.StoreRemoteHandle(ctx, localHandle, remoteHandle, addr)
+//	log.Printf("fp create remote file success: parent=%v, name=%v, mode=%v, flags=%v, remoteHandle=%v, localHandle=%v",
+//		parentID, name, mode, flags, remoteHandle, localHandle)
+//	return reply.Id, localHandle, nil
+//}
 
 func (fp *FProxy) AttachChild(
 	ctx context.Context,
@@ -355,30 +382,38 @@ func (fp *FProxy) CreateSymlink(
 	parentID uint64,
 	name string,
 	target string) (uint64, error) {
-	log.Printf("fp create symlink: parent=%v, name=%v, target=%v",
-		parentID, name, target)
-	if fp.IsLocalNode(ctx, parentID) {
-		return fp.fb.CreateSymlink(ctx, parentID, name, target)
-	}
-
-	addr := fp.pcli.QueryOwner(parentID)
-	gcli, err := fp.pool.Load(addr)
-	if err != nil {
-		return 0, err
-	}
-
-	reply, err := gcli.CreateSymlink(ctx, &pb.CreateSymlinkRequest{
-		Id:     parentID,
-		Name:   name,
-		Target: target,
-	})
-	if err != nil {
-		log.Printf("rpc create symlink error: parentID=%v, name=%v, target=%v, err=%+v",
-			parentID, name, target, err)
-		return 0, err
-	}
-	return reply.Num, utility.FromPbErr(reply.Err)
+	return fp.fb.CreateSymlink(ctx, parentID, name, target)
 }
+
+//func (fp *FProxy) CreateSymlink(
+//	ctx context.Context,
+//	parentID uint64,
+//	name string,
+//	target string) (uint64, error) {
+//	log.Printf("fp create symlink: parent=%v, name=%v, target=%v",
+//		parentID, name, target)
+//	if fp.IsLocalNode(ctx, parentID) {
+//		return fp.fb.CreateSymlink(ctx, parentID, name, target)
+//	}
+//
+//	addr := fp.pcli.QueryOwner(parentID)
+//	gcli, err := fp.pool.Load(addr)
+//	if err != nil {
+//		return 0, err
+//	}
+//
+//	reply, err := gcli.CreateSymlink(ctx, &pb.CreateSymlinkRequest{
+//		Id:     parentID,
+//		Name:   name,
+//		Target: target,
+//	})
+//	if err != nil {
+//		log.Printf("rpc create symlink error: parentID=%v, name=%v, target=%v, err=%+v",
+//			parentID, name, target, err)
+//		return 0, err
+//	}
+//	return reply.Num, utility.FromPbErr(reply.Err)
+//}
 
 func (fp *FProxy) CreateLink(
 	ctx context.Context,

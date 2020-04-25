@@ -491,7 +491,6 @@ func (fp *FProxy) DetachChild(
 		return fp.fb.DetachChild(ctx, parent, name)
 	}
 
-	// TODO: Parent owner start and acquire child
 	addr := fp.pcli.QueryOwner(parent)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
@@ -525,7 +524,6 @@ func (fp *FProxy) Unlink(
 		return fp.fb.Unlink(ctx, parent, name, childID)
 	}
 
-	// TODO: Parent owner start and acquire child
 	addr := fp.pcli.QueryOwner(childID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {

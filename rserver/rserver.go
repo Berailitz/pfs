@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"bazil.org/fuse"
+
 	"github.com/Berailitz/pfs/fproxy"
 
 	"github.com/Berailitz/pfs/utility"
@@ -138,6 +140,18 @@ func (s *RServer) CreateFile(ctx context.Context, req *pb.CreateFileRequest) (*p
 		Id:     nid,
 		Handle: handle,
 		Err:    perr,
+	}, nil
+}
+
+func (s *RServer) AttachChild(ctx context.Context, req *pb.AttachChildRequest) (*pb.Uint64Reply, error) {
+	id, err := s.fp.AttachChild(ctx, req.ParentID, req.ChildID, req.Name, fuse.DirentType(req.Dt), req.DoOpen)
+	var perr *pb.Error = &pb.Error{}
+	if err != nil {
+		perr = utility.ToPbErr(err)
+	}
+	return &pb.Uint64Reply{
+		Num: id,
+		Err: perr,
 	}, nil
 }
 

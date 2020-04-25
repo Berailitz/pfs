@@ -70,12 +70,14 @@ func NewFProxy(
 	}
 	// Set up the root rnode.RNode.
 
-	return &FProxy{
+	fp := &FProxy{
 		fb:       fb,
 		pcli:     pcli,
 		pool:     gclipool.NewGCliPool(gopts, localAddr),
 		allcator: allcator,
 	}
+	fb.SetFP(fp)
+	return fp
 }
 
 func (fp *FProxy) LoadNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {

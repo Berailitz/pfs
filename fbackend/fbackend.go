@@ -41,6 +41,8 @@ type FBackEnd struct {
 	mcli  *rclient.RClient
 	pool  *gclipool.GCliPool
 
+	fp *FProxy
+
 	handleAllocator *idallocator.IDAllocator
 	handleMap       sync.Map // map[uint64]uint64
 }
@@ -100,6 +102,14 @@ func NewFBackEnd(
 	}
 
 	return fb
+}
+
+func (fb *FBackEnd) SetFP(fp *FProxy) {
+	if fp == nil {
+		log.Fatalf("set nil fp error")
+	}
+
+	fb.fp = fp
 }
 
 func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool, localOnly bool) (*rnode.RNode, error) {

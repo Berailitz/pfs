@@ -965,8 +965,11 @@ func (fb *FBackEnd) Unlink(
 		}
 	}()
 
-	// Remove the entry within the parent.
-	parentNode.RemoveChild(name)
+	err = fb.fp.DetachChild(ctx, parent, name)
+	if err != nil {
+		log.Printf("fb unlink detach error: parent=%v, name=%v, err=%+v", parent, name, err)
+		return err
+	}
 
 	// Mark the child as unlinked.
 	child.DecrNlink()

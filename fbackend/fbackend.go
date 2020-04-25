@@ -681,12 +681,20 @@ func (fb *FBackEnd) CreateFile(
 	parentID uint64,
 	name string,
 	mode os.FileMode,
-	flags uint32) (_ uint64, _ uint64, err error) {
+	flags uint32) (childID uint64, handleID uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
 	log.Printf("fb create file: parent=%v, name=%v, mode=%v, flags=%v",
 		parentID, name, mode, flags)
+
+	addr := fb.mcli.QueryOwner(parentID)
+	gcli, err := fb.pool.Load(addr)
+	if err != nil {
+		log.Printf("fb create file load gcli error: parentID=%v, err=%+v",
+			parentID, err)
+		return 0, 0, err
+	}
 
 	// Set up attributes for the child.
 	now := time.Now()
@@ -702,7 +710,7 @@ func (fb *FBackEnd) CreateFile(
 	}
 
 	// Allocate a child.
-	childID, _ := fb.allocateInode(childAttrs)
+	childID, _ = fb.allocateInode(childAttrs)
 	defer func() {
 		if err != nil {
 			if derr := fb.deallocateInode(ctx, childID); derr != nil {
@@ -711,39 +719,23 @@ func (fb *FBackEnd) CreateFile(
 		}
 	}()
 
-	// Grab the parent, which we will update shortly.
-	var parent *rnode.RNode
-	if parent, err := fb.LoadLocalNodeForWrite(ctx, parentID); err == nil {
-		defer func() {
-			if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
-				log.Printf("lock node error: id=%v, err=%+v", parent.ID(), uerr)
-				if err != nil {
-					log.Printf("unlock node error overwrite method error: err=%+v", err)
-				}
-				err = uerr
-			}
-		}()
-	}
-
-	// Ensure that the name doesn't already exist, so we don't wind up with a
-	// duplicate.
-	_, _, exists := parent.LookUpChild(name)
-	if exists {
-		return 0, 0, fuse.EEXIST
-	}
-
-	// Add an entry in the parent.
-	parent.AddChild(childID, name, fuse.DT_File)
-	handle, err := fb.AllocateHandle(ctx, childID)
-
-	if err != nil {
-		log.Printf("create file allocate handle err: err=%v", err.Error())
+	reply, gerr := gcli.AttachChild(ctx, &pb.AttachChildRequest{
+		ParentID: parentID,
+		ChildID:  childID,
+		Name:     name,
+		Dt:       uint32(fuse.DT_File),
+		DoOpen:   false,
+	})
+	if gerr != nil {
+		log.Printf("fb create file rpc attach child error: parentID=%v, childID=%v name=%v, err=%+v",
+			parentID, childID, name, err)
 		return 0, 0, err
 	}
+	err = utility.FromPbErr(reply.Err)
 
-	log.Printf("fb create file success: parent=%v, name=%v, mode=%v, flags=%v, childID=%v, handle=%v",
-		parentID, name, mode, flags, childID, handle)
-	return childID, handle, nil
+	log.Printf("fb create file result: parent=%v, name=%v, mode=%v, childID=%v, handleID=%v, err=%+v",
+		parentID, name, mode, childID, reply.Num, err)
+	return childID, reply.Num, err
 }
 
 func (fb *FBackEnd) CreateSymlink(

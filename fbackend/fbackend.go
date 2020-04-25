@@ -102,16 +102,21 @@ func NewFBackEnd(
 	return fb
 }
 
-func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
+func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool, localOnly bool) (*rnode.RNode, error) {
 	node, err := fb.LoadLocalNode(ctx, id)
 
-	if err != nil {
+	if err != nil && !localOnly {
 		log.Printf("load node load local error: id=%v, isRead=%v, err=%+v", id, isRead, err)
 		node, err = fb.LoadRemoteNode(ctx, id, isRead)
 		if err != nil {
 			log.Printf("load node load remote error: id=%v, isRead=%v, err=%+v", id, isRead, err)
 			return nil, err
 		}
+	}
+
+	if err != nil {
+		log.Printf("load node error: id=%v, isRead=%v, err=%+v", id, isRead, err)
+		return nil, err
 	}
 
 	if isRead {
@@ -160,12 +165,20 @@ func (fb *FBackEnd) LoadRemoteNode(ctx context.Context, id uint64, isRead bool) 
 	}
 }
 
+func (fb *FBackEnd) LoadLocalNodeForRead(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
+	return fb.doLoadNodeForX(ctx, id, true, true)
+}
+
 func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
-	return fb.doLoadNodeForX(ctx, id, true)
+	return fb.doLoadNodeForX(ctx, id, true, false)
+}
+
+func (fb *FBackEnd) LoadLocalNodeForWrite(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
+	return fb.doLoadNodeForX(ctx, id, false, true)
 }
 
 func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
-	return fb.doLoadNodeForX(ctx, id, false)
+	return fb.doLoadNodeForX(ctx, id, false, false)
 }
 
 func (fb *FBackEnd) doUnlockRemoteNode(ctx context.Context, node *rnode.RNode, isRead bool) error {

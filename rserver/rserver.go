@@ -36,6 +36,18 @@ func (s *RServer) Ping(ctx context.Context, req *pb.PingMsg) (*pb.PingMsg, error
 	return s.fp.Ping(ctx, req)
 }
 
+func (s *RServer) GetOwnerMap(ctx context.Context, _ *pb.EmptyMsg) (*pb.Uint64StrMapMsg, error) {
+	ownerMap, err := s.fp.GetOwnerMap(ctx)
+	var perr *pb.Error = &pb.Error{}
+	if err != nil {
+		perr = utility.ToPbErr(err)
+	}
+	return &pb.Uint64StrMapMsg{
+		Map: ownerMap,
+		Err: perr,
+	}, nil
+}
+
 func (s *RServer) FetchNode(ctx context.Context, req *pb.NodeIsReadRequest) (*pb.Node, error) {
 	node, err := s.fp.LoadNode(ctx, req.Id, req.IsRead)
 	if err != nil {

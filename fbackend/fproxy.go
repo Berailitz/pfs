@@ -481,6 +481,33 @@ func (fp *FProxy) Rename(
 	return utility.FromPbErr(perr)
 }
 
+func (fp *FProxy) DetachChild(
+	ctx context.Context,
+	parent uint64,
+	name string) (err error) {
+	log.Printf("fp DetachChild: parent=%v, name=%v", parent, name)
+	if fp.IsLocalNode(ctx, parent) {
+		return fp.fb.DetachChild(ctx, parent, name)
+	}
+
+	// TODO: Parent owner start and acquire child
+	addr := fp.pcli.QueryOwner(parent)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return err
+	}
+
+	perr, err := gcli.DetachChild(ctx, &pb.UnlinkRequest{
+		Parent: parent,
+		Name:   name,
+	})
+	if err != nil {
+		log.Printf("rpc fp DetachChild error: parent=%v, name=%v, err=%+v", parent, name, err)
+		return err
+	}
+	return utility.FromPbErr(perr)
+}
+
 func (fp *FProxy) Unlink(
 	ctx context.Context,
 	parent uint64,

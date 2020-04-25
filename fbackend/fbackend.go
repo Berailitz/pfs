@@ -515,6 +515,25 @@ func (fb *FBackEnd) MkDir(
 
 	log.Printf("fb mkdir: parent=%v, name=%v, mode=%v",
 		parentID, name, mode)
+
+	// Set up attributes from the child.
+	childAttrs := fuse.Attr{
+		Nlink: 1,
+		Mode:  mode,
+		Uid:   fb.uid,
+		Gid:   fb.gid,
+	}
+
+	// Allocate a child.
+	childID, _ := fb.allocateInode(childAttrs)
+	defer func() {
+		if err != nil {
+			if derr := fb.deallocateInode(ctx, childID); derr != nil {
+				log.Printf("mkdir deallocate node error: childID=%v, derr=%+V", childID, derr)
+			}
+		}
+	}()
+
 	// Grab the parent, which we will update shortly.
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
@@ -537,17 +556,6 @@ func (fb *FBackEnd) MkDir(
 	if exists {
 		return 0, fuse.EEXIST
 	}
-
-	// Set up attributes from the child.
-	childAttrs := fuse.Attr{
-		Nlink: 1,
-		Mode:  mode,
-		Uid:   fb.uid,
-		Gid:   fb.gid,
-	}
-
-	// Allocate a child.
-	childID, _ := fb.allocateInode(childAttrs)
 
 	// Add an entry in the parent.
 	parent.AddChild(childID, name, fuse.DT_Dir)

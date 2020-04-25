@@ -1,4 +1,4 @@
-package fproxy
+package fbackend
 
 import (
 	"context"
@@ -19,7 +19,6 @@ import (
 	"github.com/Berailitz/pfs/utility"
 	"google.golang.org/grpc"
 
-	"github.com/Berailitz/pfs/fbackend"
 	"github.com/Berailitz/pfs/rclient"
 )
 
@@ -31,7 +30,7 @@ type remoteHandle struct {
 }
 
 type FProxy struct {
-	fb   *fbackend.FBackEnd
+	fb   *FBackEnd
 	pcli *rclient.RClient
 	pool *gclipool.GCliPool
 
@@ -64,7 +63,7 @@ func NewFProxy(
 	}
 
 	allcator := idallocator.NewIDAllocator(initialHandle)
-	fb := fbackend.NewFBackEnd(uid, gid, masterAddr, localAddr, gopts, allcator)
+	fb := NewFBackEnd(uid, gid, masterAddr, localAddr, gopts, allcator)
 	if fb == nil {
 		log.Fatalf("new fp nil fb error: uid=%v, gid=%v, masterAddr=%v, localAddr=%v, gopts=%+v",
 			uid, gid, masterAddr, localAddr, gopts)
@@ -187,7 +186,7 @@ func (fp *FProxy) GetInodeAttributes(
 func (fp *FProxy) SetInodeAttributes(
 	ctx context.Context,
 	id uint64,
-	param fbackend.SetInodeAttributesParam) (fuse.Attr, error) {
+	param SetInodeAttributesParam) (fuse.Attr, error) {
 	log.Printf("fp set inode attr: id=%v, param=%+v",
 		id, param)
 	if fp.IsLocalNode(ctx, id) {

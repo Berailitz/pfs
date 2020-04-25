@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Berailitz/pfs/fproxy"
+	"github.com/Berailitz/pfs/fbackend"
 	"github.com/Berailitz/pfs/lfs"
 	"github.com/Berailitz/pfs/utility"
 
@@ -56,7 +56,7 @@ func (p *PFS) Mount() error {
 	}
 
 	log.Printf("create fp: master=%v, localAddr=%v, gopts=%+v", p.param.Master, localAddr, gopts)
-	fp := fproxy.NewFProxy(utility.GetUID(), utility.GetGID(), p.param.Master, localAddr, gopts)
+	fp := fbackend.NewFProxy(utility.GetUID(), utility.GetGID(), p.param.Master, localAddr, gopts)
 	p.rsvr.RegisterFProxy(fp)
 
 	p.lfsvr = lfs.NewLFS(fp)

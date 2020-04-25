@@ -7,7 +7,7 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	"github.com/Berailitz/pfs/fproxy"
+	"github.com/Berailitz/pfs/fbackend"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 type LHandle struct {
 	id   uint64
 	node uint64
-	fp   *fproxy.FProxy
+	fp   *fbackend.FProxy
 }
 
 var _ = (fs.HandleFlusher)((*LHandle)(nil))
@@ -28,7 +28,7 @@ var _ = (fs.HandleReader)((*LHandle)(nil))
 var _ = (fs.HandleWriter)((*LHandle)(nil))
 var _ = (fs.HandleReleaser)((*LHandle)(nil))
 
-func NewLHandle(id uint64, node uint64, fp *fproxy.FProxy) *LHandle {
+func NewLHandle(id uint64, node uint64, fp *fbackend.FProxy) *LHandle {
 	return &LHandle{
 		id:   id,
 		node: node,

@@ -4,19 +4,18 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Berailitz/pfs/fbackend"
 	"github.com/Berailitz/pfs/manager"
 
 	"bazil.org/fuse"
 
 	"bazil.org/fuse/fs"
-
-	"github.com/Berailitz/pfs/fproxy"
 )
 
 type LFS struct {
 	root *LNode
 	c    *fuse.Conn
-	fp   *fproxy.FProxy
+	fp   *fbackend.FProxy
 	svr  *fs.Server
 }
 
@@ -29,7 +28,7 @@ type LFSErr struct {
 var _ = (error)((*LFSErr)(nil))
 
 func NewLFS(
-	fp *fproxy.FProxy) *LFS {
+	fp *fbackend.FProxy) *LFS {
 	if fp == nil {
 		log.Fatalf("nil fbackend error")
 	}

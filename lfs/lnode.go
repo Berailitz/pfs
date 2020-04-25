@@ -8,15 +8,13 @@ import (
 
 	"github.com/Berailitz/pfs/fbackend"
 
-	"github.com/Berailitz/pfs/fproxy"
-
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 )
 
 type LNode struct {
 	id  uint64
-	fp  *fproxy.FProxy
+	fp  *fbackend.FProxy
 	svr *fs.Server
 }
 
@@ -42,7 +40,7 @@ var _ = (fs.NodeListxattrer)((*LNode)(nil))
 var _ = (fs.NodeSetxattrer)((*LNode)(nil))
 var _ = (fs.NodeRemovexattrer)((*LNode)(nil))
 
-func NewLNode(id uint64, fp *fproxy.FProxy, svr *fs.Server) *LNode {
+func NewLNode(id uint64, fp *fbackend.FProxy, svr *fs.Server) *LNode {
 	return &LNode{
 		id:  id,
 		fp:  fp,

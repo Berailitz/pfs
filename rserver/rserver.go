@@ -12,8 +12,6 @@ import (
 
 	"bazil.org/fuse"
 
-	"github.com/Berailitz/pfs/fproxy"
-
 	"github.com/Berailitz/pfs/utility"
 
 	"github.com/Berailitz/pfs/manager"
@@ -30,7 +28,7 @@ const rServerStartTime = time.Second * 2
 type RServer struct {
 	pb.UnimplementedRemoteTreeServer
 	Server *grpc.Server
-	fp     *fproxy.FProxy
+	fp     *fbackend.FProxy
 	ma     *manager.RManager
 }
 
@@ -347,7 +345,7 @@ func (s *RServer) AllocateRoot(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, 
 	return &pb.IsOK{Ok: s.ma.AllocateRoot(req.Id)}, nil
 }
 
-func (s *RServer) RegisterFProxy(fp *fproxy.FProxy) {
+func (s *RServer) RegisterFProxy(fp *fbackend.FProxy) {
 	if fp == nil {
 		log.Fatalf("nil backend error")
 	}

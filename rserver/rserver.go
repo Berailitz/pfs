@@ -32,8 +32,17 @@ type RServer struct {
 	ma     *manager.RManager
 }
 
-func (s *RServer) Ping(ctx context.Context, req *pb.PingMsg) (*pb.PingMsg, error) {
-	return s.fp.Ping(ctx, req)
+func (s *RServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingReply, error) {
+	offset, err := s.fp.ProxyPing(ctx, req.Addr)
+	var perr *pb.Error = &pb.Error{}
+	if err != nil {
+		perr = utility.ToPbErr(err)
+	}
+	return &pb.PingReply{
+		Err:       perr,
+		Departure: req.Departure,
+		Offset:    offset,
+	}, nil
 }
 
 func (s *RServer) GetOwnerMap(ctx context.Context, _ *pb.EmptyMsg) (*pb.Uint64StrMapMsg, error) {

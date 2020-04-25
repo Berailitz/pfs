@@ -8,6 +8,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/Berailitz/pfs/utility"
+
 	pb "github.com/Berailitz/pfs/remotetree"
 )
 
@@ -159,25 +161,25 @@ func (c *RClient) AssignID(id uint64) {
 	c.id = id
 }
 
-func (c *RClient) Ping(dst uint64) int64 {
-	log.Printf("start ping: dst=%v", dst)
+func (c *RClient) Ping(addr string) (offset int64, err error) {
+	log.Printf("start ping: addr=%v", addr)
 	ctx := context.Background()
 	departure := time.Now().UnixNano()
-	_, err := c.gcli.Ping(ctx, &pb.PingMsg{
-		Src:       c.id,
-		Dst:       dst,
+	reply, err := c.gcli.Ping(ctx, &pb.PingRequest{
+		Addr:      addr,
 		Departure: departure,
 	})
-	arrival := time.Now().UnixNano()
 	if err != nil {
-		log.Printf("ping error: src=%v, dst=%v, departure=%v, arrival=%v, err=%+v",
-			c.id, dst, departure, arrival, err)
-		return -1
+		log.Printf("ping error: src=%v, addr=%v, departure=%v, err=%+v",
+			c.id, addr, departure, err)
+		return 0, &RClientErr{
+			fmt.Sprintf("gcli ping error: src=%v, addr=%v, departure=%v, err=%+v",
+				c.id, addr, departure, err),
+		}
 	}
-	tof := arrival - departure
-	log.Printf("ping: src=%v, dst=%v, departure=%v, tof=%v",
-		c.id, dst, departure, tof)
-	return tof
+	log.Printf("ping: src=%v, addr=%v, departure=%v, offset=%v",
+		c.id, addr, departure, reply.Offset)
+	return reply.Offset, utility.FromPbErr(reply.Err)
 }
 
 func (c *RClient) ID() uint64 {

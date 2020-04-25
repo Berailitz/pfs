@@ -89,23 +89,12 @@ func NewFProxy(
 	return fp
 }
 
-func (fp *FProxy) Ping(ctx context.Context, msg *pb.PingMsg) (*pb.PingMsg, error) {
-	if msg.Dst == fp.pcli.ID() {
-		return msg, nil
+func (fp *FProxy) ProxyPing(ctx context.Context, addr string) (offset int64, err error) {
+	if addr == fp.localAddr {
+		return 0, nil
 	}
 
-	addr := fp.pcli.QueryOwner(msg.Dst)
-	gcli, err := fp.pool.Load(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	reply, err := gcli.Ping(ctx, msg)
-	if err != nil {
-		log.Printf("fp ping error: msg=%+v, err=%+v", msg, err)
-		return nil, err
-	}
-	return reply, nil
+	return fp.pcli.Ping(addr)
 }
 
 func (fp *FProxy) GetOwnerMap(ctx context.Context) (map[uint64]string, error) {

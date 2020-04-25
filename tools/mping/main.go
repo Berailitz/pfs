@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/Berailitz/pfs/rclient"
 	"github.com/Berailitz/pfs/utility"
@@ -16,7 +17,7 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	masterAddr := flag.String("masterAddr", "127.0.0.1:10000", "masterAddr")
-	dst := flag.Uint64("dst", 1, "masterAddr")
+	dst := flag.String("dst", "127.0.0.1:10000", "dst")
 	flag.Parse()
 
 	gcli, err := utility.BuildGCli(*masterAddr, gopts)
@@ -27,6 +28,8 @@ func main() {
 	}
 
 	rc := rclient.NewRClient(gcli)
-	tof := rc.Ping(*dst)
-	fmt.Printf("tof=%v\n", tof)
+	departure := time.Now().UnixNano()
+	offset, err := rc.Ping(*dst)
+	tof := time.Now().UnixNano() - departure + offset
+	fmt.Printf("tof=%v, offset=%v\n", tof, offset)
 }

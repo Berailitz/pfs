@@ -8,6 +8,8 @@ service RemoteTree {
     //rpc RUnlock(UInt64ID) returns (StatusReply) {}
     //rpc WUnlock(UInt64ID) returns (StatusReply) {}
 
+    rpc Ping(PingMsg) returns (PingMsg) {}
+
     rpc FetchNode(NodeIsReadRequest) returns (Node) {}
     rpc RUnlockNode(UInt64ID) returns (Error) {}
     rpc UnlockNode(Node) returns (Error) {}
@@ -44,6 +46,12 @@ service RemoteTree {
     rpc RegisterOwner(Addr) returns (OwnerId) {}
     rpc RemoveOwner(OwnerId) returns (IsOK) {}
     rpc AllocateRoot(OwnerId) returns (IsOK) {}
+}
+
+message PingMsg {
+    uint64 src = 1;
+    uint64 dst = 2;
+    int64 departure = 3;
 }
 
 message NodeIsReadRequest {

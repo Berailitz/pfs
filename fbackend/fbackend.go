@@ -379,6 +379,58 @@ func (fb *FBackEnd) deallocateInode(ctx context.Context, id uint64) error {
 	return nil
 }
 
+func (fb *FBackEnd) AttachChild(
+	ctx context.Context,
+	parentID uint64,
+	childID uint64,
+	name string,
+	dt fuse.DirentType,
+	doOpen bool) (hid uint64, err error) {
+	log.Printf("attach child: parentID=%v, childID=%v, name=%v, dt=%v, doOpen=%v",
+		parentID, childID, name, dt, doOpen)
+
+	parent, err := fb.LoadLocalNodeForWrite(ctx, parentID)
+	if err != nil {
+		log.Printf("sadd child load parent err: err=%v", err.Error())
+		return 0, err
+	}
+	defer func() {
+		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
+			log.Printf("unlock node error: id=%v, err=%+v", parent.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
+	}()
+
+	// Ensure that the name doesn't already exist, so we don't wind up with a
+	// duplicate.
+	_, _, exists := parent.LookUpChild(name)
+	if exists {
+		return 0, syscall.EEXIST
+	}
+
+	// Add an entry in the parent.
+	parent.AddChild(childID, name, dt)
+
+	if !doOpen {
+		return 0, nil
+	}
+
+	handle, err := fb.AllocateHandle(ctx, childID)
+
+	if err != nil {
+		log.Printf("fb add open child allocate handle err: parentID=%v, childID=%v, err=%v",
+			parentID, childID, err.Error())
+		return 0, err
+	}
+
+	log.Printf("fb add open child success: parent=%v, name=%v, childID=%v, dt=%v, handle=%v",
+		parentID, name, childID, dt, handle)
+	return handle, nil
+}
+
 func (fb *FBackEnd) LookUpInode(
 	ctx context.Context,
 	parentID uint64,

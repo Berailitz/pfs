@@ -10,11 +10,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/Berailitz/pfs/manager"
+
 	"bazil.org/fuse"
 
 	"github.com/Berailitz/pfs/utility"
-
-	"github.com/Berailitz/pfs/manager"
 
 	"github.com/Berailitz/pfs/fbackend"
 
@@ -331,31 +331,59 @@ func (s *RServer) Fallocate(ctx context.Context, req *pb.FallocateRequest) (*pb.
 }
 
 func (s *RServer) QueryOwner(ctx context.Context, req *pb.UInt64ID) (*pb.Addr, error) {
-	return &pb.Addr{Addr: s.ma.QueryOwner(req.Id)}, nil
+	if s.fp != nil {
+		return &pb.Addr{Addr: s.fp.QueryOwner(req.Id)}, nil
+	} else {
+		return &pb.Addr{Addr: s.ma.QueryOwner(req.Id)}, nil
+	}
 }
 
 func (s *RServer) QueryAddr(ctx context.Context, req *pb.UInt64ID) (*pb.Addr, error) {
-	return &pb.Addr{Addr: s.ma.QueryAddr(req.Id)}, nil
+	if s.fp != nil {
+		return &pb.Addr{Addr: s.fp.QueryAddr(req.Id)}, nil
+	} else {
+		return &pb.Addr{Addr: s.ma.QueryAddr(req.Id)}, nil
+	}
 }
 
 func (s *RServer) Allocate(ctx context.Context, req *pb.OwnerId) (*pb.UInt64ID, error) {
-	return &pb.UInt64ID{Id: s.ma.Allocate(req.Id)}, nil
+	if s.fp != nil {
+		return &pb.UInt64ID{Id: s.fp.Allocate(req.Id)}, nil
+	} else {
+		return &pb.UInt64ID{Id: s.ma.Allocate(req.Id)}, nil
+	}
 }
 
 func (s *RServer) Deallocate(ctx context.Context, req *pb.UInt64ID) (*pb.IsOK, error) {
-	return &pb.IsOK{Ok: s.ma.Deallocate(req.Id)}, nil
+	if s.fp != nil {
+		return &pb.IsOK{Ok: s.fp.Deallocate(req.Id)}, nil
+	} else {
+		return &pb.IsOK{Ok: s.ma.Deallocate(req.Id)}, nil
+	}
 }
 
 func (s *RServer) RegisterOwner(ctx context.Context, req *pb.Addr) (*pb.OwnerId, error) {
-	return &pb.OwnerId{Id: s.ma.RegisterOwner(req.Addr)}, nil
+	if s.fp != nil {
+		return &pb.OwnerId{Id: s.fp.RegisterOwner(req.Addr)}, nil
+	} else {
+		return &pb.OwnerId{Id: s.ma.RegisterOwner(req.Addr)}, nil
+	}
 }
 
 func (s *RServer) RemoveOwner(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, error) {
-	return &pb.IsOK{Ok: s.ma.RemoveOwner(req.Id)}, nil
+	if s.fp != nil {
+		return &pb.IsOK{Ok: s.fp.RemoveOwner(req.Id)}, nil
+	} else {
+		return &pb.IsOK{Ok: s.ma.RemoveOwner(req.Id)}, nil
+	}
 }
 
 func (s *RServer) AllocateRoot(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, error) {
-	return &pb.IsOK{Ok: s.ma.AllocateRoot(req.Id)}, nil
+	if s.fp != nil {
+		return &pb.IsOK{Ok: s.fp.AllocateRoot(req.Id)}, nil
+	} else {
+		return &pb.IsOK{Ok: s.ma.AllocateRoot(req.Id)}, nil
+	}
 }
 
 func (s *RServer) RegisterFProxy(fp *fbackend.FProxy) {
@@ -369,8 +397,10 @@ func (s *RServer) RegisterFProxy(fp *fbackend.FProxy) {
 }
 
 // NewRServer do NOT register backend
-func NewRServer() *RServer {
-	return &RServer{ma: manager.NewRManager()}
+func NewRServer(ma *manager.RManager) *RServer {
+	return &RServer{
+		ma: ma,
+	}
 }
 
 // Start blocks and starts the server

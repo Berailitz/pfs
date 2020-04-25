@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Berailitz/pfs/manager"
+
 	"github.com/Berailitz/pfs/fbackend"
 	"github.com/Berailitz/pfs/lfs"
 	"github.com/Berailitz/pfs/utility"
@@ -48,15 +50,17 @@ func (p *PFS) Mount() error {
 
 	localAddr := fmt.Sprintf("%s:%d", p.param.Host, p.param.Port)
 
+	ma := manager.NewRManager()
+
 	log.Printf("start rs: port=%v", p.param.Port)
-	p.rsvr = rserver.NewRServer()
+	p.rsvr = rserver.NewRServer(ma)
 	if err := p.rsvr.Start(p.param.Port); err != nil {
 		log.Fatalf("start rs error: err=%+v", err)
 		return err
 	}
 
 	log.Printf("create fp: master=%v, localAddr=%v, gopts=%+v", p.param.Master, localAddr, gopts)
-	fp := fbackend.NewFProxy(utility.GetUID(), utility.GetGID(), p.param.Master, localAddr, gopts)
+	fp := fbackend.NewFProxy(utility.GetUID(), utility.GetGID(), p.param.Master, localAddr, gopts, ma)
 	p.rsvr.RegisterFProxy(fp)
 
 	p.lfsvr = lfs.NewLFS(fp)

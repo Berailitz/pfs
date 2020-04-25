@@ -8,6 +8,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/Berailitz/pfs/manager"
+
 	"bazil.org/fuse"
 	"github.com/Berailitz/pfs/idallocator"
 
@@ -32,6 +34,7 @@ type remoteHandle struct {
 
 type FProxy struct {
 	fb   *FBackEnd
+	ma   *manager.RManager
 	pcli *rclient.RClient
 	pool *gclipool.GCliPool
 
@@ -50,7 +53,8 @@ func NewFProxy(
 	gid uint32,
 	masterAddr string,
 	localAddr string,
-	gopts []grpc.DialOption) *FProxy {
+	gopts []grpc.DialOption,
+	ma *manager.RManager) *FProxy {
 	gcli, err := utility.BuildGCli(masterAddr, gopts)
 	if err != nil {
 		log.Fatalf("new gcli fial error: master=%v, opts=%#v, err=%+v",
@@ -74,6 +78,7 @@ func NewFProxy(
 
 	fp := &FProxy{
 		fb:       fb,
+		ma:       ma,
 		pcli:     pcli,
 		pool:     gclipool.NewGCliPool(gopts, localAddr),
 		allcator: allcator,
@@ -910,6 +915,39 @@ func (fp *FProxy) LoadRemoteHandle(ctx context.Context, id uint64) *remoteHandle
 func (fp *FProxy) isChildLocal(ctx context.Context, parentId uint64, name string) bool {
 	_, _, err := fp.fb.LookUpInode(ctx, parentId, name)
 	return err == nil
+}
+
+func (fp *FProxy) QueryOwner(nodeID uint64) string {
+	return fp.ma.QueryOwner(nodeID)
+}
+
+func (fp *FProxy) QueryAddr(nodeID uint64) string {
+	return fp.ma.QueryAddr(nodeID)
+}
+
+func (fp *FProxy) Allocate(ownerID uint64) uint64 {
+	return fp.ma.Allocate(ownerID)
+}
+
+func (fp *FProxy) Deallocate(nodeID uint64) bool {
+	return fp.ma.Deallocate(nodeID)
+}
+
+func (fp *FProxy) RegisterOwner(addr string) uint64 {
+	return fp.ma.RegisterOwner(addr)
+}
+
+func (fp *FProxy) RemoveOwner(ownerID uint64) bool {
+	return fp.ma.RemoveOwner(ownerID)
+}
+
+func (fp *FProxy) CopyOwnerMap() map[uint64]string {
+	return fp.ma.CopyOwnerMap()
+
+}
+
+func (fp *FProxy) AllocateRoot(ownerID uint64) bool {
+	return fp.ma.AllocateRoot(ownerID)
 }
 
 func (e *FPErr) Error() string {

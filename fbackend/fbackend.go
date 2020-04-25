@@ -883,6 +883,41 @@ func (fb *FBackEnd) Rename(
 	return
 }
 
+func (fb *FBackEnd) DetachChild(
+	ctx context.Context,
+	parent uint64,
+	name string) (err error) {
+	log.Printf("fb detach child: parent=%v, name=%v", parent, name)
+	// Grab the parent, which we will update shortly.
+	parentNode, err := fb.LoadNodeForWrite(ctx, uint64(parent))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if uerr := fb.UnlockNode(ctx, parentNode); uerr != nil {
+			log.Printf("lock node error: id=%v, err=%+v", parentNode.ID(), uerr)
+			if err != nil {
+				log.Printf("unlock node error overwrite method error: err=%+v", err)
+			}
+			err = uerr
+		}
+	}()
+
+	// Find the child within the parent.
+	childID, _, ok := parentNode.LookUpChild(name)
+	if !ok {
+		err = syscall.ENOENT
+		log.Printf("fb detach no child error: parent=%v, name=%v, childID=%v", parent, name, childID)
+		return
+	}
+
+	// Remove the entry within the parent.
+	parentNode.RemoveChild(name)
+
+	log.Printf("fb detach child success: parent=%v, name=%v, childID=%v", parent, name, childID)
+	return
+}
+
 func (fb *FBackEnd) Unlink(
 	ctx context.Context,
 	parent uint64,

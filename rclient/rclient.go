@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	pb "github.com/Berailitz/pfs/remotetree"
 )
@@ -156,6 +157,27 @@ func (c *RClient) AssignID(id uint64) {
 		log.Printf("rcli get re-assigned id: id=%v", id)
 	}
 	c.id = id
+}
+
+func (c *RClient) Ping(dst uint64) int64 {
+	log.Printf("start ping: dst=%v", dst)
+	ctx := context.Background()
+	departure := time.Now().UnixNano()
+	_, err := c.gcli.Ping(ctx, &pb.PingMsg{
+		Src:       c.id,
+		Dst:       dst,
+		Departure: departure,
+	})
+	arrival := time.Now().UnixNano()
+	if err != nil {
+		log.Printf("ping error: src=%v, dst=%v, departure=%v, arrival=%v, err=%+v",
+			c.id, dst, departure, arrival, err)
+		return -1
+	}
+	tof := arrival - departure
+	log.Printf("ping: src=%v, dst=%v, departure=%v, tof=%v",
+		c.id, dst, departure, tof)
+	return tof
 }
 
 func (c *RClient) GetID() uint64 {

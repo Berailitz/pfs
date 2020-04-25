@@ -18,6 +18,7 @@ service RemoteTree {
     rpc MkDir(MkDirRequest) returns (MkDirReply) {}
     rpc CreateNode(CreateNodeRequest) returns (Uint64Reply) {}
     rpc CreateFile(CreateFileRequest) returns (CreateFileReply) {}
+    rpc AttachChild(AttachChildRequest) returns (Uint64Reply) {}
     rpc CreateSymlink(CreateSymlinkRequest) returns (Uint64Reply) {}
     rpc CreateLink(CreateLinkRequest) returns (Uint64Reply) {}
     rpc Rename(RenameRequest) returns (Error) {}
@@ -123,6 +124,14 @@ message CreateFileReply {
     Error err = 1;
     uint64 id = 2;
     uint64 handle = 3;
+}
+
+message AttachChildRequest {
+    uint64 parentID = 1;
+    uint64 childID = 2;
+    string name = 3;
+    uint32 dt = 4;
+    bool doOpen = 5;
 }
 
 message CreateSymlinkRequest {

@@ -82,6 +82,25 @@ func NewFProxy(
 	return fp
 }
 
+func (fp *FProxy) Ping(ctx context.Context, msg *pb.PingMsg) (*pb.PingMsg, error) {
+	if msg.Dst == fp.pcli.GetID() {
+		return msg, nil
+	}
+
+	addr := fp.pcli.QueryOwner(msg.Dst)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	reply, err := gcli.Ping(ctx, msg)
+	if err != nil {
+		log.Printf("fp ping error: msg=%+v, err=%+v", msg, err)
+		return nil, err
+	}
+	return reply, nil
+}
+
 func (fp *FProxy) LoadNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
 	if isRead {
 		return fp.fb.LoadNodeForRead(ctx, id)

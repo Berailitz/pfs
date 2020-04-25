@@ -569,6 +569,30 @@ func (fb *FBackEnd) CreateNode(
 
 	log.Printf("fb create node: parent=%v, name=%v, mode=%v",
 		parentID, name, mode)
+
+	// Set up attributes for the child.
+	now := time.Now()
+	childAttrs := fuse.Attr{
+		Nlink:  1,
+		Mode:   mode,
+		Atime:  now,
+		Mtime:  now,
+		Ctime:  now,
+		Crtime: now,
+		Uid:    fb.uid,
+		Gid:    fb.gid,
+	}
+
+	// Allocate a child.
+	childID, _ := fb.allocateInode(childAttrs)
+	defer func() {
+		if err != nil {
+			if derr := fb.deallocateInode(ctx, childID); derr != nil {
+				log.Printf("create node deallocate node error: childID=%v, derr=%+V", childID, derr)
+			}
+		}
+	}()
+
 	// Grab the parent, which we will update shortly.
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
@@ -591,22 +615,6 @@ func (fb *FBackEnd) CreateNode(
 	if exists {
 		return 0, fuse.EEXIST
 	}
-
-	// Set up attributes for the child.
-	now := time.Now()
-	childAttrs := fuse.Attr{
-		Nlink:  1,
-		Mode:   mode,
-		Atime:  now,
-		Mtime:  now,
-		Ctime:  now,
-		Crtime: now,
-		Uid:    fb.uid,
-		Gid:    fb.gid,
-	}
-
-	// Allocate a child.
-	childID, _ := fb.allocateInode(childAttrs)
 
 	// Add an entry in the parent.
 	parent.AddChild(childID, name, fuse.DT_File)

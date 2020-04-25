@@ -578,14 +578,6 @@ func (fb *FBackEnd) MkDir(
 	log.Printf("fb mkdir: parent=%v, name=%v, mode=%v",
 		parentID, name, mode)
 
-	addr := fb.mcli.QueryOwner(parentID)
-	gcli, err := fb.pool.Load(addr)
-	if err != nil {
-		log.Printf("fb mkdir query gcli: parentID=%v, err=%+v",
-			parentID, err)
-		return 0, err
-	}
-
 	// Set up attributes from the child.
 	childAttrs := fuse.Attr{
 		Nlink: 1,
@@ -604,23 +596,11 @@ func (fb *FBackEnd) MkDir(
 		}
 	}()
 
-	reply, gerr := gcli.AttachChild(ctx, &pb.AttachChildRequest{
-		ParentID: parentID,
-		ChildID:  childID,
-		Name:     name,
-		Dt:       uint32(fuse.DT_Dir),
-		DoOpen:   false,
-	})
-	if gerr != nil {
-		log.Printf("fb mkdir rpc attach child error: parentID=%v, childID=%v name=%v, err=%+v",
-			parentID, childID, name, err)
-		return 0, err
-	}
-	err = utility.FromPbErr(reply.Err)
+	_, err = fb.fp.AttachChild(ctx, parentID, childID, name, fuse.DT_Dir, false)
 
 	log.Printf("fb mkdir result: parent=%v, name=%v, mode=%v, childID=%v, err=%+v",
 		parentID, name, mode, childID, err)
-	return reply.Num, err
+	return childID, err
 }
 
 // LOCKS_REQUIRED(fb.mu)
@@ -634,14 +614,6 @@ func (fb *FBackEnd) CreateNode(
 
 	log.Printf("fb create node: parent=%v, name=%v, mode=%v",
 		parentID, name, mode)
-
-	addr := fb.mcli.QueryOwner(parentID)
-	gcli, err := fb.pool.Load(addr)
-	if err != nil {
-		log.Printf("fb create node query gcli: parentID=%v, err=%+v",
-			parentID, err)
-		return 0, err
-	}
 
 	// Set up attributes for the child.
 	now := time.Now()
@@ -666,19 +638,7 @@ func (fb *FBackEnd) CreateNode(
 		}
 	}()
 
-	reply, gerr := gcli.AttachChild(ctx, &pb.AttachChildRequest{
-		ParentID: parentID,
-		ChildID:  childID,
-		Name:     name,
-		Dt:       uint32(fuse.DT_File),
-		DoOpen:   false,
-	})
-	if gerr != nil {
-		log.Printf("fb create node rpc attach child error: parentID=%v, childID=%v name=%v, err=%+v",
-			parentID, childID, name, err)
-		return 0, err
-	}
-	err = utility.FromPbErr(reply.Err)
+	_, err = fb.fp.AttachChild(ctx, parentID, childID, name, fuse.DT_File, false)
 
 	log.Printf("fb create node result: parent=%v, name=%v, mode=%v, childID=%v, err=%+v",
 		parentID, name, mode, childID, err)
@@ -697,14 +657,6 @@ func (fb *FBackEnd) CreateFile(
 
 	log.Printf("fb create file: parent=%v, name=%v, mode=%v, flags=%v",
 		parentID, name, mode, flags)
-
-	addr := fb.mcli.QueryOwner(parentID)
-	gcli, err := fb.pool.Load(addr)
-	if err != nil {
-		log.Printf("fb create file load gcli error: parentID=%v, err=%+v",
-			parentID, err)
-		return 0, 0, err
-	}
 
 	// Set up attributes for the child.
 	now := time.Now()
@@ -729,23 +681,11 @@ func (fb *FBackEnd) CreateFile(
 		}
 	}()
 
-	reply, gerr := gcli.AttachChild(ctx, &pb.AttachChildRequest{
-		ParentID: parentID,
-		ChildID:  childID,
-		Name:     name,
-		Dt:       uint32(fuse.DT_File),
-		DoOpen:   false,
-	})
-	if gerr != nil {
-		log.Printf("fb create file rpc attach child error: parentID=%v, childID=%v name=%v, err=%+v",
-			parentID, childID, name, err)
-		return 0, 0, err
-	}
-	err = utility.FromPbErr(reply.Err)
+	handleID, err = fb.fp.AttachChild(ctx, parentID, childID, name, fuse.DT_File, true)
 
 	log.Printf("fb create file result: parent=%v, name=%v, mode=%v, childID=%v, handleID=%v, err=%+v",
-		parentID, name, mode, childID, reply.Num, err)
-	return childID, reply.Num, err
+		parentID, name, mode, childID, handleID, err)
+	return childID, handleID, err
 }
 
 func (fb *FBackEnd) CreateSymlink(
@@ -758,14 +698,6 @@ func (fb *FBackEnd) CreateSymlink(
 
 	log.Printf("fb create symlink: parent=%v, name=%v, target=%v",
 		parentID, name, target)
-
-	addr := fb.mcli.QueryOwner(parentID)
-	gcli, err := fb.pool.Load(addr)
-	if err != nil {
-		log.Printf("fb create symlink load gcli error: parentID=%v, err=%+v",
-			parentID, err)
-		return 0, err
-	}
 
 	// Set up attributes from the child.
 	now := time.Now()
@@ -791,22 +723,10 @@ func (fb *FBackEnd) CreateSymlink(
 	}()
 	child.SetTarget(target)
 
-	reply, gerr := gcli.AttachChild(ctx, &pb.AttachChildRequest{
-		ParentID: parentID,
-		ChildID:  childID,
-		Name:     name,
-		Dt:       uint32(fuse.DT_Link),
-		DoOpen:   false,
-	})
-	if gerr != nil {
-		log.Printf("fb create symlink rpc attach child error: parentID=%v, childID=%v name=%v, err=%+v",
-			parentID, childID, name, err)
-		return 0, err
-	}
-	err = utility.FromPbErr(reply.Err)
+	_, err = fb.fp.AttachChild(ctx, parentID, childID, name, fuse.DT_Link, false)
 
-	log.Printf("fb create symlink result: parent=%v, name=%v, target=%v, handleID=%v, err=%+v",
-		parentID, name, target, reply.Num, err)
+	log.Printf("fb create symlink result: parent=%v, name=%v, target=%v, err=%+v",
+		parentID, name, target, err)
 	return childID, nil
 }
 

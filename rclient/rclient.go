@@ -158,6 +158,10 @@ func (c *RClient) AssignID(id uint64) {
 	c.id = id
 }
 
+func (c *RClient) GetID() uint64 {
+	return c.id
+}
+
 func NewRClient(gcli pb.RemoteTreeClient) *RClient {
 	return &RClient{
 		gcli: gcli,

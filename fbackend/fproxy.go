@@ -33,10 +33,11 @@ type remoteHandle struct {
 }
 
 type FProxy struct {
-	fb   *FBackEnd
-	ma   *manager.RManager
-	pcli *rclient.RClient
-	pool *gclipool.GCliPool
+	fb        *FBackEnd
+	ma        *manager.RManager
+	pcli      *rclient.RClient
+	pool      *gclipool.GCliPool
+	localAddr string
 
 	allcator        *idallocator.IDAllocator
 	remoteHandleMap sync.Map // [uint64]remoteHandle
@@ -77,11 +78,12 @@ func NewFProxy(
 	// Set up the root rnode.RNode.
 
 	fp := &FProxy{
-		fb:       fb,
-		ma:       ma,
-		pcli:     pcli,
-		pool:     gclipool.NewGCliPool(gopts, localAddr),
-		allcator: allcator,
+		fb:        fb,
+		ma:        ma,
+		pcli:      pcli,
+		pool:      gclipool.NewGCliPool(gopts, localAddr),
+		allcator:  allcator,
+		localAddr: localAddr,
 	}
 	fb.SetFP(fp)
 	return fp

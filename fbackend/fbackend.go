@@ -714,6 +714,30 @@ func (fb *FBackEnd) CreateSymlink(
 
 	log.Printf("fb create symlink: parent=%v, name=%v, target=%v",
 		parentID, name, target)
+
+	// Set up attributes from the child.
+	now := time.Now()
+	childAttrs := fuse.Attr{
+		Nlink:  1,
+		Mode:   0444 | os.ModeSymlink,
+		Atime:  now,
+		Mtime:  now,
+		Ctime:  now,
+		Crtime: now,
+		Uid:    fb.uid,
+		Gid:    fb.gid,
+	}
+
+	// Allocate a child.
+	childID, child := fb.allocateInode(childAttrs)
+	defer func() {
+		if err != nil {
+			if derr := fb.deallocateInode(ctx, childID); derr != nil {
+				log.Printf("create file deallocate node error: childID=%v, derr=%+V", childID, derr)
+			}
+		}
+	}()
+
 	// Grab the parent, which we will update shortly.
 	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
@@ -736,22 +760,6 @@ func (fb *FBackEnd) CreateSymlink(
 	if exists {
 		return 0, fuse.EEXIST
 	}
-
-	// Set up attributes from the child.
-	now := time.Now()
-	childAttrs := fuse.Attr{
-		Nlink:  1,
-		Mode:   0444 | os.ModeSymlink,
-		Atime:  now,
-		Mtime:  now,
-		Ctime:  now,
-		Crtime: now,
-		Uid:    fb.uid,
-		Gid:    fb.gid,
-	}
-
-	// Allocate a child.
-	childID, child := fb.allocateInode(childAttrs)
 
 	// Set up its target.
 	child.SetTarget(target)

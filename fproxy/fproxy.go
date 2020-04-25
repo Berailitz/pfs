@@ -318,6 +318,38 @@ func (fp *FProxy) CreateFile(
 	return reply.Id, localHandle, nil
 }
 
+func (fp *FProxy) AttachChild(
+	ctx context.Context,
+	parentID uint64,
+	childID uint64,
+	name string,
+	dt fuse.DirentType,
+	doOpen bool) (hid uint64, err error) {
+	if fp.IsLocalNode(ctx, parentID) {
+		return fp.fb.AttachChild(ctx, parentID, childID, name, dt, doOpen)
+	}
+
+	addr := fp.pcli.QueryOwner(parentID)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, err
+	}
+
+	reply, err := gcli.AttachChild(ctx, &pb.AttachChildRequest{
+		ParentID: parentID,
+		ChildID:  childID,
+		Name:     name,
+		Dt:       uint32(dt),
+		DoOpen:   doOpen,
+	})
+	if err != nil {
+		log.Printf("rpc attach child error: parentID=%v, childID=%v name=%v, dt=%v, err=%+v",
+			parentID, childID, name, dt, err)
+		return 0, err
+	}
+	return reply.Num, utility.FromPbErr(reply.Err)
+}
+
 func (fp *FProxy) CreateSymlink(
 	ctx context.Context,
 	parentID uint64,

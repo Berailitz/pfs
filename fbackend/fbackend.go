@@ -749,6 +749,14 @@ func (fb *FBackEnd) CreateSymlink(
 	log.Printf("fb create symlink: parent=%v, name=%v, target=%v",
 		parentID, name, target)
 
+	addr := fb.mcli.QueryOwner(parentID)
+	gcli, err := fb.pool.Load(addr)
+	if err != nil {
+		log.Printf("fb create symlink load gcli error: parentID=%v, err=%+v",
+			parentID, err)
+		return 0, err
+	}
+
 	// Set up attributes from the child.
 	now := time.Now()
 	childAttrs := fuse.Attr{
@@ -771,39 +779,24 @@ func (fb *FBackEnd) CreateSymlink(
 			}
 		}
 	}()
-
-	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(ctx, parentID)
-	if err != nil {
-		log.Printf("create symlink err: err=%v", err.Error())
-		return 0, err
-	}
-	defer func() {
-		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
-			log.Printf("lock node error: id=%v, err=%+v", parent.ID(), uerr)
-			if err != nil {
-				log.Printf("unlock node error overwrite method error: err=%+v", err)
-			}
-			err = uerr
-		}
-	}()
-
-	// Ensure that the name doesn't already exist, so we don't wind up with a
-	// duplicate.
-	_, _, exists := parent.LookUpChild(name)
-	if exists {
-		return 0, fuse.EEXIST
-	}
-
-	// Set up its target.
 	child.SetTarget(target)
 
-	// Add an entry in the parent.
-	parent.AddChild(childID, name, fuse.DT_Link)
+	reply, gerr := gcli.AttachChild(ctx, &pb.AttachChildRequest{
+		ParentID: parentID,
+		ChildID:  childID,
+		Name:     name,
+		Dt:       uint32(fuse.DT_Link),
+		DoOpen:   false,
+	})
+	if gerr != nil {
+		log.Printf("fb create symlink rpc attach child error: parentID=%v, childID=%v name=%v, err=%+v",
+			parentID, childID, name, err)
+		return 0, err
+	}
+	err = utility.FromPbErr(reply.Err)
 
-	// Fill in the response entry.
-	log.Printf("fb create symlink success: parent=%v, name=%v, target=%v",
-		parentID, name, target)
+	log.Printf("fb create symlink result: parent=%v, name=%v, target=%v, handleID=%v, err=%+v",
+		parentID, name, target, reply.Num, err)
 	return childID, nil
 }
 

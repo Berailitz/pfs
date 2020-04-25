@@ -921,32 +921,12 @@ func (fb *FBackEnd) DetachChild(
 func (fb *FBackEnd) Unlink(
 	ctx context.Context,
 	parent uint64,
-	name string) (err error) {
+	name string,
+	childID uint64) (err error) {
 	fb.lock()
 	defer fb.unlock()
 
 	log.Printf("fb unlink: parent=%v, name=%v", parent, name)
-	// Grab the parent, which we will update shortly.
-	parentNode, err := fb.LoadNodeForWrite(ctx, uint64(parent))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if uerr := fb.UnlockNode(ctx, parentNode); uerr != nil {
-			log.Printf("lock node error: id=%v, err=%+v", parentNode.ID(), uerr)
-			if err != nil {
-				log.Printf("unlock node error overwrite method error: err=%+v", err)
-			}
-			err = uerr
-		}
-	}()
-
-	// Find the child within the parent.
-	childID, _, ok := parentNode.LookUpChild(name)
-	if !ok {
-		err = syscall.ENOENT
-		return
-	}
 
 	// Grab the child.
 	child, err := fb.LoadNodeForWrite(ctx, childID)

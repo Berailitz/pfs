@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"syscall"
 
 	"bazil.org/fuse"
 	"github.com/Berailitz/pfs/idallocator"
@@ -513,13 +514,19 @@ func (fp *FProxy) Unlink(
 	parent uint64,
 	name string) (err error) {
 	log.Printf("fp unlink: parent=%v, name=%v", parent, name)
-	if fp.IsLocalNode(ctx, parent) &&
-		fp.isChildLocal(ctx, parent, name) {
-		return fp.fb.Unlink(ctx, parent, name)
+	childID, _, err := fp.LookUpInode(ctx, parent, name)
+	if err != nil {
+		log.Printf("rpc fp unlink no child error: parent=%v, name=%v, err=%+v", parent, name, err)
+		err = syscall.ENOENT
+		return err
+	}
+
+	if fp.IsLocalNode(ctx, childID) {
+		return fp.fb.Unlink(ctx, parent, name, childID)
 	}
 
 	// TODO: Parent owner start and acquire child
-	addr := fp.pcli.QueryOwner(parent)
+	addr := fp.pcli.QueryOwner(childID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
@@ -530,7 +537,8 @@ func (fp *FProxy) Unlink(
 		Name:   name,
 	})
 	if err != nil {
-		log.Printf("rpc fp unlink error: parent=%v, name=%v, err=%+v", parent, name, err)
+		log.Printf("rpc fp unlink error: parent=%v, name=%v, childID=%v, err=%+v",
+			parent, name, childID, err)
 		return err
 	}
 	return utility.FromPbErr(perr)

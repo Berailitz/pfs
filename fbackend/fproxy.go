@@ -106,6 +106,25 @@ func (fp *FProxy) Ping(ctx context.Context, msg *pb.PingMsg) (*pb.PingMsg, error
 	return reply, nil
 }
 
+func (fp *FProxy) GetOwnerMap(ctx context.Context) (map[uint64]string, error) {
+	mid, addr := fp.ma.QueryMaster()
+	if mid == fp.pcli.GetID() {
+		return fp.ma.CopyOwnerMap(), nil
+	}
+
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	reply, err := gcli.GetOwnerMap(ctx, &pb.EmptyMsg{})
+	if err != nil {
+		log.Printf("fp get owner map error: addr=%v, err=%+v", addr, err)
+		return nil, err
+	}
+	return reply.Map, nil
+}
+
 func (fp *FProxy) LoadNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
 	if isRead {
 		return fp.fb.LoadNodeForRead(ctx, id)

@@ -186,6 +186,15 @@ func (s *RServer) Rename(ctx context.Context, req *pb.RenameRequest) (*pb.Error,
 	return perr, nil
 }
 
+func (s *RServer) DetachChild(ctx context.Context, req *pb.UnlinkRequest) (*pb.Error, error) {
+	err := s.fp.DetachChild(ctx, req.Parent, req.Name)
+	var perr *pb.Error = &pb.Error{}
+	if err != nil {
+		perr = utility.ToPbErr(err)
+	}
+	return perr, nil
+}
+
 func (s *RServer) Unlink(ctx context.Context, req *pb.UnlinkRequest) (*pb.Error, error) {
 	err := s.fp.Unlink(ctx, req.Parent, req.Name)
 	var perr *pb.Error = &pb.Error{}

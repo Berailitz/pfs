@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"time"
 
-	"github.com/Berailitz/pfs/rclient"
+	pb "github.com/Berailitz/pfs/remotetree"
+
 	"github.com/Berailitz/pfs/utility"
 	"google.golang.org/grpc"
 )
@@ -20,6 +22,7 @@ func main() {
 	dst := flag.String("dst", "127.0.0.1:10000", "dst")
 	flag.Parse()
 
+	ctx := context.Background()
 	gcli, err := utility.BuildGCli(*masterAddr, gopts)
 	if err != nil {
 		log.Fatalf("new rcli fial error: master=%v, opts=%+v, err=%+V",
@@ -27,9 +30,17 @@ func main() {
 		return
 	}
 
-	rc := rclient.NewRClient(gcli)
 	departure := time.Now().UnixNano()
-	offset, err := rc.Ping(*dst)
-	tof := time.Now().UnixNano() - departure + offset
-	fmt.Printf("tof=%v, offset=%v\n", tof, offset)
+	reply, err := gcli.Ping(ctx, &pb.PingRequest{
+		Addr:      *dst,
+		Departure: departure,
+	})
+	if err != nil {
+		log.Fatalf("fp ping error: addr=%v, err=%+v", *dst, err)
+	}
+	if err := utility.FromPbErr(reply.Err); err != nil {
+		log.Fatalf("fp ping reply error: addr=%v, err=%+v", *dst, err)
+	}
+	tof := time.Now().UnixNano() - departure + reply.Offset
+	fmt.Printf("tof=%v, reply=%+v\n", tof, reply)
 }

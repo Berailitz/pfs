@@ -7,6 +7,7 @@ import (
 	"os"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/Berailitz/pfs/manager"
 
@@ -94,7 +95,20 @@ func (fp *FProxy) ProxyPing(ctx context.Context, addr string) (offset int64, err
 		return 0, nil
 	}
 
-	return fp.pcli.Ping(addr)
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, err
+	}
+
+	reply, err := gcli.Ping(ctx, &pb.PingRequest{
+		Addr:      addr,
+		Departure: time.Now().UnixNano(),
+	})
+	if err != nil {
+		log.Printf("fp ping error: addr=%v, err=%+v", addr, err)
+		return 0, err
+	}
+	return reply.Offset, utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) GetOwnerMap(ctx context.Context) (map[uint64]string, error) {

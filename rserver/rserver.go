@@ -33,7 +33,7 @@ type RServer struct {
 }
 
 func (s *RServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingReply, error) {
-	offset, err := s.fp.ProxyPing(ctx, req.Addr)
+	offset, err := s.fp.ProxyPing(ctx, req.Addr, false)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = utility.ToPbErr(err)

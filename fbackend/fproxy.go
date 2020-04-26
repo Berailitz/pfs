@@ -36,6 +36,7 @@ type remoteHandle struct {
 type FProxy struct {
 	fb        *FBackEnd
 	ma        *manager.RManager
+	wd        *WatchDog
 	pcli      *rclient.RClient
 	pool      *gclipool.GCliPool
 	localAddr string
@@ -78,21 +79,31 @@ func NewFProxy(
 	}
 	// Set up the root rnode.RNode.
 
+	wd := NewWatchDog()
+
 	fp := &FProxy{
 		fb:        fb,
 		ma:        ma,
+		wd:        wd,
 		pcli:      pcli,
 		pool:      gclipool.NewGCliPool(gopts, localAddr),
 		allcator:  allcator,
 		localAddr: localAddr,
 	}
 	fb.SetFP(fp)
+	wd.SetFP(fp)
 	return fp
 }
 
-func (fp *FProxy) ProxyPing(ctx context.Context, addr string) (offset int64, err error) {
+func (fp *FProxy) ProxyPing(ctx context.Context, addr string, disableCache bool) (offset int64, err error) {
 	if addr == fp.localAddr {
 		return 0, nil
+	}
+
+	if !disableCache {
+		if tof, ok := fp.wd.Tof(addr); ok {
+			return tof, nil
+		}
 	}
 
 	gcli, err := fp.pool.Load(addr)

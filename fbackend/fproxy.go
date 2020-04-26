@@ -95,6 +95,13 @@ func NewFProxy(
 	return fp
 }
 
+func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool) (tof int64, err error) {
+	departure := time.Now().UnixNano()
+	offset, err := fp.ProxyPing(ctx, addr, disableCache)
+	arrival := time.Now().UnixNano()
+	return arrival - departure + offset, err
+}
+
 func (fp *FProxy) ProxyPing(ctx context.Context, addr string, disableCache bool) (offset int64, err error) {
 	if addr == fp.localAddr {
 		return 0, nil

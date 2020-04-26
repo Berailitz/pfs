@@ -425,7 +425,7 @@ func NewRServer(ma *manager.RManager) *RServer {
 }
 
 // Start blocks and starts the server
-func (s *RServer) Start(port int) error {
+func (s *RServer) Start(ctx context.Context, port int) error {
 	if s.Server != nil {
 		return fmt.Errorf("server already created error")
 	}
@@ -446,10 +446,19 @@ func (s *RServer) Start(port int) error {
 	return nil
 }
 
-func (s *RServer) Stop() error {
+func (s *RServer) StartFP(ctx context.Context) {
+	go func() {
+		if err := s.fp.Run(ctx); err != nil {
+			log.Printf("fp run error: err=%+v", err)
+		}
+	}()
+}
+
+func (s *RServer) Stop(ctx context.Context) error {
 	if s.Server == nil {
 		return fmt.Errorf("server is nil error")
 	}
 	s.Server.Stop()
+	s.fp.Stop(ctx)
 	return nil
 }

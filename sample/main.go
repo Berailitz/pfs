@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"io/ioutil"
 	"log"
@@ -43,6 +44,8 @@ func main() {
 	ncmd := flag.Bool("ncmd", false, "Ignore cmd or not.")
 	flag.Parse()
 
+	ctx := context.Background()
+
 	if *cfg == "" {
 		flag.Usage()
 		log.Fatalf("no cfg specified, exit")
@@ -68,14 +71,14 @@ func main() {
 			return
 		}
 
-		if err := p.Mount(); err != nil {
+		if err := p.Mount(ctx); err != nil {
 			log.Fatalf("mount pfs error: i=%d, err=%+v", i, err)
 		}
 
 		wg.Add(1)
 		go func(j int) {
 			defer wg.Done()
-			if err := p.Run(); err != nil {
+			if err := p.Run(ctx); err != nil {
 				log.Printf("run pfs error: i=%d, err=%+v", j, err)
 			}
 		}(i)

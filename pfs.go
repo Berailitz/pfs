@@ -1,6 +1,7 @@
 package pfs
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -45,7 +46,7 @@ func NewPFS(param PFSParam) *PFS {
 	}
 }
 
-func (p *PFS) Mount() error {
+func (p *PFS) Mount(ctx context.Context) error {
 	log.Printf("debug=%v", p.param.Debug)
 
 	localAddr := fmt.Sprintf("%s:%d", p.param.Host, p.param.Port)
@@ -54,7 +55,7 @@ func (p *PFS) Mount() error {
 
 	log.Printf("start rs: port=%v", p.param.Port)
 	p.rsvr = rserver.NewRServer(ma)
-	if err := p.rsvr.Start(p.param.Port); err != nil {
+	if err := p.rsvr.Start(ctx, p.param.Port); err != nil {
 		log.Fatalf("start rs error: err=%+v", err)
 		return err
 	}
@@ -62,6 +63,8 @@ func (p *PFS) Mount() error {
 	log.Printf("create fp: master=%v, localAddr=%v, gopts=%+v", p.param.Master, localAddr, gopts)
 	fp := fbackend.NewFProxy(utility.GetUID(), utility.GetGID(), p.param.Master, localAddr, gopts, ma)
 	p.rsvr.RegisterFProxy(fp)
+
+	p.rsvr.StartFP(ctx)
 
 	p.lfsvr = lfs.NewLFS(fp)
 	log.Printf("mount fs: dir=%v, fsName=%v, fsType=%v, volumeName=%v",
@@ -75,9 +78,9 @@ func (p *PFS) Mount() error {
 	return nil
 }
 
-func (p *PFS) Run() (err error) {
+func (p *PFS) Run(ctx context.Context) (err error) {
 	defer func() {
-		if serr := p.stopRS(); serr != nil && err == nil {
+		if serr := p.stopRS(ctx); serr != nil && err == nil {
 			err = serr
 		}
 	}()
@@ -102,9 +105,9 @@ func (p *PFS) Run() (err error) {
 	return nil
 }
 
-func (p *PFS) stopRS() error {
+func (p *PFS) stopRS(ctx context.Context) error {
 	log.Printf("stop rs: host=%v, port=%v", p.param.Host, p.param.Port)
-	if err := p.rsvr.Stop(); err != nil {
+	if err := p.rsvr.Stop(ctx); err != nil {
 		log.Printf("stop rs error: serr=%+v", err)
 		return err
 	}
@@ -120,11 +123,11 @@ func (p *PFS) Umount() error {
 	return nil
 }
 
-func (p *PFS) Stop() error {
+func (p *PFS) Stop(ctx context.Context) error {
 	log.Printf("stop pfs")
 	err := p.Umount()
 
-	if serr := p.stopRS(); serr != nil && err == nil {
+	if serr := p.stopRS(ctx); serr != nil && err == nil {
 		err = serr
 	}
 	return err

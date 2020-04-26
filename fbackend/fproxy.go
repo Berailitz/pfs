@@ -95,6 +95,14 @@ func NewFProxy(
 	return fp
 }
 
+func (fp *FProxy) Run(ctx context.Context) error {
+	return fp.wd.Run(ctx)
+}
+
+func (fp *FProxy) Stop(ctx context.Context) {
+	fp.wd.Stop(ctx)
+}
+
 func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool) (tof int64, err error) {
 	departure := time.Now().UnixNano()
 	offset, err := fp.ProxyPing(ctx, addr, disableCache)

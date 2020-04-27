@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+const (
+	updateInterval = 10 * time.Second
+)
+
 type RouteRule struct {
 	next string
 	tof  int64
@@ -17,7 +21,8 @@ type WatchDog struct {
 	tofMap   sync.Map // map[string]int64
 	routeMap sync.Map // map[string]*RouteRule
 	fp       *FProxy
-	c        chan interface{}
+	toStop   chan interface{}
+	stopped  chan interface{}
 }
 
 type WatchDogErr struct {
@@ -82,27 +87,31 @@ func (d *WatchDog) Run(ctx context.Context) (err error) {
 				}
 			}
 		}
+		close(d.stopped)
 	}()
 
-	select {
-	case <-d.c:
-		log.Printf("watch dog is quitting")
-		return nil
-	default:
-		for {
+	for {
+		select {
+		case <-d.toStop:
+			log.Printf("watch dog is quitting")
+			return nil
+		case <-time.After(updateInterval):
 			d.UpdateTof(ctx)
-			time.Sleep(time.Second * 10)
 		}
 	}
 }
 
 func (d *WatchDog) Stop(ctx context.Context) {
-	close(d.c)
+	log.Printf("wd stopping")
+	close(d.toStop)
+	<-d.stopped
+	log.Printf("wd stopped")
 }
 
 func NewWatchDog() *WatchDog {
 	return &WatchDog{
-		c: make(chan interface{}),
+		toStop:  make(chan interface{}),
+		stopped: make(chan interface{}),
 	}
 }
 

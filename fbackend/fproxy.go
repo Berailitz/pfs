@@ -69,22 +69,20 @@ func NewFProxy(
 	}
 	localID := pcli.RegisterSelf(localAddr)
 
+	wd := NewWatchDog()
 	allcator := idallocator.NewIDAllocator(initialHandle)
-	fb := NewFBackEnd(uid, gid, masterAddr, localAddr, gopts, allcator, localID)
+	fb := NewFBackEnd(uid, gid, masterAddr, localAddr, gopts, allcator, localID, wd)
 	if fb == nil {
 		log.Fatalf("new fp nil fb error: uid=%v, gid=%v, masterAddr=%v, localAddr=%v, gopts=%+v",
 			uid, gid, masterAddr, localAddr, gopts)
 	}
-	// Set up the root rnode.RNode.
-
-	wd := NewWatchDog()
 
 	fp := &FProxy{
 		fb:        fb,
 		ma:        ma,
 		wd:        wd,
 		pcli:      pcli,
-		pool:      NewGCliPool(gopts, localAddr),
+		pool:      NewGCliPool(gopts, localAddr, wd),
 		allcator:  allcator,
 		localAddr: localAddr,
 	}

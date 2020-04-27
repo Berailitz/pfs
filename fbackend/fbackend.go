@@ -73,7 +73,8 @@ func NewFBackEnd(
 	localAddr string,
 	gopts []grpc.DialOption,
 	allocator *idallocator.IDAllocator,
-	localID uint64) *FBackEnd {
+	localID uint64,
+	wd *WatchDog) *FBackEnd {
 	gcli, err := utility.BuildGCli(masterAddr, gopts)
 	if err != nil {
 		log.Fatalf("new rcli fial error: master=%v, opts=%+v, err=%+V",
@@ -91,7 +92,7 @@ func NewFBackEnd(
 		uid:             uid,
 		gid:             gid,
 		mcli:            mcli,
-		pool:            NewGCliPool(gopts, localAddr),
+		pool:            NewGCliPool(gopts, localAddr, wd),
 		handleAllocator: allocator,
 	}
 

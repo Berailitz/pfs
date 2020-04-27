@@ -12,6 +12,7 @@ import (
 
 type GCliPool struct {
 	cmap  sync.Map // [addr]remotetree.RemoteTreeClient
+	wd    *WatchDog
 	gopts []grpc.DialOption
 	local string
 }
@@ -49,10 +50,11 @@ func (p *GCliPool) Load(addr string) (pb.RemoteTreeClient, error) {
 	return gcli, nil
 }
 
-func NewGCliPool(gopts []grpc.DialOption, local string) *GCliPool {
+func NewGCliPool(gopts []grpc.DialOption, local string, wd *WatchDog) *GCliPool {
 	return &GCliPool{
 		gopts: gopts,
 		local: local,
+		wd:    wd,
 	}
 }
 

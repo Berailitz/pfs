@@ -99,14 +99,14 @@ func (fp *FProxy) Stop(ctx context.Context) {
 	fp.wd.Stop(ctx)
 }
 
-func (fp *FProxy) ProxyMeasure(ctx context.Context, addr string, disableCache bool) (tof int64, err error) {
+func (fp *FProxy) Measure(ctx context.Context, addr string, disableCache bool, disableRoute bool) (tof int64, err error) {
 	departure := time.Now().UnixNano()
-	offset, err := fp.ProxyPing(ctx, addr, disableCache)
+	offset, err := fp.Ping(ctx, addr, disableCache, disableRoute)
 	arrival := time.Now().UnixNano()
 	return arrival - departure + offset, err
 }
 
-func (fp *FProxy) ProxyPing(ctx context.Context, addr string, disableCache bool) (offset int64, err error) {
+func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool, disableRoute bool) (offset int64, err error) {
 	if addr == fp.localAddr {
 		return 0, nil
 	}
@@ -117,7 +117,12 @@ func (fp *FProxy) ProxyPing(ctx context.Context, addr string, disableCache bool)
 		}
 	}
 
-	gcli, err := fp.pool.Load(addr)
+	var gcli pb.RemoteTreeClient
+	if disableRoute {
+		gcli, err = fp.pool.LoadWithoutRoute(addr)
+	} else {
+		gcli, err = fp.pool.Load(addr)
+	}
 	if err != nil {
 		return 0, err
 	}

@@ -45,7 +45,7 @@ func (d *WatchDog) UpdateTof(ctx context.Context) {
 	}
 
 	for _, addr := range owners {
-		tof, err := d.fp.ProxyMeasure(ctx, addr, true)
+		tof, err := d.fp.Measure(ctx, addr, true, true)
 		if err != nil {
 			log.Printf("ping error: ownerID=%v, addr=%v, err=%+v",
 				addr, addr, err)

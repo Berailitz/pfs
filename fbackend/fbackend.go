@@ -18,8 +18,6 @@ import (
 
 	pb "github.com/Berailitz/pfs/remotetree"
 
-	"github.com/Berailitz/pfs/gclipool"
-
 	"github.com/Berailitz/pfs/utility"
 
 	"google.golang.org/grpc"
@@ -39,7 +37,7 @@ type FBackEnd struct {
 
 	nodes sync.Map // [uint64]*rnode.RNode
 	mcli  *rclient.RClient
-	pool  *gclipool.GCliPool
+	pool  *GCliPool
 
 	fp *FProxy
 
@@ -93,7 +91,7 @@ func NewFBackEnd(
 		uid:             uid,
 		gid:             gid,
 		mcli:            mcli,
-		pool:            gclipool.NewGCliPool(gopts, localAddr),
+		pool:            NewGCliPool(gopts, localAddr),
 		handleAllocator: allocator,
 	}
 

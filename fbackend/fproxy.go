@@ -16,8 +16,6 @@ import (
 
 	"github.com/Berailitz/pfs/rnode"
 
-	"github.com/Berailitz/pfs/gclipool"
-
 	pb "github.com/Berailitz/pfs/remotetree"
 
 	"github.com/Berailitz/pfs/utility"
@@ -38,7 +36,7 @@ type FProxy struct {
 	ma        *manager.RManager
 	wd        *WatchDog
 	pcli      *rclient.RClient
-	pool      *gclipool.GCliPool
+	pool      *GCliPool
 	localAddr string
 
 	allcator        *idallocator.IDAllocator
@@ -86,7 +84,7 @@ func NewFProxy(
 		ma:        ma,
 		wd:        wd,
 		pcli:      pcli,
-		pool:      gclipool.NewGCliPool(gopts, localAddr),
+		pool:      NewGCliPool(gopts, localAddr),
 		allcator:  allcator,
 		localAddr: localAddr,
 	}

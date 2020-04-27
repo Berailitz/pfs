@@ -18,7 +18,10 @@ type RouteRule struct {
 }
 
 type WatchDog struct {
-	tofMap   sync.Map // map[string]int64
+	tofMap       sync.Map         // map[string]int64
+	tofMapRead   map[string]int64 // map[string]int64
+	muTofMapRead sync.RWMutex
+
 	routeMap sync.Map // map[string]*RouteRule
 	fp       *FProxy
 	toStop   chan interface{}
@@ -70,6 +73,9 @@ func (d *WatchDog) UpdateTof(ctx context.Context) {
 		log.Printf("ping success: ownerID=%v, addr=%v, tof=%v",
 			addr, addr, tof)
 		d.tofMap.Store(addr, tof)
+		d.muTofMapRead.Lock()
+		defer d.muTofMapRead.Unlock()
+		d.tofMapRead[addr] = tof
 	}
 }
 
@@ -110,8 +116,9 @@ func (d *WatchDog) Stop(ctx context.Context) {
 
 func NewWatchDog() *WatchDog {
 	return &WatchDog{
-		toStop:  make(chan interface{}),
-		stopped: make(chan interface{}),
+		tofMapRead: make(map[string]int64),
+		toStop:     make(chan interface{}),
+		stopped:    make(chan interface{}),
 	}
 }
 

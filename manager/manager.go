@@ -35,7 +35,7 @@ type RManager struct {
 
 	masterID uint64
 
-	muOwnerMapRead sync.Mutex
+	muOwnerMapRead sync.RWMutex
 	ownerMapRead   map[uint64]string
 }
 
@@ -114,8 +114,8 @@ func (m *RManager) RemoveOwner(ownerID uint64) bool {
 }
 
 func (m *RManager) CopyOwnerMap() map[uint64]string {
-	m.muOwnerMapRead.Lock()
-	defer m.muOwnerMapRead.Unlock()
+	m.muOwnerMapRead.RLock()
+	defer m.muOwnerMapRead.RUnlock()
 
 	output := make(map[uint64]string, len(m.ownerMapRead))
 	for k, v := range m.ownerMapRead {

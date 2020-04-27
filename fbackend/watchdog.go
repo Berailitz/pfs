@@ -73,6 +73,14 @@ func (d *WatchDog) UpdateTof(ctx context.Context) {
 		log.Printf("ping success: ownerID=%v, addr=%v, tof=%v",
 			addr, addr, tof)
 		d.tofMap.Store(addr, tof)
+
+		if _, ok := d.routeMap.Load(addr); !ok {
+			d.routeMap.Store(addr, &RouteRule{
+				next: addr,
+				tof:  tof,
+			})
+		}
+
 		d.muTofMapRead.Lock()
 		defer d.muTofMapRead.Unlock()
 		d.tofMapRead[addr] = tof

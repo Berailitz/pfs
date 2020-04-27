@@ -24,6 +24,11 @@ func (d *WatchDog) SetFP(fp *FProxy) {
 	d.fp = fp
 }
 
+func (d *WatchDog) Route(addr string) string {
+	// TODO: find best route
+	return addr
+}
+
 func (d *WatchDog) Tof(addr string) (int64, bool) {
 	if distance, ok := d.tofMap.Load(addr); ok {
 		return distance.(int64), true

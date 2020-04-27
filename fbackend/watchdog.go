@@ -8,10 +8,16 @@ import (
 	"time"
 )
 
+type RouteRule struct {
+	next string
+	tof  int64
+}
+
 type WatchDog struct {
-	tofMap sync.Map // map[string]int64
-	fp     *FProxy
-	c      chan interface{}
+	tofMap   sync.Map // map[string]int64
+	routeMap sync.Map // map[string]*RouteRule
+	fp       *FProxy
+	c        chan interface{}
 }
 
 type WatchDogErr struct {
@@ -26,6 +32,11 @@ func (d *WatchDog) SetFP(fp *FProxy) {
 
 func (d *WatchDog) Route(addr string) string {
 	// TODO: find best route
+	if out, ok := d.routeMap.Load(addr); ok {
+		if route, ok := out.(*RouteRule); ok {
+			return route.next
+		}
+	}
 	return addr
 }
 

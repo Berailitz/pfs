@@ -53,6 +53,7 @@ func (p *PFS) Mount(ctx context.Context) error {
 	localAddr := fmt.Sprintf("%s:%d", p.param.Host, p.param.Port)
 
 	ma := manager.NewRManager()
+	ma.SetMaster(p.param.Master)
 
 	log.Printf("start rs: port=%v", p.param.Port)
 	p.rsvr = rserver.NewRServer(ma)

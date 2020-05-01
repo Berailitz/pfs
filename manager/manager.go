@@ -33,7 +33,7 @@ type RManager struct {
 	nodeAllocator  *idallocator.IDAllocator
 	ownerAllocator *idallocator.IDAllocator
 
-	masterID uint64
+	masterAddr string
 
 	muOwnerMapRead sync.RWMutex
 	ownerMapRead   map[uint64]string
@@ -124,16 +124,8 @@ func (m *RManager) CopyOwnerMap() map[uint64]string {
 	return output
 }
 
-func (m *RManager) IsMaster(id uint64) bool {
-	return id == m.masterID
-}
-
-func (m *RManager) QueryMaster() (uint64, string) {
-	addr, ok := m.Owners.Load(m.masterID)
-	if !ok {
-		return 0, ""
-	}
-	return m.masterID, addr.(string)
+func (m *RManager) MasterAddr() string {
+	return m.masterAddr
 }
 
 // AllocateRoot returns true if ownerID acquires the root node, false otherwise.
@@ -141,12 +133,15 @@ func (m *RManager) QueryMaster() (uint64, string) {
 func (m *RManager) AllocateRoot(ownerID uint64) bool {
 	if _, ok := m.Owners.Load(ownerID); ok {
 		if _, loaded := m.NodeOwner.LoadOrStore(RootNodeID, ownerID); !loaded {
-			m.masterID = ownerID
 			log.Printf("root allocated: ownerID=%v", ownerID)
 			return true
 		}
 	}
 	return false
+}
+
+func (m *RManager) SetMaster(masterAddr string) {
+	m.masterAddr = masterAddr
 }
 
 // NewRManager do not register or allocate
@@ -155,6 +150,5 @@ func NewRManager() *RManager {
 		nodeAllocator:  idallocator.NewIDAllocator(RootNodeID + 1), // since root is assigned by AllocateRoot, not allocated
 		ownerAllocator: idallocator.NewIDAllocator(FirstOwnerID),
 		ownerMapRead:   map[uint64]string{},
-		masterID:       FirstOwnerID,
 	}
 }

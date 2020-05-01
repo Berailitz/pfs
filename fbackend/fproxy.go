@@ -162,8 +162,8 @@ func (fp *FProxy) Gossip(ctx context.Context, addr string) (map[string]int64, er
 }
 
 func (fp *FProxy) GetOwnerMap(ctx context.Context) (map[uint64]string, error) {
-	mid, addr := fp.ma.QueryMaster()
-	if mid == fp.pcli.ID() {
+	addr := fp.ma.MasterAddr()
+	if addr == fp.localAddr {
 		return fp.ma.CopyOwnerMap(), nil
 	}
 

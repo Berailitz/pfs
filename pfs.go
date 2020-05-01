@@ -19,14 +19,15 @@ import (
 var gopts = []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
 
 type PFSParam struct {
-	Debug      bool   `yaml:"debug,omitempty"`
-	Port       int    `yaml:"port,omitempty"`
-	Host       string `yaml:"host,omitempty"`
-	Master     string `yaml:"master,omitempty"`
-	Dir        string `yaml:"dir,omitempty"`
-	FsName     string `yaml:"fsName,omitempty"`
-	FsType     string `yaml:"fsType,omitempty"`
-	VolumeName string `yaml:"volumeName,omitempty"`
+	Debug            bool   `yaml:"debug,omitempty"`
+	Port             int    `yaml:"port,omitempty"`
+	Host             string `yaml:"host,omitempty"`
+	Master           string `yaml:"master,omitempty"`
+	Dir              string `yaml:"dir,omitempty"`
+	FsName           string `yaml:"fsName,omitempty"`
+	FsType           string `yaml:"fsType,omitempty"`
+	VolumeName       string `yaml:"volumeName,omitempty"`
+	StaticTofCfgFile string `yaml:"staticTofCfgFile,omitempty"`
 }
 
 type PFS struct {
@@ -61,7 +62,7 @@ func (p *PFS) Mount(ctx context.Context) error {
 	}
 
 	log.Printf("create fp: master=%v, localAddr=%v, gopts=%+v", p.param.Master, localAddr, gopts)
-	fp := fbackend.NewFProxy(utility.GetUID(), utility.GetGID(), p.param.Master, localAddr, gopts, ma)
+	fp := fbackend.NewFProxy(utility.GetUID(), utility.GetGID(), p.param.Master, localAddr, gopts, ma, p.param.StaticTofCfgFile)
 	p.rsvr.RegisterFProxy(fp)
 
 	p.rsvr.StartFP(ctx)

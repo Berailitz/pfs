@@ -55,7 +55,8 @@ func NewFProxy(
 	masterAddr string,
 	localAddr string,
 	gopts []grpc.DialOption,
-	ma *manager.RManager) *FProxy {
+	ma *manager.RManager,
+	staticTofCfgFile string) *FProxy {
 	gcli, err := utility.BuildGCli(masterAddr, gopts)
 	if err != nil {
 		log.Fatalf("new gcli fial error: master=%v, opts=%#v, err=%+v",
@@ -69,7 +70,7 @@ func NewFProxy(
 	}
 	localID := pcli.RegisterSelf(localAddr)
 
-	wd := NewWatchDog()
+	wd := NewWatchDog(staticTofCfgFile)
 	allcator := idallocator.NewIDAllocator(initialHandle)
 	fb := NewFBackEnd(uid, gid, masterAddr, localAddr, gopts, allcator, localID, wd)
 	if fb == nil {

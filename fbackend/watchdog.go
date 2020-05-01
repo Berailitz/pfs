@@ -3,9 +3,12 @@ package fbackend
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"sync"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -27,6 +30,8 @@ type WatchDog struct {
 	fp       *FProxy
 	toStop   chan interface{}
 	stopped  chan interface{}
+
+	staticTofCfgFile string
 }
 
 type WatchDogErr struct {
@@ -112,6 +117,22 @@ func (d *WatchDog) checkTransit(ctx context.Context, transit string, remoteTofMa
 	}
 }
 
+func (d *WatchDog) loadStaticTof(ctx context.Context) (staticTofMap map[string]int64) {
+	staticTofMap = make(map[string]int64)
+	if len(d.staticTofCfgFile) > 0 {
+		bytes, err := ioutil.ReadFile(d.staticTofCfgFile)
+		if err != nil {
+			log.Printf("load static tof read file error: path=%v, err=%+v", d.staticTofCfgFile, err)
+			return
+		}
+		if err := yaml.Unmarshal(bytes, staticTofMap); err != nil {
+			log.Printf("load static tof unmarshal error: path=%v, err=%+v", d.staticTofCfgFile, err)
+			return
+		}
+	}
+	return
+}
+
 func (d *WatchDog) UpdateMap(ctx context.Context) {
 	log.Printf("updating tof map")
 	owners, err := d.fp.GetOwnerMap(ctx)
@@ -119,15 +140,22 @@ func (d *WatchDog) UpdateMap(ctx context.Context) {
 		log.Printf("get owners error: err=%+v", err)
 	}
 
+	staticTofMap := d.loadStaticTof(ctx)
+
 	for _, addr := range owners {
-		tof, err := d.fp.Measure(ctx, addr, true, true)
-		if err != nil {
-			log.Printf("ping error: ownerID=%v, addr=%v, err=%+v",
-				addr, addr, err)
-			continue
+		tof, ok := staticTofMap[addr]
+		if ok {
+			log.Printf("use static tof: addr=%v, tof=%v", addr, tof)
+		} else {
+			tof, err := d.fp.Measure(ctx, addr, true, true)
+			if err != nil {
+				log.Printf("ping error: ownerID=%v, addr=%v, err=%+v",
+					addr, addr, err)
+				continue
+			}
+			log.Printf("ping success: ownerID=%v, addr=%v, tof=%v",
+				addr, addr, tof)
 		}
-		log.Printf("ping success: ownerID=%v, addr=%v, tof=%v",
-			addr, addr, tof)
 		d.saveTof(ctx, addr, tof)
 
 		remoteTofMap, err := d.fp.Gossip(ctx, addr)
@@ -176,11 +204,11 @@ func (d *WatchDog) Stop(ctx context.Context) {
 	log.Printf("wd stopped")
 }
 
-func NewWatchDog() *WatchDog {
+func NewWatchDog(staticTofCfgFile string) *WatchDog {
 	return &WatchDog{
-		tofMapRead: make(map[string]int64),
-		toStop:     make(chan interface{}),
-		stopped:    make(chan interface{}),
+		tofMapRead: make(map[string]int64), toStop: make(chan interface{}),
+		stopped:          make(chan interface{}),
+		staticTofCfgFile: staticTofCfgFile,
 	}
 }
 

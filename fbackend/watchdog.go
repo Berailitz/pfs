@@ -81,6 +81,26 @@ func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
 	d.tofMapRead[addr] = tof
 }
 
+func (d *WatchDog) checkTransit(ctx context.Context, transit string, transitTof int64, remoteTofMap map[string]int64) {
+	for dst, remoteTof := range remoteTofMap {
+		if out, ok := d.routeMap.Load(dst); ok {
+			if rule, ok := out.(*RouteRule); ok {
+				totalTof := transitTof + remoteTof
+				if rule.tof > totalTof {
+					d.routeMap.Store(dst, &RouteRule{
+						next: transit,
+						tof:  totalTof,
+					})
+					log.Printf("save new rule: dst=%v, transit=%v, transitTof=%v, totalTof=%v, oldRule=%+v",
+						dst, transit, transitTof, totalTof, *rule)
+				}
+				continue
+			}
+			log.Printf("non-rule error: dst=%v, out=%+v", dst, out)
+		}
+	}
+}
+
 func (d *WatchDog) UpdateMap(ctx context.Context) {
 	log.Printf("updating tof map")
 	owners, err := d.fp.GetOwnerMap(ctx)
@@ -98,6 +118,15 @@ func (d *WatchDog) UpdateMap(ctx context.Context) {
 		log.Printf("ping success: ownerID=%v, addr=%v, tof=%v",
 			addr, addr, tof)
 		d.saveTof(ctx, addr, tof)
+
+		remoteTofMap, err := d.fp.Gossip(ctx, addr)
+		if err != nil {
+			log.Printf("gossip error: ownerID=%v, addr=%v, err=%+v",
+				addr, addr, err)
+			continue
+		}
+		log.Printf("gossip success: addr=%v, remoteTofMap=%+v", addr, remoteTofMap)
+		d.checkTransit(ctx, addr, tof, remoteTofMap)
 	}
 }
 

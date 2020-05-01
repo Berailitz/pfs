@@ -81,7 +81,13 @@ func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
 	d.tofMapRead[addr] = tof
 }
 
-func (d *WatchDog) checkTransit(ctx context.Context, transit string, transitTof int64, remoteTofMap map[string]int64) {
+func (d *WatchDog) checkTransit(ctx context.Context, transit string, remoteTofMap map[string]int64) {
+	transitTof, ok := d.Tof(transit)
+	if !ok {
+		log.Printf("checkTransit no tof error: transit=%v", transit)
+		return
+	}
+
 	for dst, remoteTof := range remoteTofMap {
 		if out, ok := d.routeMap.Load(dst); ok {
 			if rule, ok := out.(*RouteRule); ok {
@@ -126,7 +132,7 @@ func (d *WatchDog) UpdateMap(ctx context.Context) {
 			continue
 		}
 		log.Printf("gossip success: addr=%v, remoteTofMap=%+v", addr, remoteTofMap)
-		d.checkTransit(ctx, addr, tof, remoteTofMap)
+		d.checkTransit(ctx, addr, remoteTofMap)
 	}
 }
 

@@ -68,14 +68,14 @@ func NewFBackEnd(
 	}
 }
 
-func (fb *FBackEnd) SetFP(fp *FProxy) {
+func (fb *FBackEnd) SetFP(ctx context.Context, fp *FProxy) {
 	if fp == nil {
 		log.Fatalf("set nil fp error")
 	}
 
 	fb.fp = fp
 	// Set up the root rnode
-	if err := fb.MakeRoot(); err != nil {
+	if err := fb.MakeRoot(ctx); err != nil {
 		log.Printf("make root error, use remote root: err=%+v", err)
 	}
 }
@@ -226,8 +226,8 @@ func (fb *FBackEnd) deleteNode(ctx context.Context, id uint64) error {
 }
 
 // MakeRoot should only be called at new
-func (fb *FBackEnd) MakeRoot() error {
-	if ok := fb.fp.AllocateRoot(fb.localID); !ok {
+func (fb *FBackEnd) MakeRoot(ctx context.Context) error {
+	if ok := fb.fp.AllocateRoot(ctx, fb.localID); !ok {
 		log.Printf("make root allocate root error")
 		return &FBackEndErr{"make root allocate root error"}
 	}
@@ -302,9 +302,10 @@ func (fb *FBackEnd) unlock() {
 //
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) allocateInode(
+	ctx context.Context,
 	attrs fuse.Attr) (uint64, *rnode.RNode) {
 	// Create the rnode.RNode.
-	id := fb.fp.Allocate(fb.localID)
+	id := fb.fp.Allocate(ctx, fb.localID)
 	if id > 0 {
 		node := rnode.NewRNode(attrs, id)
 		if err := fb.storeNode(id, node); err != nil {
@@ -320,7 +321,7 @@ func (fb *FBackEnd) allocateInode(
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) deallocateInode(ctx context.Context, id uint64) error {
 	log.Printf("deallocate: id=%v", id)
-	if ok := fb.fp.Deallocate(id); !ok {
+	if ok := fb.fp.Deallocate(ctx, id); !ok {
 		err := &FBackEndErr{fmt.Sprintf("deallocate no node error: nodeID=%v", id)}
 		log.Printf("deallocate master deallocate error: id=%v, err=%+v", id, err)
 		return err
@@ -530,7 +531,7 @@ func (fb *FBackEnd) MkDir(
 	}
 
 	// Allocate a child.
-	childID, _ := fb.allocateInode(childAttrs)
+	childID, _ := fb.allocateInode(ctx, childAttrs)
 	defer func() {
 		if err != nil {
 			if derr := fb.deallocateInode(ctx, childID); derr != nil {
@@ -572,7 +573,7 @@ func (fb *FBackEnd) CreateNode(
 	}
 
 	// Allocate a child.
-	childID, _ := fb.allocateInode(childAttrs)
+	childID, _ := fb.allocateInode(ctx, childAttrs)
 	defer func() {
 		if err != nil {
 			if derr := fb.deallocateInode(ctx, childID); derr != nil {
@@ -615,7 +616,7 @@ func (fb *FBackEnd) CreateFile(
 	}
 
 	// Allocate a child.
-	childID, _ = fb.allocateInode(childAttrs)
+	childID, _ = fb.allocateInode(ctx, childAttrs)
 	defer func() {
 		if err != nil {
 			if derr := fb.deallocateInode(ctx, childID); derr != nil {
@@ -656,7 +657,7 @@ func (fb *FBackEnd) CreateSymlink(
 	}
 
 	// Allocate a child.
-	childID, child := fb.allocateInode(childAttrs)
+	childID, child := fb.allocateInode(ctx, childAttrs)
 	defer func() {
 		if err != nil {
 			if derr := fb.deallocateInode(ctx, childID); derr != nil {

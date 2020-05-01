@@ -364,57 +364,57 @@ func (s *RServer) Fallocate(ctx context.Context, req *pb.FallocateRequest) (*pb.
 
 func (s *RServer) QueryOwner(ctx context.Context, req *pb.UInt64ID) (*pb.Addr, error) {
 	if s.fp != nil {
-		return &pb.Addr{Addr: s.fp.QueryOwner(req.Id)}, nil
+		return &pb.Addr{Addr: s.fp.QueryOwner(ctx, req.Id)}, nil
 	} else {
-		return &pb.Addr{Addr: s.ma.QueryOwner(req.Id)}, nil
+		return &pb.Addr{Addr: s.ma.QueryOwner(ctx, req.Id)}, nil
 	}
 }
 
 func (s *RServer) QueryAddr(ctx context.Context, req *pb.UInt64ID) (*pb.Addr, error) {
 	if s.fp != nil {
-		return &pb.Addr{Addr: s.fp.QueryAddr(req.Id)}, nil
+		return &pb.Addr{Addr: s.fp.QueryAddr(ctx, req.Id)}, nil
 	} else {
-		return &pb.Addr{Addr: s.ma.QueryAddr(req.Id)}, nil
+		return &pb.Addr{Addr: s.ma.QueryAddr(ctx, req.Id)}, nil
 	}
 }
 
 func (s *RServer) Allocate(ctx context.Context, req *pb.OwnerId) (*pb.UInt64ID, error) {
 	if s.fp != nil {
-		return &pb.UInt64ID{Id: s.fp.Allocate(req.Id)}, nil
+		return &pb.UInt64ID{Id: s.fp.Allocate(ctx, req.Id)}, nil
 	} else {
-		return &pb.UInt64ID{Id: s.ma.Allocate(req.Id)}, nil
+		return &pb.UInt64ID{Id: s.ma.Allocate(ctx, req.Id)}, nil
 	}
 }
 
 func (s *RServer) Deallocate(ctx context.Context, req *pb.UInt64ID) (*pb.IsOK, error) {
 	if s.fp != nil {
-		return &pb.IsOK{Ok: s.fp.Deallocate(req.Id)}, nil
+		return &pb.IsOK{Ok: s.fp.Deallocate(ctx, req.Id)}, nil
 	} else {
-		return &pb.IsOK{Ok: s.ma.Deallocate(req.Id)}, nil
+		return &pb.IsOK{Ok: s.ma.Deallocate(ctx, req.Id)}, nil
 	}
 }
 
 func (s *RServer) RegisterOwner(ctx context.Context, req *pb.Addr) (*pb.OwnerId, error) {
 	if s.fp != nil {
-		return &pb.OwnerId{Id: s.fp.RegisterOwner(req.Addr)}, nil
+		return &pb.OwnerId{Id: s.fp.RegisterOwner(ctx, req.Addr)}, nil
 	} else {
-		return &pb.OwnerId{Id: s.ma.RegisterOwner(req.Addr)}, nil
+		return &pb.OwnerId{Id: s.ma.RegisterOwner(ctx, req.Addr)}, nil
 	}
 }
 
 func (s *RServer) RemoveOwner(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, error) {
 	if s.fp != nil {
-		return &pb.IsOK{Ok: s.fp.RemoveOwner(req.Id)}, nil
+		return &pb.IsOK{Ok: s.fp.RemoveOwner(ctx, req.Id)}, nil
 	} else {
-		return &pb.IsOK{Ok: s.ma.RemoveOwner(req.Id)}, nil
+		return &pb.IsOK{Ok: s.ma.RemoveOwner(ctx, req.Id)}, nil
 	}
 }
 
 func (s *RServer) AllocateRoot(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, error) {
 	if s.fp != nil {
-		return &pb.IsOK{Ok: s.fp.AllocateRoot(req.Id)}, nil
+		return &pb.IsOK{Ok: s.fp.AllocateRoot(ctx, req.Id)}, nil
 	} else {
-		return &pb.IsOK{Ok: s.ma.AllocateRoot(req.Id)}, nil
+		return &pb.IsOK{Ok: s.ma.AllocateRoot(ctx, req.Id)}, nil
 	}
 }
 

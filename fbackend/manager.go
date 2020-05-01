@@ -1,6 +1,7 @@
 package fbackend
 
 import (
+	"context"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -31,11 +32,11 @@ type RManager struct {
 	ownerMapRead   map[uint64]string
 }
 
-func (m *RManager) QueryOwner(nodeID uint64) string {
+func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) string {
 	log.Printf("query owner: nodeID=%v", nodeID)
 	if ownerOut, ok := m.NodeOwner.Load(nodeID); ok {
 		if owner, ok := ownerOut.(uint64); ok {
-			addr := m.QueryAddr(owner)
+			addr := m.QueryAddr(ctx, owner)
 			log.Printf("query owner success: nodeID=%v, addr=%v", nodeID, addr)
 			return addr
 		}
@@ -46,7 +47,7 @@ func (m *RManager) QueryOwner(nodeID uint64) string {
 	return ""
 }
 
-func (m *RManager) QueryAddr(ownerID uint64) string {
+func (m *RManager) QueryAddr(ctx context.Context, ownerID uint64) string {
 	if out, ok := m.Owners.Load(ownerID); ok {
 		if addr, ok := out.(string); ok {
 			return addr
@@ -55,7 +56,7 @@ func (m *RManager) QueryAddr(ownerID uint64) string {
 	return ""
 }
 
-func (m *RManager) Allocate(ownerID uint64) uint64 {
+func (m *RManager) Allocate(ctx context.Context, ownerID uint64) uint64 {
 	if _, ok := m.Owners.Load(ownerID); ok {
 		id := m.nodeAllocator.Allocate()
 		m.NodeOwner.Store(id, ownerID)
@@ -64,7 +65,7 @@ func (m *RManager) Allocate(ownerID uint64) uint64 {
 	return 0
 }
 
-func (m *RManager) Deallocate(nodeID uint64) bool {
+func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
 	if out, ok := m.NodeOwner.Load(nodeID); ok {
 		if ownerID, ok := out.(uint64); ok {
 			m.NodeOwner.Delete(nodeID)
@@ -76,7 +77,7 @@ func (m *RManager) Deallocate(nodeID uint64) bool {
 }
 
 // RegisterOwner return 0 if err
-func (m *RManager) RegisterOwner(addr string) uint64 {
+func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
 	ownerID := m.ownerAllocator.Allocate()
 	if ownerID <= MaxOwnerID {
 		m.muOwnerMapRead.Lock()
@@ -90,7 +91,7 @@ func (m *RManager) RegisterOwner(addr string) uint64 {
 	return 0
 }
 
-func (m *RManager) RemoveOwner(ownerID uint64) bool {
+func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) bool {
 	if atomic.LoadUint64(&m.OwnerCounter[ownerID]) == 0 {
 		m.muOwnerMapRead.Lock()
 		defer m.muOwnerMapRead.Unlock()
@@ -103,7 +104,7 @@ func (m *RManager) RemoveOwner(ownerID uint64) bool {
 	return false
 }
 
-func (m *RManager) CopyOwnerMap() map[uint64]string {
+func (m *RManager) CopyOwnerMap(ctx context.Context) map[uint64]string {
 	m.muOwnerMapRead.RLock()
 	defer m.muOwnerMapRead.RUnlock()
 
@@ -120,7 +121,7 @@ func (m *RManager) MasterAddr() string {
 
 // AllocateRoot returns true if ownerID acquires the root node, false otherwise.
 // Note that AllocateRoot returns false if ownID is invalid.
-func (m *RManager) AllocateRoot(ownerID uint64) bool {
+func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 	if _, ok := m.Owners.Load(ownerID); ok {
 		if _, loaded := m.NodeOwner.LoadOrStore(RootNodeID, ownerID); !loaded {
 			log.Printf("root allocated: ownerID=%v", ownerID)

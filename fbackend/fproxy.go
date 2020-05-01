@@ -76,7 +76,7 @@ func NewFProxy(
 		allcator:  allcator,
 		localAddr: localAddr,
 	}
-	fb.SetFP(fp)
+	fb.SetFP(ctx, fp)
 	wd.SetFP(fp)
 	return fp
 }
@@ -152,7 +152,7 @@ func (fp *FProxy) Gossip(ctx context.Context, addr string) (_ map[string]int64, 
 func (fp *FProxy) GetOwnerMap(ctx context.Context) (map[uint64]string, error) {
 	addr := fp.ma.MasterAddr()
 	if addr == fp.localAddr {
-		return fp.ma.CopyOwnerMap(), nil
+		return fp.ma.CopyOwnerMap(ctx), nil
 	}
 
 	gcli, err := fp.pool.Load(addr)
@@ -979,37 +979,37 @@ func (fp *FProxy) isChildLocal(ctx context.Context, parentId uint64, name string
 	return err == nil
 }
 
-func (fp *FProxy) QueryOwner(nodeID uint64) string {
-	return fp.ma.QueryOwner(nodeID)
+func (fp *FProxy) QueryOwner(ctx context.Context, nodeID uint64) string {
+	return fp.ma.QueryOwner(ctx, nodeID)
 }
 
-func (fp *FProxy) QueryAddr(nodeID uint64) string {
-	return fp.ma.QueryAddr(nodeID)
+func (fp *FProxy) QueryAddr(ctx context.Context, nodeID uint64) string {
+	return fp.ma.QueryAddr(ctx, nodeID)
 }
 
-func (fp *FProxy) Allocate(ownerID uint64) uint64 {
-	return fp.ma.Allocate(ownerID)
+func (fp *FProxy) Allocate(ctx context.Context, ownerID uint64) uint64 {
+	return fp.ma.Allocate(ctx, ownerID)
 }
 
-func (fp *FProxy) Deallocate(nodeID uint64) bool {
-	return fp.ma.Deallocate(nodeID)
+func (fp *FProxy) Deallocate(ctx context.Context, nodeID uint64) bool {
+	return fp.ma.Deallocate(ctx, nodeID)
 }
 
-func (fp *FProxy) RegisterOwner(addr string) uint64 {
-	return fp.ma.RegisterOwner(addr)
+func (fp *FProxy) RegisterOwner(ctx context.Context, addr string) uint64 {
+	return fp.ma.RegisterOwner(ctx, addr)
 }
 
-func (fp *FProxy) RemoveOwner(ownerID uint64) bool {
-	return fp.ma.RemoveOwner(ownerID)
+func (fp *FProxy) RemoveOwner(ctx context.Context, ownerID uint64) bool {
+	return fp.ma.RemoveOwner(ctx, ownerID)
 }
 
-func (fp *FProxy) CopyOwnerMap() map[uint64]string {
-	return fp.ma.CopyOwnerMap()
+func (fp *FProxy) CopyOwnerMap(ctx context.Context) map[uint64]string {
+	return fp.ma.CopyOwnerMap(ctx)
 
 }
 
-func (fp *FProxy) AllocateRoot(ownerID uint64) bool {
-	return fp.ma.AllocateRoot(ownerID)
+func (fp *FProxy) AllocateRoot(ctx context.Context, ownerID uint64) bool {
+	return fp.ma.AllocateRoot(ctx, ownerID)
 }
 
 func (e *FPErr) Error() string {

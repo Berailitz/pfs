@@ -66,7 +66,7 @@ func (d *WatchDog) CopyTofMap(ctx context.Context) (copied map[string]int64) {
 	return copied
 }
 
-func (d *WatchDog) UpdateTof(ctx context.Context) {
+func (d *WatchDog) UpdateMap(ctx context.Context) {
 	log.Printf("updating tof map")
 	owners, err := d.fp.GetOwnerMap(ctx)
 	if err != nil {
@@ -120,7 +120,7 @@ func (d *WatchDog) Run(ctx context.Context) (err error) {
 			log.Printf("watch dog is quitting")
 			return nil
 		case <-time.After(updateInterval):
-			d.UpdateTof(ctx)
+			d.UpdateMap(ctx)
 		}
 	}
 }

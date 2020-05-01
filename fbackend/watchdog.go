@@ -56,6 +56,16 @@ func (d *WatchDog) Tof(addr string) (int64, bool) {
 	return 0, false
 }
 
+func (d *WatchDog) CopyTofMap(ctx context.Context) (copied map[string]int64) {
+	d.muTofMapRead.RLock()
+	defer d.muTofMapRead.RUnlock()
+	copied = make(map[string]int64, len(d.tofMapRead))
+	for k, v := range d.tofMapRead {
+		copied[k] = v
+	}
+	return copied
+}
+
 func (d *WatchDog) UpdateTof(ctx context.Context) {
 	log.Printf("updating tof map")
 	owners, err := d.fp.GetOwnerMap(ctx)

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Berailitz/pfs/utility"
+
 	"gopkg.in/yaml.v2"
 )
 
@@ -194,18 +196,7 @@ func (d *WatchDog) UpdateMap(ctx context.Context) {
 
 func (d *WatchDog) Run(ctx context.Context) (err error) {
 	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("watch dog recovered: r=%+v", r)
-			if err == nil {
-				if rerr, ok := r.(error); ok {
-					err = rerr
-				} else {
-					err = &WatchDogErr{
-						fmt.Sprintf("run error: r=%+v", r),
-					}
-				}
-			}
-		}
+		utility.RecoverWithStack(&err)
 		close(d.stopped)
 	}()
 

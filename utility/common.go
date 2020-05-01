@@ -1,8 +1,10 @@
 package utility
 
 import (
+	"fmt"
 	"log"
 	"os/user"
+	"runtime/debug"
 	"strconv"
 )
 
@@ -32,4 +34,20 @@ func GetGID() uint32 {
 	}
 
 	return uint32(gid)
+}
+
+func RecoverWithStack(err *error) {
+	if r := recover(); r != nil {
+		fallbackErr := fmt.Errorf("stacktrace from panic: \n%v\n", string(debug.Stack()))
+		log.Printf(fallbackErr.Error())
+		if err != nil {
+			if *err == nil {
+				if rerr, ok := r.(error); ok {
+					*err = rerr
+				} else {
+					*err = fallbackErr
+				}
+			}
+		}
+	}
 }

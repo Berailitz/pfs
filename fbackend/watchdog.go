@@ -10,6 +10,7 @@ import (
 
 const (
 	updateInterval = 10 * time.Second
+	tofUpdateRatio = 0.8
 )
 
 type RouteRule struct {
@@ -68,11 +69,15 @@ func (d *WatchDog) CopyTofMap(ctx context.Context) (copied map[string]int64) {
 
 func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
 	d.tofMap.Store(addr, tof)
+	smoothTof := tof
+	if oldTof, ok := d.Tof(addr); ok {
+		smoothTof = int64(float64(oldTof)*(1-tofUpdateRatio) + float64(tof)*tofUpdateRatio)
+	}
 
 	if _, ok := d.routeMap.Load(addr); !ok {
 		d.routeMap.Store(addr, &RouteRule{
 			next: addr,
-			tof:  tof,
+			tof:  smoothTof,
 		})
 	}
 

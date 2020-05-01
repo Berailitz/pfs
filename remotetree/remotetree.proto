@@ -7,6 +7,7 @@ service RemoteTree {
     //rpc WLock(UInt64ID) returns (StatusReply) {}
     //rpc RUnlock(UInt64ID) returns (StatusReply) {}
     //rpc WUnlock(UInt64ID) returns (StatusReply) {}
+    rpc Propose(ProposeRequest) returns (ProposeReply) {}
 
     rpc Ping(PingRequest) returns (PingReply) {}
     rpc Gossip(GossipRequest) returns (GossipReply) {}
@@ -48,6 +49,18 @@ service RemoteTree {
     rpc RegisterOwner(Addr) returns (OwnerId) {}
     rpc RemoveOwner(OwnerId) returns (IsOK) {}
     rpc AllocateRoot(OwnerId) returns (IsOK) {}
+}
+
+message ProposeRequest {
+    uint64 proposeID = 1;
+    int64 proposeType = 2;
+    uint64 key = 3;
+    string value = 4;
+}
+
+message ProposeReply {
+    Error err = 1;
+    int64 state = 2;
 }
 
 message EmptyMsg {

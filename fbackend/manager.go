@@ -3,8 +3,11 @@ package fbackend
 import (
 	"context"
 	"log"
+	"strconv"
 	"sync"
 	"sync/atomic"
+
+	"github.com/Berailitz/pfs/utility"
 
 	"github.com/Berailitz/pfs/idallocator"
 
@@ -16,6 +19,13 @@ const (
 	FirstOwnerID    uint64 = 1
 	FirstProposalID uint64 = 1
 	MaxOwnerID      uint64 = 200
+)
+
+const (
+	AddOwnerProposalType    = 1
+	RemoveOwnerProposalType = 2
+	AddNodeProposalType     = 3
+	RemoveNodeProposalType  = 4
 )
 
 type RManager struct {
@@ -30,6 +40,8 @@ type RManager struct {
 
 	muOwnerMapRead sync.RWMutex
 	ownerMapRead   map[uint64]string
+
+	fp *FProxy
 }
 
 func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) string {
@@ -60,6 +72,7 @@ func (m *RManager) Allocate(ctx context.Context, ownerID uint64) uint64 {
 	if _, ok := m.Owners.Load(ownerID); ok {
 		id := m.nodeAllocator.Allocate()
 		m.NodeOwner.Store(id, ownerID)
+		go m.broadcastProposal(ctx, AddNodeProposalType, id, strconv.FormatUint(ownerID, 10))
 		return id
 	}
 	return 0
@@ -70,6 +83,7 @@ func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
 		if ownerID, ok := out.(uint64); ok {
 			m.NodeOwner.Delete(nodeID)
 			atomic.AddUint64(&m.OwnerCounter[ownerID], ^uint64(0))
+			go m.broadcastProposal(ctx, RemoveNodeProposalType, nodeID, "")
 			return true
 		}
 	}
@@ -85,6 +99,7 @@ func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
 
 		m.Owners.Store(ownerID, addr)
 		m.ownerMapRead[ownerID] = addr
+		go m.broadcastProposal(ctx, AddOwnerProposalType, ownerID, addr)
 
 		return ownerID
 	}
@@ -98,6 +113,7 @@ func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) bool {
 
 		m.Owners.Delete(ownerID)
 		delete(m.ownerMapRead, ownerID)
+		go m.broadcastProposal(ctx, RemoveOwnerProposalType, ownerID, "")
 
 		return true
 	}
@@ -131,8 +147,30 @@ func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 	return false
 }
 
+func (m *RManager) broadcastProposal(ctx context.Context, proposeType int64, key uint64, value string) {
+	// TODO: use queue
+	defer utility.RecoverWithStack(nil)
+	m.muOwnerMapRead.RLock()
+	defer m.muOwnerMapRead.RUnlock()
+	proposalID := m.proposalAllocator.Allocate()
+	for _, addr := range m.ownerMapRead {
+		if addr != m.MasterAddr() {
+			// TODO handle state and err
+			_, err := m.fp.sendProposal(ctx, addr, proposalID, proposeType, key, value)
+			if err != nil {
+				log.Printf("rpc proposal error: addr=%v, proposalId=%v, proposalType=%v, key=%v, value=%v, err=%+v",
+					addr, proposalID, proposeType, key, value, err)
+			}
+		}
+	}
+}
+
 func (m *RManager) SetMaster(masterAddr string) {
 	m.masterAddr = masterAddr
+}
+
+func (m *RManager) SetFP(fp *FProxy) {
+	m.fp = fp
 }
 
 // NewRManager do not register or allocate

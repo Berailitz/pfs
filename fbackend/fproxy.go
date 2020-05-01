@@ -1012,6 +1012,26 @@ func (fp *FProxy) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 	return fp.ma.AllocateRoot(ctx, ownerID)
 }
 
+func (fp *FProxy) sendProposal(ctx context.Context, addr string, proposalId uint64, proposeType int64, key uint64, value string) (state int64, err error) {
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return 0, err
+	}
+
+	reply, err := gcli.Propose(ctx, &pb.ProposeRequest{
+		ProposeID:   proposalId,
+		ProposeType: proposeType,
+		Key:         key,
+		Value:       value,
+	})
+	if err != nil {
+		log.Printf("rpc proposal error: addr=%v, proposalId=%v, proposalType=%v, key=%v, value=%v, err=%+v",
+			addr, proposalId, proposeType, key, value, err)
+		return 0, err
+	}
+	return reply.State, utility.FromPbErr(reply.Err)
+}
+
 func (e *FPErr) Error() string {
 	return fmt.Sprintf("fproxy error: %v", e.msg)
 }

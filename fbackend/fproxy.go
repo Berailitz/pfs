@@ -130,6 +130,7 @@ func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool, disa
 	reply, err := gcli.Ping(ctx, &pb.PingRequest{
 		Addr:      addr,
 		Departure: time.Now().UnixNano(),
+		Src:       fp.localAddr,
 	})
 	if err != nil {
 		log.Printf("fp ping error: addr=%v, err=%+v", addr, err)

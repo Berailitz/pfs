@@ -20,6 +20,7 @@ func main() {
 
 	masterAddr := flag.String("masterAddr", "127.0.0.1:10000", "masterAddr")
 	dst := flag.String("dst", "127.0.0.1:10000", "dst")
+	src := flag.String("src", "127.0.0.1:10000", "src")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -34,6 +35,7 @@ func main() {
 	reply, err := gcli.Ping(ctx, &pb.PingRequest{
 		Addr:      *dst,
 		Departure: departure,
+		Src:       *src,
 	})
 	if err != nil {
 		log.Fatalf("fp ping error: addr=%v, err=%+v", *dst, err)

@@ -61,6 +61,7 @@ message Uint64StrMapMsg {
 message PingRequest {
     string addr = 1;
     int64 departure = 2;
+    string src = 3;
 }
 
 message PingReply {

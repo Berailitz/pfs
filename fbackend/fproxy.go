@@ -52,19 +52,11 @@ var _ = (error)((*FPErr)(nil))
 func NewFProxy(
 	uid uint32,
 	gid uint32,
-	masterAddr string,
 	localAddr string,
 	gopts []grpc.DialOption,
 	ma *manager.RManager,
 	staticTofCfgFile string) *FProxy {
-	gcli, err := utility.BuildGCli(masterAddr, gopts)
-	if err != nil {
-		log.Fatalf("new gcli fial error: master=%v, opts=%#v, err=%+v",
-			masterAddr, gopts, err)
-		return nil
-	}
-
-	pcli := rclient.NewRClient(gcli)
+	pcli := rclient.NewRClient(ma, gopts)
 	if pcli == nil {
 		log.Fatalf("nil pcli error")
 	}
@@ -74,8 +66,8 @@ func NewFProxy(
 	allcator := idallocator.NewIDAllocator(initialHandle)
 	fb := NewFBackEnd(uid, gid, allcator, localID)
 	if fb == nil {
-		log.Fatalf("new fp nil fb error: uid=%v, gid=%v, masterAddr=%v, localAddr=%v, gopts=%+v",
-			uid, gid, masterAddr, localAddr, gopts)
+		log.Fatalf("new fp nil fb error: uid=%v, gid=%v, localAddr=%v, gopts=%+v",
+			uid, gid, localAddr, gopts)
 	}
 
 	fp := &FProxy{

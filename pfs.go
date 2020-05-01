@@ -63,7 +63,7 @@ func (p *PFS) Mount(ctx context.Context) error {
 	}
 
 	log.Printf("create fp: master=%v, localAddr=%v, gopts=%+v", p.param.Master, localAddr, gopts)
-	fp := fbackend.NewFProxy(utility.GetUID(), utility.GetGID(), p.param.Master, localAddr, gopts, ma, p.param.StaticTofCfgFile)
+	fp := fbackend.NewFProxy(utility.GetUID(), utility.GetGID(), localAddr, gopts, ma, p.param.StaticTofCfgFile)
 	p.rsvr.RegisterFProxy(fp)
 
 	p.rsvr.StartFP(ctx)

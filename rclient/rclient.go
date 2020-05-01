@@ -7,16 +7,36 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Berailitz/pfs/utility"
+	"google.golang.org/grpc"
+
+	"github.com/Berailitz/pfs/manager"
+
 	pb "github.com/Berailitz/pfs/remotetree"
 )
 
 type RClient struct {
-	id   uint64
-	gcli pb.RemoteTreeClient
+	id uint64
+	ma *manager.RManager
+
+	cachedMasterAddr string
+	cachedGCli       pb.RemoteTreeClient
+	gopts            []grpc.DialOption
 }
 
 type RClientErr struct {
 	msg string
+}
+
+func (c *RClient) buildGCli(ctx context.Context) (_ pb.RemoteTreeClient, err error) {
+	masterAddr := c.ma.MasterAddr()
+	if c.cachedMasterAddr != masterAddr {
+		if c.cachedGCli, err = utility.BuildGCli(masterAddr, c.gopts); err != nil {
+			return nil, err
+		}
+		c.cachedMasterAddr = masterAddr
+	}
+	return c.cachedGCli, nil
 }
 
 func (c *RClient) mustHaveID() {
@@ -29,7 +49,12 @@ func (c *RClient) mustHaveID() {
 func (c *RClient) QueryOwner(nodeID uint64) string {
 	log.Printf("query owner: nodeID=%v", nodeID)
 	ctx := context.Background()
-	addr, err := c.gcli.QueryOwner(ctx, &pb.UInt64ID{
+	gcli, err := c.buildGCli(ctx)
+	if err != nil {
+		return ""
+	}
+
+	addr, err := gcli.QueryOwner(ctx, &pb.UInt64ID{
 		Id: nodeID,
 	})
 	if err != nil {
@@ -43,7 +68,12 @@ func (c *RClient) QueryOwner(nodeID uint64) string {
 func (c *RClient) QueryAddr(ownerID uint64) string {
 	log.Printf("query addr: ownerID=%v", ownerID)
 	ctx := context.Background()
-	addr, err := c.gcli.QueryAddr(ctx, &pb.UInt64ID{
+	gcli, err := c.buildGCli(ctx)
+	if err != nil {
+		return ""
+	}
+
+	addr, err := gcli.QueryAddr(ctx, &pb.UInt64ID{
 		Id: ownerID,
 	})
 	if err != nil {
@@ -58,7 +88,12 @@ func (c *RClient) Allocate() uint64 {
 	ctx := context.Background()
 	c.mustHaveID()
 	log.Printf("allocate node")
-	nodeID, err := c.gcli.Allocate(ctx, &pb.OwnerId{
+	gcli, err := c.buildGCli(ctx)
+	if err != nil {
+		return 0
+	}
+
+	nodeID, err := gcli.Allocate(ctx, &pb.OwnerId{
 		Id: c.id,
 	})
 	if err != nil {
@@ -72,7 +107,12 @@ func (c *RClient) Allocate() uint64 {
 func (c *RClient) Deallocate(nodeID uint64) error {
 	log.Printf("deallocate: nodeID=%v", nodeID)
 	ctx := context.Background()
-	out, err := c.gcli.Deallocate(ctx, &pb.UInt64ID{
+	gcli, err := c.buildGCli(ctx)
+	if err != nil {
+		return err
+	}
+
+	out, err := gcli.Deallocate(ctx, &pb.UInt64ID{
 		Id: nodeID,
 	})
 	if err != nil {
@@ -92,7 +132,12 @@ func (c *RClient) Deallocate(nodeID uint64) error {
 func (c *RClient) RegisterOwner(addr string) uint64 {
 	log.Printf("register owner: addr=%v", addr)
 	ctx := context.Background()
-	out, err := c.gcli.RegisterOwner(ctx, &pb.Addr{
+	gcli, err := c.buildGCli(ctx)
+	if err != nil {
+		return 0
+	}
+
+	out, err := gcli.RegisterOwner(ctx, &pb.Addr{
 		Addr: addr,
 	})
 	if err != nil {
@@ -106,7 +151,12 @@ func (c *RClient) RegisterOwner(addr string) uint64 {
 func (c *RClient) RemoveOwner(ownerID uint64) bool {
 	log.Printf("remove owner: ownerID=%v", ownerID)
 	ctx := context.Background()
-	out, err := c.gcli.RemoveOwner(ctx, &pb.OwnerId{
+	gcli, err := c.buildGCli(ctx)
+	if err != nil {
+		return false
+	}
+
+	out, err := gcli.RemoveOwner(ctx, &pb.OwnerId{
 		Id: ownerID,
 	})
 	if err != nil {
@@ -119,9 +169,14 @@ func (c *RClient) RemoveOwner(ownerID uint64) bool {
 
 func (c *RClient) AllocateRoot() bool {
 	ctx := context.Background()
+	gcli, err := c.buildGCli(ctx)
+	if err != nil {
+		return false
+	}
+
 	c.mustHaveID()
 	log.Printf("allocate root: ownerID=%v", c.id)
-	out, err := c.gcli.AllocateRoot(ctx, &pb.OwnerId{
+	out, err := gcli.AllocateRoot(ctx, &pb.OwnerId{
 		Id: c.id,
 	})
 	if err != nil {
@@ -162,9 +217,10 @@ func (c *RClient) ID() uint64 {
 	return c.id
 }
 
-func NewRClient(gcli pb.RemoteTreeClient) *RClient {
+func NewRClient(ma *manager.RManager, gopts []grpc.DialOption) *RClient {
 	return &RClient{
-		gcli: gcli,
+		ma:    ma,
+		gopts: gopts,
 	}
 }
 

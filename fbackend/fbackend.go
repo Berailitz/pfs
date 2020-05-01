@@ -10,8 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Berailitz/pfs/manager"
-
 	"bazil.org/fuse"
 
 	"github.com/Berailitz/pfs/idallocator"
@@ -235,7 +233,7 @@ func (fb *FBackEnd) MakeRoot() error {
 	}
 	rootAttrs := fuse.Attr{
 		Valid:     0,
-		Inode:     manager.RootNodeID,
+		Inode:     RootNodeID,
 		Size:      0,
 		Blocks:    0,
 		Atime:     time.Time{},
@@ -250,7 +248,7 @@ func (fb *FBackEnd) MakeRoot() error {
 		Flags:     0,
 		BlockSize: 0,
 	}
-	if err := fb.storeNode(manager.RootNodeID, rnode.NewRNode(rootAttrs, manager.RootNodeID)); err != nil {
+	if err := fb.storeNode(RootNodeID, rnode.NewRNode(rootAttrs, RootNodeID)); err != nil {
 		log.Printf("make root store node error")
 		return err
 	}

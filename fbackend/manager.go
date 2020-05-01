@@ -1,4 +1,4 @@
-package manager
+package fbackend
 
 import (
 	"log"
@@ -11,17 +11,19 @@ import (
 )
 
 const (
-	RootNodeID   uint64 = fuseops.RootInodeID
-	FirstOwnerID uint64 = 1
-	MaxOwnerID   uint64 = 200
+	RootNodeID      uint64 = fuseops.RootInodeID
+	FirstOwnerID    uint64 = 1
+	FirstProposalID uint64 = 1
+	MaxOwnerID      uint64 = 200
 )
 
 type RManager struct {
-	NodeOwner      sync.Map // [uint64]uint64
-	Owners         sync.Map // [uint64]string
-	OwnerCounter   [MaxOwnerID]uint64
-	nodeAllocator  *idallocator.IDAllocator
-	ownerAllocator *idallocator.IDAllocator
+	NodeOwner         sync.Map // [uint64]uint64
+	Owners            sync.Map // [uint64]string
+	OwnerCounter      [MaxOwnerID]uint64
+	nodeAllocator     *idallocator.IDAllocator
+	ownerAllocator    *idallocator.IDAllocator
+	proposalAllocator *idallocator.IDAllocator
 
 	masterAddr string
 
@@ -135,8 +137,9 @@ func (m *RManager) SetMaster(masterAddr string) {
 // NewRManager do not register or allocate
 func NewRManager() *RManager {
 	return &RManager{
-		nodeAllocator:  idallocator.NewIDAllocator(RootNodeID + 1), // since root is assigned by AllocateRoot, not allocated
-		ownerAllocator: idallocator.NewIDAllocator(FirstOwnerID),
-		ownerMapRead:   map[uint64]string{},
+		nodeAllocator:     idallocator.NewIDAllocator(RootNodeID + 1), // since root is assigned by AllocateRoot, not allocated
+		ownerAllocator:    idallocator.NewIDAllocator(FirstOwnerID),
+		proposalAllocator: idallocator.NewIDAllocator(FirstProposalID),
+		ownerMapRead:      map[uint64]string{},
 	}
 }

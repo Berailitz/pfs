@@ -9,8 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Berailitz/pfs/manager"
-
 	"bazil.org/fuse"
 	"github.com/Berailitz/pfs/idallocator"
 
@@ -20,8 +18,6 @@ import (
 
 	"github.com/Berailitz/pfs/utility"
 	"google.golang.org/grpc"
-
-	"github.com/Berailitz/pfs/rclient"
 )
 
 const initialHandle = 1
@@ -33,9 +29,9 @@ type remoteHandle struct {
 
 type FProxy struct {
 	fb        *FBackEnd
-	ma        *manager.RManager
+	ma        *RManager
 	wd        *WatchDog
-	pcli      *rclient.RClient
+	pcli      *RClient
 	pool      *GCliPool
 	localAddr string
 
@@ -55,9 +51,9 @@ func NewFProxy(
 	gid uint32,
 	localAddr string,
 	gopts []grpc.DialOption,
-	ma *manager.RManager,
+	ma *RManager,
 	staticTofCfgFile string) *FProxy {
-	pcli := rclient.NewRClient(ma, gopts)
+	pcli := NewRClient(ma, gopts)
 	if pcli == nil {
 		log.Fatalf("nil pcli error")
 	}

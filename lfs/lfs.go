@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/Berailitz/pfs/fbackend"
-	"github.com/Berailitz/pfs/manager"
 
 	"bazil.org/fuse"
 
@@ -47,7 +46,7 @@ func (lfs *LFS) Mount(dir, fsName, fsType, volumeName string) (err error) {
 	lfs.svr = fs.New(lfs.c, &fs.Config{
 		Debug: fuseDebug,
 	})
-	lfs.root = NewLNode(manager.RootNodeID, lfs.fp, lfs.svr)
+	lfs.root = NewLNode(fbackend.RootNodeID, lfs.fp, lfs.svr)
 	return err
 }
 

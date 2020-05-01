@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Berailitz/pfs/manager"
-
 	"github.com/Berailitz/pfs/fbackend"
 	"github.com/Berailitz/pfs/lfs"
 	"github.com/Berailitz/pfs/utility"
@@ -52,7 +50,7 @@ func (p *PFS) Mount(ctx context.Context) error {
 
 	localAddr := fmt.Sprintf("%s:%d", p.param.Host, p.param.Port)
 
-	ma := manager.NewRManager()
+	ma := fbackend.NewRManager()
 	ma.SetMaster(p.param.Master)
 
 	log.Printf("start rs: port=%v", p.param.Port)

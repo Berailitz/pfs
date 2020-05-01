@@ -10,8 +10,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/Berailitz/pfs/manager"
-
 	"bazil.org/fuse"
 
 	"github.com/Berailitz/pfs/utility"
@@ -29,7 +27,7 @@ type RServer struct {
 	pb.UnimplementedRemoteTreeServer
 	Server *grpc.Server
 	fp     *fbackend.FProxy
-	ma     *manager.RManager
+	ma     *fbackend.RManager
 }
 
 func (s *RServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingReply, error) {
@@ -431,7 +429,7 @@ func (s *RServer) RegisterFProxy(fp *fbackend.FProxy) {
 }
 
 // NewRServer do NOT register backend
-func NewRServer(ma *manager.RManager) *RServer {
+func NewRServer(ma *fbackend.RManager) *RServer {
 	return &RServer{
 		ma: ma,
 	}

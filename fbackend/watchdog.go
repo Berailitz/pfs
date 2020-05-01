@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Berailitz/pfs/manager"
-
 	"gopkg.in/yaml.v2"
 )
 
@@ -24,7 +22,7 @@ type RouteRule struct {
 }
 
 type WatchDog struct {
-	ma *manager.RManager
+	ma *RManager
 
 	tofMap       sync.Map         // map[string]int64
 	tofMapRead   map[string]int64 // map[string]int64
@@ -229,7 +227,7 @@ func (d *WatchDog) Stop(ctx context.Context) {
 	log.Printf("wd stopped")
 }
 
-func NewWatchDog(ma *manager.RManager, staticTofCfgFile string) *WatchDog {
+func NewWatchDog(ma *RManager, staticTofCfgFile string) *WatchDog {
 	return &WatchDog{
 		ma:               ma,
 		tofMapRead:       make(map[string]int64),

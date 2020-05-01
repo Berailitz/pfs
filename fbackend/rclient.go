@@ -1,6 +1,6 @@
 //go:generate  protoc -I ../pb/ ../pb/pb.proto --go_out=plugins=grpc:../pb
 
-package rclient
+package fbackend
 
 import (
 	"context"
@@ -10,14 +10,12 @@ import (
 	"github.com/Berailitz/pfs/utility"
 	"google.golang.org/grpc"
 
-	"github.com/Berailitz/pfs/manager"
-
 	pb "github.com/Berailitz/pfs/remotetree"
 )
 
 type RClient struct {
 	id uint64
-	ma *manager.RManager
+	ma *RManager
 
 	cachedMasterAddr string
 	cachedGCli       pb.RemoteTreeClient
@@ -210,7 +208,7 @@ func (c *RClient) ID() uint64 {
 	return c.id
 }
 
-func NewRClient(ma *manager.RManager, gopts []grpc.DialOption) *RClient {
+func NewRClient(ma *RManager, gopts []grpc.DialOption) *RClient {
 	return &RClient{
 		ma:    ma,
 		gopts: gopts,

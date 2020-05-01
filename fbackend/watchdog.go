@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Berailitz/pfs/manager"
+
 	"gopkg.in/yaml.v2"
 )
 
@@ -22,6 +24,8 @@ type RouteRule struct {
 }
 
 type WatchDog struct {
+	ma *manager.RManager
+
 	tofMap       sync.Map         // map[string]int64
 	tofMapRead   map[string]int64 // map[string]int64
 	muTofMapRead sync.RWMutex
@@ -32,6 +36,8 @@ type WatchDog struct {
 	stopped  chan interface{}
 
 	staticTofCfgFile string
+
+	nominee string
 }
 
 type WatchDogErr struct {
@@ -60,6 +66,10 @@ func (d *WatchDog) Tof(addr string) (int64, bool) {
 	}
 
 	return 0, false
+}
+
+func (d *WatchDog) Nominee(ctx context.Context) string {
+	return d.nominee
 }
 
 func (d *WatchDog) CopyTofMap(ctx context.Context) (copied map[string]int64) {
@@ -141,6 +151,7 @@ func (d *WatchDog) UpdateMap(ctx context.Context) {
 	}
 
 	staticTofMap := d.loadStaticTof(ctx)
+	nomineeMap := make(map[string]int64, len(owners))
 
 	for _, addr := range owners {
 		tof, ok := staticTofMap[addr]
@@ -158,7 +169,7 @@ func (d *WatchDog) UpdateMap(ctx context.Context) {
 		}
 		d.saveTof(ctx, addr, tof)
 
-		remoteTofMap, err := d.fp.Gossip(ctx, addr)
+		remoteTofMap, nominee, err := d.fp.Gossip(ctx, addr)
 		if err != nil {
 			log.Printf("gossip error: ownerID=%v, addr=%v, err=%+v",
 				addr, addr, err)
@@ -166,6 +177,20 @@ func (d *WatchDog) UpdateMap(ctx context.Context) {
 		}
 		log.Printf("gossip success: addr=%v, remoteTofMap=%+v", addr, remoteTofMap)
 		d.checkTransit(ctx, addr, remoteTofMap)
+
+		if nominee != "" {
+			if counter, ok := nomineeMap[nominee]; ok {
+				nomineeMap[nominee] = counter + 1
+			} else {
+				nomineeMap[nominee] = 1
+			}
+		}
+	}
+
+	for nominee, poll := range nomineeMap {
+		if poll<<1 > int64(len(owners)) {
+			d.ma.SetMaster(nominee)
+		}
 	}
 }
 
@@ -204,9 +229,11 @@ func (d *WatchDog) Stop(ctx context.Context) {
 	log.Printf("wd stopped")
 }
 
-func NewWatchDog(staticTofCfgFile string) *WatchDog {
+func NewWatchDog(ma *manager.RManager, staticTofCfgFile string) *WatchDog {
 	return &WatchDog{
-		tofMapRead: make(map[string]int64), toStop: make(chan interface{}),
+		ma:               ma,
+		tofMapRead:       make(map[string]int64),
+		toStop:           make(chan interface{}),
 		stopped:          make(chan interface{}),
 		staticTofCfgFile: staticTofCfgFile,
 	}

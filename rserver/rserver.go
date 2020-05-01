@@ -46,14 +46,15 @@ func (s *RServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingReply,
 }
 
 func (s *RServer) Gossip(ctx context.Context, req *pb.GossipRequest) (*pb.GossipReply, error) {
-	tofMap, err := s.fp.Gossip(ctx, req.Addr)
+	tofMap, nominee, err := s.fp.Gossip(ctx, req.Addr)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = utility.ToPbErr(err)
 	}
 	return &pb.GossipReply{
-		Err:    perr,
-		TofMap: tofMap,
+		Err:     perr,
+		TofMap:  tofMap,
+		Nominee: nominee,
 	}, nil
 }
 

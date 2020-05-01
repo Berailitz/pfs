@@ -77,6 +77,7 @@ message GossipRequest {
 message GossipReply {
     Error err = 1;
     map<string, int64> tofMap = 2;
+    string nominee = 3;
 }
 
 message NodeIsReadRequest {

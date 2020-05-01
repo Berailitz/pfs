@@ -63,7 +63,7 @@ func NewFProxy(
 	}
 	localID := pcli.RegisterSelf(ctx, localAddr)
 
-	wd := NewWatchDog(staticTofCfgFile)
+	wd := NewWatchDog(ma, staticTofCfgFile)
 	allcator := idallocator.NewIDAllocator(initialHandle)
 	fb := NewFBackEnd(uid, gid, allcator, localID)
 	if fb == nil {
@@ -133,15 +133,14 @@ func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool, disa
 	return reply.Offset, utility.FromPbErr(reply.Err)
 }
 
-func (fp *FProxy) Gossip(ctx context.Context, addr string) (map[string]int64, error) {
+func (fp *FProxy) Gossip(ctx context.Context, addr string) (_ map[string]int64, nominee string, err error) {
 	if addr == fp.localAddr {
-		return fp.wd.CopyTofMap(ctx), nil
+		return fp.wd.CopyTofMap(ctx), fp.wd.Nominee(ctx), nil
 	}
 
-	var gcli pb.RemoteTreeClient
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	reply, err := gcli.Gossip(ctx, &pb.GossipRequest{
@@ -149,9 +148,9 @@ func (fp *FProxy) Gossip(ctx context.Context, addr string) (map[string]int64, er
 	})
 	if err != nil {
 		log.Printf("fp gossip error: addr=%v, err=%+v", addr, err)
-		return nil, err
+		return nil, "", err
 	}
-	return reply.TofMap, utility.FromPbErr(reply.Err)
+	return reply.TofMap, reply.Nominee, utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) GetOwnerMap(ctx context.Context) (map[uint64]string, error) {

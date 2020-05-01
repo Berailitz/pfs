@@ -16,16 +16,6 @@ const (
 	MaxOwnerID   uint64 = 200
 )
 
-type Manager interface {
-	QueryOwner(nodeID uint64) string
-	Allocate(ownerID uint64) uint64
-	Deallocate(nodeID uint64) bool
-	RegisterOwner(addr string) uint64
-	RemoveOwner(ownerID uint64) bool
-	CopyOwnerMap() map[uint64]string
-	AllocateRoot(ownerID uint64) bool
-}
-
 type RManager struct {
 	NodeOwner      sync.Map // [uint64]uint64
 	Owners         sync.Map // [uint64]string
@@ -38,8 +28,6 @@ type RManager struct {
 	muOwnerMapRead sync.RWMutex
 	ownerMapRead   map[uint64]string
 }
-
-var _ = (Manager)((*RManager)(nil))
 
 func (m *RManager) QueryOwner(nodeID uint64) string {
 	log.Printf("query owner: nodeID=%v", nodeID)

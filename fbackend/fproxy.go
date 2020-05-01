@@ -138,6 +138,27 @@ func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool, disa
 	return reply.Offset, utility.FromPbErr(reply.Err)
 }
 
+func (fp *FProxy) Gossip(ctx context.Context, addr string) (map[string]int64, error) {
+	if addr == fp.localAddr {
+		return fp.wd.CopyTofMap(ctx), nil
+	}
+
+	var gcli pb.RemoteTreeClient
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	reply, err := gcli.Gossip(ctx, &pb.GossipRequest{
+		Addr: addr,
+	})
+	if err != nil {
+		log.Printf("fp gossip error: addr=%v, err=%+v", addr, err)
+		return nil, err
+	}
+	return reply.TofMap, utility.FromPbErr(reply.Err)
+}
+
 func (fp *FProxy) GetOwnerMap(ctx context.Context) (map[uint64]string, error) {
 	mid, addr := fp.ma.QueryMaster()
 	if mid == fp.pcli.ID() {

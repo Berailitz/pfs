@@ -45,6 +45,18 @@ func (s *RServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingReply,
 	}, nil
 }
 
+func (s *RServer) Gossip(ctx context.Context, req *pb.GossipRequest) (*pb.GossipReply, error) {
+	tofMap, err := s.fp.Gossip(ctx, req.Addr)
+	var perr *pb.Error = &pb.Error{}
+	if err != nil {
+		perr = utility.ToPbErr(err)
+	}
+	return &pb.GossipReply{
+		Err:    perr,
+		TofMap: tofMap,
+	}, nil
+}
+
 func (s *RServer) GetOwnerMap(ctx context.Context, _ *pb.EmptyMsg) (*pb.Uint64StrMapMsg, error) {
 	ownerMap, err := s.fp.GetOwnerMap(ctx)
 	var perr *pb.Error = &pb.Error{}

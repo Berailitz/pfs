@@ -9,6 +9,7 @@ service RemoteTree {
     //rpc WUnlock(UInt64ID) returns (StatusReply) {}
 
     rpc Ping(PingRequest) returns (PingReply) {}
+    rpc Gossip(GossipRequest) returns (GossipReply) {}
     rpc GetOwnerMap(EmptyMsg) returns (Uint64StrMapMsg) {}
 
     rpc FetchNode(NodeIsReadRequest) returns (Node) {}
@@ -66,6 +67,15 @@ message PingReply {
     Error err = 1;
     int64 departure = 2;
     int64 offset = 3;
+}
+
+message GossipRequest {
+    string addr = 1;
+}
+
+message GossipReply {
+    Error err = 1;
+    map<string, int64> tofMap = 2;
 }
 
 message NodeIsReadRequest {

@@ -66,6 +66,21 @@ func (d *WatchDog) CopyTofMap(ctx context.Context) (copied map[string]int64) {
 	return copied
 }
 
+func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
+	d.tofMap.Store(addr, tof)
+
+	if _, ok := d.routeMap.Load(addr); !ok {
+		d.routeMap.Store(addr, &RouteRule{
+			next: addr,
+			tof:  tof,
+		})
+	}
+
+	d.muTofMapRead.Lock()
+	defer d.muTofMapRead.Unlock()
+	d.tofMapRead[addr] = tof
+}
+
 func (d *WatchDog) UpdateMap(ctx context.Context) {
 	log.Printf("updating tof map")
 	owners, err := d.fp.GetOwnerMap(ctx)
@@ -82,18 +97,7 @@ func (d *WatchDog) UpdateMap(ctx context.Context) {
 		}
 		log.Printf("ping success: ownerID=%v, addr=%v, tof=%v",
 			addr, addr, tof)
-		d.tofMap.Store(addr, tof)
-
-		if _, ok := d.routeMap.Load(addr); !ok {
-			d.routeMap.Store(addr, &RouteRule{
-				next: addr,
-				tof:  tof,
-			})
-		}
-
-		d.muTofMapRead.Lock()
-		defer d.muTofMapRead.Unlock()
-		d.tofMapRead[addr] = tof
+		d.saveTof(ctx, addr, tof)
 	}
 }
 

@@ -16,15 +16,7 @@ import (
 
 	"github.com/Berailitz/pfs/idallocator"
 
-	pb "github.com/Berailitz/pfs/remotetree"
-
-	"github.com/Berailitz/pfs/utility"
-
-	"google.golang.org/grpc"
-
 	"github.com/Berailitz/pfs/rnode"
-
-	"github.com/Berailitz/pfs/rclient"
 
 	"golang.org/x/sys/unix"
 )
@@ -35,9 +27,8 @@ type FBackEnd struct {
 
 	mu sync.RWMutex
 
-	nodes sync.Map // [uint64]*rnode.RNode
-	mcli  *rclient.RClient
-	pool  *GCliPool
+	nodes   sync.Map // [uint64]*rnode.RNode
+	localID uint64
 
 	fp *FProxy
 
@@ -69,39 +60,14 @@ type SetInodeAttributesParam struct {
 func NewFBackEnd(
 	uid uint32,
 	gid uint32,
-	masterAddr string,
-	localAddr string,
-	gopts []grpc.DialOption,
 	allocator *idallocator.IDAllocator,
-	localID uint64,
-	wd *WatchDog) *FBackEnd {
-	gcli, err := utility.BuildGCli(masterAddr, gopts)
-	if err != nil {
-		log.Fatalf("new rcli fial error: master=%v, opts=%+v, err=%+V",
-			masterAddr, gopts, err)
-		return nil
-	}
-
-	mcli := rclient.NewRClient(gcli)
-	if mcli == nil {
-		log.Fatalf("nil mcli error")
-	}
-
-	mcli.AssignID(localID)
-	fb := &FBackEnd{
+	localID uint64) *FBackEnd {
+	return &FBackEnd{
 		uid:             uid,
 		gid:             gid,
-		mcli:            mcli,
-		pool:            NewGCliPool(gopts, localAddr, wd),
+		localID:         localID,
 		handleAllocator: allocator,
 	}
-
-	// Set up the root rnode.RNode.
-	if err := fb.MakeRoot(); err != nil {
-		log.Printf("make root error, use remote root: err=%+v", err)
-	}
-
-	return fb
 }
 
 func (fb *FBackEnd) SetFP(fp *FProxy) {
@@ -110,6 +76,10 @@ func (fb *FBackEnd) SetFP(fp *FProxy) {
 	}
 
 	fb.fp = fp
+	// Set up the root rnode
+	if err := fb.MakeRoot(); err != nil {
+		log.Printf("make root error, use remote root: err=%+v", err)
+	}
 }
 
 func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool, localOnly bool) (*rnode.RNode, error) {
@@ -152,27 +122,13 @@ func (fb *FBackEnd) LoadLocalNode(ctx context.Context, id uint64) (*rnode.RNode,
 }
 
 func (fb *FBackEnd) LoadRemoteNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
-	addr := fb.mcli.QueryOwner(id)
-	gcli, err := fb.pool.Load(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	pbNode, err := gcli.FetchNode(ctx, &pb.NodeIsReadRequest{
-		Id: id,
-	})
+	node, err := fb.fp.LoadNode(ctx, id, isRead)
 	if err != nil {
 		log.Printf("rpc fetch node error: id=%v, err=%+v",
 			id, err)
 		return nil, &FBackEndErr{msg: fmt.Sprintf("load node rpc error: id=%v, isRead=%v, err=%+v", id, isRead, err)}
 	}
-
-	if node := utility.FromPbNode(pbNode); node != nil {
-		node.SetAddr(addr)
-		return node, nil
-	} else {
-		return nil, &FBackEndErr{msg: fmt.Sprintf("load node parse fail error: id=%v, isRead=%v", id, isRead)}
-	}
+	return node, nil
 }
 
 func (fb *FBackEnd) LoadLocalNodeForRead(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
@@ -191,31 +147,19 @@ func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (node *rnod
 	return fb.doLoadNodeForX(ctx, id, false, false)
 }
 
-func (fb *FBackEnd) doUnlockRemoteNode(ctx context.Context, node *rnode.RNode, isRead bool) error {
+func (fb *FBackEnd) doUnlockRemoteNode(ctx context.Context, node *rnode.RNode, isRead bool) (err error) {
 	id := node.ID()
-	addr := node.Addr()
-	gcli, err := fb.pool.Load(addr)
-	if err != nil {
-		return err
-	}
 
-	var perr *pb.Error
 	if isRead {
-		perr, err = gcli.RUnlockNode(ctx, &pb.UInt64ID{
-			Id: id,
-		})
+		err = fb.fp.RUnlockNode(ctx, id)
 	} else {
-		perr, err = gcli.UnlockNode(ctx, utility.ToPbNode(node))
+		err = fb.fp.UnlockNode(ctx, node)
 	}
 	if err != nil {
 		log.Printf("unlock remote node error: id=%v, isRead=%v, err=%+v", id, isRead, err)
 		return err
 	}
 
-	if err := utility.FromPbErr(perr); err != nil {
-		log.Printf("unlock remote node error: id=%v, isRead=%v, err=%+v", id, isRead, err)
-		return err
-	}
 	return nil
 }
 
@@ -285,7 +229,7 @@ func (fb *FBackEnd) deleteNode(ctx context.Context, id uint64) error {
 
 // MakeRoot should only be called at new
 func (fb *FBackEnd) MakeRoot() error {
-	if ok := fb.mcli.AllocateRoot(); !ok {
+	if ok := fb.fp.AllocateRoot(fb.localID); !ok {
 		log.Printf("make root allocate root error")
 		return &FBackEndErr{"make root allocate root error"}
 	}
@@ -362,7 +306,7 @@ func (fb *FBackEnd) unlock() {
 func (fb *FBackEnd) allocateInode(
 	attrs fuse.Attr) (uint64, *rnode.RNode) {
 	// Create the rnode.RNode.
-	id := fb.mcli.Allocate()
+	id := fb.fp.Allocate(fb.localID)
 	if id > 0 {
 		node := rnode.NewRNode(attrs, id)
 		if err := fb.storeNode(id, node); err != nil {
@@ -378,7 +322,8 @@ func (fb *FBackEnd) allocateInode(
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) deallocateInode(ctx context.Context, id uint64) error {
 	log.Printf("deallocate: id=%v", id)
-	if err := fb.mcli.Deallocate(id); err != nil {
+	if ok := fb.fp.Deallocate(id); !ok {
+		err := &FBackEndErr{fmt.Sprintf("deallocate no node error: nodeID=%v", id)}
 		log.Printf("deallocate master deallocate error: id=%v, err=%+v", id, err)
 		return err
 	}

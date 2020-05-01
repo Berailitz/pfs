@@ -72,7 +72,7 @@ func NewFProxy(
 
 	wd := NewWatchDog(staticTofCfgFile)
 	allcator := idallocator.NewIDAllocator(initialHandle)
-	fb := NewFBackEnd(uid, gid, masterAddr, localAddr, gopts, allcator, localID, wd)
+	fb := NewFBackEnd(uid, gid, allcator, localID)
 	if fb == nil {
 		log.Fatalf("new fp nil fb error: uid=%v, gid=%v, masterAddr=%v, localAddr=%v, gopts=%+v",
 			uid, gid, masterAddr, localAddr, gopts)

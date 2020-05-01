@@ -88,7 +88,6 @@ Private workspace for Golang.
 
 # Plan
 1. created child saves locally
-1. manager use `ctx`
 1. avoid dead lock: rename lock older node first
 1. node lock
 1. heartbeat

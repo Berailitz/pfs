@@ -39,16 +39,15 @@ func (c *RClient) buildGCli(ctx context.Context) (_ pb.RemoteTreeClient, err err
 	return c.cachedGCli, nil
 }
 
-func (c *RClient) mustHaveID() {
+func (c *RClient) mustHaveID(ctx context.Context) {
 	if c.id <= 0 {
 		log.Fatalf("rcli has no id.")
 	}
 }
 
 // QueryOwner fetch owner'addr of a node
-func (c *RClient) QueryOwner(nodeID uint64) string {
+func (c *RClient) QueryOwner(ctx context.Context, nodeID uint64) string {
 	log.Printf("query owner: nodeID=%v", nodeID)
-	ctx := context.Background()
 	gcli, err := c.buildGCli(ctx)
 	if err != nil {
 		return ""
@@ -65,9 +64,8 @@ func (c *RClient) QueryOwner(nodeID uint64) string {
 	return addr.Addr
 }
 
-func (c *RClient) QueryAddr(ownerID uint64) string {
+func (c *RClient) QueryAddr(ctx context.Context, ownerID uint64) string {
 	log.Printf("query addr: ownerID=%v", ownerID)
-	ctx := context.Background()
 	gcli, err := c.buildGCli(ctx)
 	if err != nil {
 		return ""
@@ -84,9 +82,8 @@ func (c *RClient) QueryAddr(ownerID uint64) string {
 	return addr.Addr
 }
 
-func (c *RClient) Allocate() uint64 {
-	ctx := context.Background()
-	c.mustHaveID()
+func (c *RClient) Allocate(ctx context.Context) uint64 {
+	c.mustHaveID(ctx)
 	log.Printf("allocate node")
 	gcli, err := c.buildGCli(ctx)
 	if err != nil {
@@ -104,9 +101,8 @@ func (c *RClient) Allocate() uint64 {
 	return nodeID.Id
 }
 
-func (c *RClient) Deallocate(nodeID uint64) error {
+func (c *RClient) Deallocate(ctx context.Context, nodeID uint64) error {
 	log.Printf("deallocate: nodeID=%v", nodeID)
-	ctx := context.Background()
 	gcli, err := c.buildGCli(ctx)
 	if err != nil {
 		return err
@@ -129,9 +125,8 @@ func (c *RClient) Deallocate(nodeID uint64) error {
 }
 
 // RegisterOwner return 0 if err
-func (c *RClient) RegisterOwner(addr string) uint64 {
+func (c *RClient) RegisterOwner(ctx context.Context, addr string) uint64 {
 	log.Printf("register owner: addr=%v", addr)
-	ctx := context.Background()
 	gcli, err := c.buildGCli(ctx)
 	if err != nil {
 		return 0
@@ -148,9 +143,8 @@ func (c *RClient) RegisterOwner(addr string) uint64 {
 	return out.Id
 }
 
-func (c *RClient) RemoveOwner(ownerID uint64) bool {
+func (c *RClient) RemoveOwner(ctx context.Context, ownerID uint64) bool {
 	log.Printf("remove owner: ownerID=%v", ownerID)
-	ctx := context.Background()
 	gcli, err := c.buildGCli(ctx)
 	if err != nil {
 		return false
@@ -167,14 +161,13 @@ func (c *RClient) RemoveOwner(ownerID uint64) bool {
 	return out.Ok
 }
 
-func (c *RClient) AllocateRoot() bool {
-	ctx := context.Background()
+func (c *RClient) AllocateRoot(ctx context.Context) bool {
 	gcli, err := c.buildGCli(ctx)
 	if err != nil {
 		return false
 	}
 
-	c.mustHaveID()
+	c.mustHaveID(ctx)
 	log.Printf("allocate root: ownerID=%v", c.id)
 	out, err := gcli.AllocateRoot(ctx, &pb.OwnerId{
 		Id: c.id,
@@ -188,13 +181,13 @@ func (c *RClient) AllocateRoot() bool {
 }
 
 // RegisterSelf is called only at initialization
-func (c *RClient) RegisterSelf(addr string) uint64 {
+func (c *RClient) RegisterSelf(ctx context.Context, addr string) uint64 {
 	if c.id > 0 {
 		log.Printf("duplicate register error: addr=%v", addr)
 		return 0
 	}
 
-	localID := c.RegisterOwner(addr)
+	localID := c.RegisterOwner(ctx, addr)
 	if localID > 0 {
 		c.id = localID
 		log.Printf("register success: addr=%v, localID=%v", addr, localID)
@@ -205,7 +198,7 @@ func (c *RClient) RegisterSelf(addr string) uint64 {
 	return 0
 }
 
-func (c *RClient) AssignID(id uint64) {
+func (c *RClient) AssignID(ctx context.Context, id uint64) {
 	log.Printf("rcli assigned id: id=%v", id)
 	if c.id > 0 {
 		log.Printf("rcli get re-assigned id: id=%v", id)

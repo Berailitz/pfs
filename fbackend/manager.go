@@ -3,12 +3,12 @@ package fbackend
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/Berailitz/pfs/logger"
 	"github.com/Berailitz/pfs/utility"
 
 	"github.com/Berailitz/pfs/idallocator"
@@ -74,17 +74,17 @@ type ManagerErr struct {
 var _ = (error)((*ManagerErr)(nil))
 
 func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) string {
-	log.Printf("query owner: nodeID=%v", nodeID)
+	logger.If(ctx, "query owner: nodeID=%v", nodeID)
 	if ownerOut, ok := m.NodeOwner.Load(nodeID); ok {
 		if owner, ok := ownerOut.(uint64); ok {
 			addr := m.QueryAddr(ctx, owner)
-			log.Printf("query owner success: nodeID=%v, addr=%v", nodeID, addr)
+			logger.If(ctx, "query owner success: nodeID=%v, addr=%v", nodeID, addr)
 			return addr
 		}
-		log.Printf("query owner not node error: nodeID=%v", nodeID)
+		logger.Ef(ctx, "query owner not node error: nodeID=%v", nodeID)
 		return ""
 	}
-	log.Printf("query owner no node error: nodeID=%v", nodeID)
+	logger.Ef(ctx, "query owner no node error: nodeID=%v", nodeID)
 	return ""
 }
 
@@ -128,7 +128,7 @@ func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
 
 func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) bool {
 	if addr == "" {
-		log.Printf("invalid empty addr error")
+		logger.Ef(ctx, "invalid empty addr error")
 		return false
 	}
 
@@ -198,7 +198,7 @@ func (m *RManager) MasterAddr() string {
 func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 	if _, ok := m.Owners.Load(ownerID); ok {
 		if _, loaded := m.NodeOwner.LoadOrStore(RootNodeID, ownerID); !loaded {
-			log.Printf("root allocated: ownerID=%v", ownerID)
+			logger.If(ctx, "root allocated: ownerID=%v", ownerID)
 			return true
 		}
 	}
@@ -210,7 +210,7 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 	case AddOwnerProposalType:
 		if !m.doAddOwner(ctx, proposal.Key, proposal.Value) {
 			err = &ManagerErr{fmt.Sprintf("invalid proposal value: proposal=%+v", proposal)}
-			log.Printf(err.Error())
+			logger.If(ctx, err.Error())
 			return ErrorProposalState, err
 		}
 		m.ownerAllocator.SetNext(proposal.Key + 1)
@@ -219,7 +219,7 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 	case AddNodeProposalType:
 		ownerID, err := strconv.ParseInt(proposal.Value, 10, 64)
 		if err != nil {
-			log.Printf("add node proposal err: proposal=%+v, err=%+v", proposal, err)
+			logger.If(ctx, "add node proposal err: proposal=%+v, err=%+v", proposal, err)
 			return ErrorProposalState, err
 		}
 		m.NodeOwner.Store(proposal.Key, ownerID)
@@ -229,7 +229,7 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 		atomic.AddUint64(&m.OwnerCounter[proposal.Key], ^uint64(0))
 	default:
 		err = &ManagerErr{fmt.Sprintf("invalid proposal type: proposal=%+v", proposal)}
-		log.Printf(err.Error())
+		logger.If(ctx, err.Error())
 		return ErrorProposalState, err
 	}
 	return 0, nil
@@ -239,7 +239,7 @@ func (m *RManager) Run(ctx context.Context) (err error) {
 	for {
 		select {
 		case <-m.Runnable.ToStop:
-			log.Printf("runnable is quitting: name=%v", m.Runnable.Name)
+			logger.If(ctx, "runnable is quitting: name=%v", m.Runnable.Name)
 			return nil
 		case proposal := <-m.proposalChan:
 			m.broadcastProposal(ctx, proposal)
@@ -258,7 +258,7 @@ func (m *RManager) broadcastProposal(ctx context.Context, proposal *Proposal) {
 			// TODO handle state and err
 			_, err := m.fp.SendProposal(ctx, addr, proposal)
 			if err != nil {
-				log.Printf("rpc proposal error: addr=%v, proposal=%+v, err=%+v",
+				logger.If(ctx, "rpc proposal error: addr=%v, proposal=%+v, err=%+v",
 					addr, proposal, err)
 			}
 		}

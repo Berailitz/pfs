@@ -2,16 +2,17 @@ package rnode
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"bazil.org/fuse"
+	"github.com/Berailitz/pfs/logger"
 )
 
 const (
@@ -116,11 +117,11 @@ func (rn *RNode) SetRNodeAttr(attr RNodeAttr) {
 	rn.RNodeAttr = attr
 }
 
-func (rn *RNode) GetRNodeAttrBytes() *bytes.Buffer {
+func (rn *RNode) GetRNodeAttrBytes(ctx context.Context) *bytes.Buffer {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	if err := enc.Encode(rn.RNodeAttr); err != nil {
-		log.Printf("encode attr error: err=%+v", err)
+		logger.Ef(ctx, "encode attr error: err=%+v", err)
 		return nil
 	}
 	return &buf
@@ -130,35 +131,35 @@ func (rn *RNode) CanLock() bool {
 	return atomic.LoadInt32(&rn.NCanLock) == CanLockTrue
 }
 
-func (rn *RNode) RLock() error {
-	log.Printf("rlock node: id=%v", rn.ID())
+func (rn *RNode) RLock(ctx context.Context) error {
+	logger.If(ctx, "rlock node: id=%v", rn.ID())
 	if rn.CanLock() {
 		rn.NLock.RLock()
-		log.Printf("rlock node success: id=%v", rn.ID())
+		logger.If(ctx, "rlock node success: id=%v", rn.ID())
 		return nil
 	}
-	log.Printf("rlock node cannot lock: id=%v", rn.ID())
+	logger.If(ctx, "rlock node cannot lock: id=%v", rn.ID())
 	return RNodeCanNotLockErr
 }
 
-func (rn *RNode) RUnlock() {
-	log.Printf("runlock node: id=%v", rn.ID())
+func (rn *RNode) RUnlock(ctx context.Context) {
+	logger.If(ctx, "runlock node: id=%v", rn.ID())
 	rn.NLock.RUnlock()
 }
 
-func (rn *RNode) Lock() error {
-	log.Printf("lock node: id=%v", rn.ID())
+func (rn *RNode) Lock(ctx context.Context) error {
+	logger.If(ctx, "lock node: id=%v", rn.ID())
 	if rn.CanLock() {
 		rn.NLock.Lock()
-		log.Printf("lock node success: id=%v", rn.ID())
+		logger.If(ctx, "lock node success: id=%v", rn.ID())
 		return nil
 	}
-	log.Printf("lock node cannot lock error: id=%v", rn.ID())
+	logger.Ef(ctx, "lock node cannot lock error: id=%v", rn.ID())
 	return RNodeCanNotLockErr
 }
 
-func (rn *RNode) Unlock() {
-	log.Printf("unlock node: id=%v", rn.ID())
+func (rn *RNode) Unlock(ctx context.Context) {
+	logger.If(ctx, "unlock node: id=%v", rn.ID())
 	rn.NLock.Unlock()
 }
 

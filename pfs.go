@@ -3,10 +3,10 @@ package pfs
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/Berailitz/pfs/fbackend"
 	"github.com/Berailitz/pfs/lfs"
+	"github.com/Berailitz/pfs/logger"
 	"github.com/Berailitz/pfs/utility"
 
 	"google.golang.org/grpc"
@@ -36,9 +36,9 @@ type PFS struct {
 	ma    *fbackend.RManager
 }
 
-func NewPFS(param PFSParam) *PFS {
+func NewPFS(ctx context.Context, param PFSParam) *PFS {
 	if param.Dir == "" {
-		log.Fatalf("no dir specified, exit")
+		logger.Pf(ctx, "no dir specified, exit")
 		return nil
 	}
 
@@ -48,35 +48,35 @@ func NewPFS(param PFSParam) *PFS {
 }
 
 func (p *PFS) Mount(ctx context.Context) error {
-	log.Printf("debug=%v", p.param.Debug)
+	logger.If(ctx, "debug=%v", p.param.Debug)
 
 	localAddr := fmt.Sprintf("%s:%d", p.param.Host, p.param.Port)
 
 	p.ma = fbackend.NewRManager(ctx)
 	p.ma.SetMaster(p.param.Master)
 
-	log.Printf("start rs: port=%v", p.param.Port)
+	logger.If(ctx, "start rs: port=%v", p.param.Port)
 	p.rsvr = rserver.NewRServer(p.ma)
 	if err := p.rsvr.Start(ctx, p.param.Port); err != nil {
-		log.Fatalf("start rs error: err=%+v", err)
+		logger.Pf(ctx, "start rs error: err=%+v", err)
 		return err
 	}
 
 	p.ma.Start(ctx)
 
-	log.Printf("create fp: master=%v, localAddr=%v, gopts=%+v", p.param.Master, localAddr, gopts)
-	fp := fbackend.NewFProxy(ctx, utility.GetUID(), utility.GetGID(),
+	logger.If(ctx, "create fp: master=%v, localAddr=%v, gopts=%+v", p.param.Master, localAddr, gopts)
+	fp := fbackend.NewFProxy(ctx, utility.GetUID(ctx), utility.GetGID(ctx),
 		localAddr, gopts, p.ma, p.param.StaticTofCfgFile, p.param.BackupSize)
 	p.ma.SetFP(fp)
-	p.rsvr.RegisterFProxy(fp)
+	p.rsvr.RegisterFProxy(ctx, fp)
 
 	p.rsvr.StartFP(ctx)
 
-	p.lfsvr = lfs.NewLFS(fp)
-	log.Printf("mount fs: dir=%v, fsName=%v, fsType=%v, volumeName=%v",
+	p.lfsvr = lfs.NewLFS(ctx, fp)
+	logger.If(ctx, "mount fs: dir=%v, fsName=%v, fsType=%v, volumeName=%v",
 		p.param.Dir, p.param.FsName, p.param.FsType, p.param.VolumeName)
 	if err := p.lfsvr.Mount(p.param.Dir, p.param.FsName, p.param.FsType, p.param.VolumeName); err != nil {
-		log.Fatalf("lfs mount error: dir=%v, fsName=%v, fsType=%v, volumeName=%v, err=%+v",
+		logger.Pf(ctx, "lfs mount error: dir=%v, fsName=%v, fsType=%v, volumeName=%v, err=%+v",
 			p.param.Dir, p.param.FsName, p.param.FsType, p.param.VolumeName, err)
 		return err
 	}
@@ -93,45 +93,45 @@ func (p *PFS) Run(ctx context.Context) (err error) {
 
 	defer func() {
 		if err == nil {
-			log.Printf("lfs graceful stopped, no need to umount")
+			logger.If(ctx, "lfs graceful stopped, no need to umount")
 			return
 		}
 
-		log.Printf("lfs serve error, unmount it: err=%+v", err)
-		if uerr := p.Umount(); uerr != nil {
-			log.Printf("lfs umount error, keep serve error: uerr=%+v", uerr)
+		logger.Ef(ctx, "lfs serve error, unmount it: err=%+v", err)
+		if uerr := p.Umount(ctx); uerr != nil {
+			logger.Ef(ctx, "lfs umount error, keep serve error: uerr=%+v", uerr)
 		}
 	}()
 
-	log.Printf("serve fs")
+	logger.If(ctx, "serve fs")
 	if err = p.lfsvr.Serve(); err != nil {
-		log.Printf("lfs serve error: err=%+v", err)
+		logger.Ef(ctx, "lfs serve error: err=%+v", err)
 		return err
 	}
 	return nil
 }
 
 func (p *PFS) stopRS(ctx context.Context) error {
-	log.Printf("stop rs: host=%v, port=%v", p.param.Host, p.param.Port)
+	logger.If(ctx, "stop rs: host=%v, port=%v", p.param.Host, p.param.Port)
 	if err := p.rsvr.Stop(ctx); err != nil {
-		log.Printf("stop rs error: serr=%+v", err)
+		logger.Ef(ctx, "stop rs error: serr=%+v", err)
 		return err
 	}
 	return nil
 }
 
-func (p *PFS) Umount() error {
-	log.Printf("umount pfs: dir=%v", p.param.Dir)
+func (p *PFS) Umount(ctx context.Context) error {
+	logger.If(ctx, "umount pfs: dir=%v", p.param.Dir)
 	if err := p.lfsvr.Umount(); err != nil {
-		log.Printf("lfs unmount fs error, keep serve error: err=%+v", err)
+		logger.Ef(ctx, "lfs unmount fs error, keep serve error: err=%+v", err)
 		return err
 	}
 	return nil
 }
 
 func (p *PFS) Stop(ctx context.Context) error {
-	log.Printf("stop pfs")
-	err := p.Umount()
+	logger.If(ctx, "stop pfs")
+	err := p.Umount(ctx)
 
 	p.ma.Stop(ctx)
 	if serr := p.stopRS(ctx); serr != nil && err == nil {

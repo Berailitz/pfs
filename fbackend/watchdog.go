@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"sync"
 	"time"
 
+	"github.com/Berailitz/pfs/logger"
 	"github.com/Berailitz/pfs/utility"
 
 	"gopkg.in/yaml.v2"
@@ -108,7 +108,7 @@ func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
 func (d *WatchDog) checkTransit(ctx context.Context, transit string, remoteTofMap map[string]int64) {
 	transitTof, ok := d.Tof(transit)
 	if !ok {
-		log.Printf("checkTransit no tof error: transit=%v", transit)
+		logger.Ef(ctx, "checkTransit no tof error: transit=%v", transit)
 		return
 	}
 
@@ -121,12 +121,12 @@ func (d *WatchDog) checkTransit(ctx context.Context, transit string, remoteTofMa
 						next: transit,
 						tof:  totalTof,
 					})
-					log.Printf("save new rule: dst=%v, transit=%v, transitTof=%v, totalTof=%v, oldRule=%+v",
+					logger.If(ctx, "save new rule: dst=%v, transit=%v, transitTof=%v, totalTof=%v, oldRule=%+v",
 						dst, transit, transitTof, totalTof, *rule)
 				}
 				continue
 			}
-			log.Printf("non-rule error: dst=%v, out=%+v", dst, out)
+			logger.Ef(ctx, "non-rule error: dst=%v, out=%+v", dst, out)
 		}
 	}
 }
@@ -136,11 +136,11 @@ func (d *WatchDog) loadStaticTof(ctx context.Context) (staticTofMap map[string]i
 	if len(d.staticTofCfgFile) > 0 {
 		bytes, err := ioutil.ReadFile(d.staticTofCfgFile)
 		if err != nil {
-			log.Printf("load static tof read file error: path=%v, err=%+v", d.staticTofCfgFile, err)
+			logger.Ef(ctx, "load static tof read file error: path=%v, err=%+v", d.staticTofCfgFile, err)
 			return
 		}
 		if err := yaml.Unmarshal(bytes, staticTofMap); err != nil {
-			log.Printf("load static tof unmarshal error: path=%v, err=%+v", d.staticTofCfgFile, err)
+			logger.Ef(ctx, "load static tof unmarshal error: path=%v, err=%+v", d.staticTofCfgFile, err)
 			return
 		}
 	}
@@ -165,7 +165,7 @@ func (d *WatchDog) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []s
 			if out, loaded := backupOwnerMap.LoadOrStore(nodeID, addr); loaded {
 				addr = out.(string)
 			}
-			log.Printf("get backup addrs: i=%v, addr=%v", i, addr)
+			logger.If(ctx, "get backup addrs: i=%v, addr=%v", i, addr)
 			addrs = append(addrs, addr)
 		} else {
 			break
@@ -175,10 +175,10 @@ func (d *WatchDog) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []s
 }
 
 func (d *WatchDog) runLoop(ctx context.Context) (err error) {
-	log.Printf("updating tof map")
+	logger.If(ctx, "updating tof map")
 	owners, err := d.fp.GetOwnerMap(ctx)
 	if err != nil {
-		log.Printf("get owners error: err=%+v", err)
+		logger.Ef(ctx, "get owners error: err=%+v", err)
 	}
 
 	staticTofMap := d.loadStaticTof(ctx)
@@ -187,26 +187,26 @@ func (d *WatchDog) runLoop(ctx context.Context) (err error) {
 	for _, addr := range owners {
 		tof, ok := staticTofMap[addr]
 		if ok {
-			log.Printf("use static tof: addr=%v, tof=%v", addr, tof)
+			logger.If(ctx, "use static tof: addr=%v, tof=%v", addr, tof)
 		} else {
 			tof, err := d.fp.Measure(ctx, addr, true, true)
 			if err != nil {
-				log.Printf("ping error: ownerID=%v, addr=%v, err=%+v",
+				logger.If(ctx, "ping error: ownerID=%v, addr=%v, err=%+v",
 					addr, addr, err)
 				continue
 			}
-			log.Printf("ping success: ownerID=%v, addr=%v, tof=%v",
+			logger.If(ctx, "ping success: ownerID=%v, addr=%v, tof=%v",
 				addr, addr, tof)
 		}
 		d.saveTof(ctx, addr, tof)
 
 		remoteTofMap, nominee, err := d.fp.Gossip(ctx, addr)
 		if err != nil {
-			log.Printf("gossip error: ownerID=%v, addr=%v, err=%+v",
+			logger.If(ctx, "gossip error: ownerID=%v, addr=%v, err=%+v",
 				addr, addr, err)
 			continue
 		}
-		log.Printf("gossip success: addr=%v, remoteTofMap=%+v", addr, remoteTofMap)
+		logger.If(ctx, "gossip success: addr=%v, remoteTofMap=%+v", addr, remoteTofMap)
 		d.checkTransit(ctx, addr, remoteTofMap)
 
 		if nominee != "" {

@@ -4,12 +4,12 @@ import (
 	"context"
 	"flag"
 	"io/ioutil"
-	"log"
 	"sync"
 
 	"gopkg.in/yaml.v2"
 
 	"github.com/Berailitz/pfs"
+	"github.com/Berailitz/pfs/logger"
 	"github.com/Berailitz/pfs/utility"
 )
 
@@ -23,41 +23,39 @@ type TestConfig struct {
 	CMD []utility.CMDParam `yaml:"cmd,omitempty"`
 }
 
-func (c *TestConfig) Load(path string) error {
+func (c *TestConfig) Load(ctx context.Context, path string) error {
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Printf("cfg load read file error: path=%v, err=%+v", path, err)
+		logger.Ef(ctx, "cfg load read file error: path=%v, err=%+v", path, err)
 		return err
 	}
 	if err := yaml.Unmarshal(bytes, c); err != nil {
-		log.Printf("cfg load unmarshal error: path=%v, err=%+v", path, err)
+		logger.Ef(ctx, "cfg load unmarshal error: path=%v, err=%+v", path, err)
 		return err
 	}
 	return nil
 }
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Printf("buildTime=%v, gitCommit=%v\n", buildTime, gitCommit)
+	ctx := context.Background()
+	logger.If(ctx, "buildTime=%v, gitCommit=%v", buildTime, gitCommit)
 	cfg := flag.String("cfg", "", "Path to confg YAML.")
 	dry := flag.Bool("dry", false, "Dry run or not.")
 	ncmd := flag.Bool("ncmd", false, "Ignore cmd or not.")
 	flag.Parse()
 
-	ctx := context.Background()
-
 	if *cfg == "" {
 		flag.Usage()
-		log.Fatalf("no cfg specified, exit")
+		logger.Pf(ctx, "no cfg specified, exit")
 	}
 
 	var tc TestConfig
-	if err := tc.Load(*cfg); err != nil {
-		log.Fatalf("load cfg error: cfg=%v, err=%+v", *cfg, err)
+	if err := tc.Load(ctx, *cfg); err != nil {
+		logger.Pf(ctx, "load cfg error: cfg=%v, err=%+v", *cfg, err)
 	}
 
-	log.Printf("sample start: file=%v", cfg)
-	log.Printf("tc=%#v", tc)
+	logger.If(ctx, "sample start: file=%v", cfg)
+	logger.If(ctx, "tc=%#v", tc)
 	if *dry {
 		return
 	}
@@ -65,36 +63,36 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	for i, pc := range tc.PFS {
-		log.Printf("run pfs instance (%v/%v)", i+1, len(tc.PFS))
-		p := pfs.NewPFS(pc)
+		logger.If(ctx, "run pfs instance (%v/%v)", i+1, len(tc.PFS))
+		p := pfs.NewPFS(ctx, pc)
 		if p == nil {
-			log.Fatalf("create pfs error")
+			logger.Pf(ctx, "create pfs error")
 			return
 		}
 
 		if err := p.Mount(ctx); err != nil {
-			log.Fatalf("mount pfs error: i=%d, err=%+v", i, err)
+			logger.Pf(ctx, "mount pfs error: i=%d, err=%+v", i, err)
 		}
 
 		wg.Add(1)
 		go func(j int) {
 			defer wg.Done()
 			if err := p.Run(ctx); err != nil {
-				log.Printf("run pfs error: i=%d, err=%+v", j, err)
+				logger.Ef(ctx, "run pfs error: i=%d, err=%+v", j, err)
 			}
 		}(i)
 	}
 
 	if !*ncmd {
 		for i, cc := range tc.CMD {
-			log.Printf("run pfs instance (%v/%v)", i+1, len(tc.CMD))
+			logger.If(ctx, "run pfs instance (%v/%v)", i+1, len(tc.CMD))
 			wg.Add(1)
-			if err := utility.RunCMD(wg, cc); err != nil {
-				log.Printf("run cmd error: i=%d, err=%+v", i, err)
+			if err := utility.RunCMD(ctx, wg, cc); err != nil {
+				logger.Ef(ctx, "run cmd error: i=%d, err=%+v", i, err)
 			}
 		}
 	}
 
 	wg.Wait()
-	log.Printf("sample finished: file=%v", cfg)
+	logger.If(ctx, "sample finished: file=%v", cfg)
 }

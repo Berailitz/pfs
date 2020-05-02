@@ -1,6 +1,7 @@
 package fbackend
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -23,12 +24,12 @@ type GCliPoolErr struct {
 
 var _ = (error)((*GCliPoolErr)(nil))
 
-func (p *GCliPool) Load(addr string) (pb.RemoteTreeClient, error) {
+func (p *GCliPool) Load(ctx context.Context, addr string) (pb.RemoteTreeClient, error) {
 	hopAddr := p.wd.Route(addr)
-	return p.LoadWithoutRoute(hopAddr)
+	return p.LoadWithoutRoute(ctx, hopAddr)
 }
 
-func (p *GCliPool) LoadWithoutRoute(addr string) (pb.RemoteTreeClient, error) {
+func (p *GCliPool) LoadWithoutRoute(ctx context.Context, addr string) (pb.RemoteTreeClient, error) {
 	if addr == "" {
 		err := &GCliPoolErr{fmt.Sprintf("gclipool load cli empty addr error: addr=%v", addr)}
 		return nil, err
@@ -45,7 +46,7 @@ func (p *GCliPool) LoadWithoutRoute(addr string) (pb.RemoteTreeClient, error) {
 		}
 	}
 
-	gcli, err := utility.BuildGCli(addr, p.gopts)
+	gcli, err := utility.BuildGCli(ctx, addr, p.gopts)
 	if err != nil {
 		err := &GCliPoolErr{fmt.Sprintf("build gcli fial error: addr=%v, opts=%#v, err=%+v",
 			addr, p.gopts, err)}

@@ -3,10 +3,10 @@ package lfs
 import (
 	"context"
 	"fmt"
-	"log"
 	"syscall"
 
 	"github.com/Berailitz/pfs/fbackend"
+	"github.com/Berailitz/pfs/logger"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -62,13 +62,13 @@ func (ln *LNode) NewHandle(hid uint64) *LHandle {
 
 func (ln *LNode) CheckRequest(ctx context.Context, r fuse.Request) {
 	if uint64(r.Hdr().Node) != ln.id {
-		log.Printf("mismatch request: h.Node=%v, ln.id=%v", r.Hdr().Node, ln.id)
+		logger.If(ctx, "mismatch request: h.Node=%v, ln.id=%v", r.Hdr().Node, ln.id)
 	}
 }
 
 func (ln *LNode) InvalidateAttr(ctx context.Context) error {
 	if err := ln.svr.InvalidateNodeAttr(ln); err != nil && err != fuse.ErrNotCached {
-		log.Printf("invalidate attr error: node=%s, err=%+v", ln, err)
+		logger.Ef(ctx, "invalidate attr error: node=%s, err=%+v", ln, err)
 		return err
 	}
 	return nil

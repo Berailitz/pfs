@@ -1,9 +1,10 @@
 package utility
 
 import (
+	"context"
 	"fmt"
-	"log"
 
+	"github.com/Berailitz/pfs/logger"
 	pb "github.com/Berailitz/pfs/remotetree"
 	"google.golang.org/grpc"
 )
@@ -14,11 +15,11 @@ type RemoteErr struct {
 
 var _ = (error)((*RemoteErr)(nil))
 
-func BuildGCli(addr string, gopts []grpc.DialOption) (pb.RemoteTreeClient, error) {
-	log.Printf("build gcli: addr=%v", addr)
+func BuildGCli(ctx context.Context, addr string, gopts []grpc.DialOption) (pb.RemoteTreeClient, error) {
+	logger.If(ctx, "build gcli: addr=%v", addr)
 	conn, err := grpc.Dial(addr, gopts...)
 	if err != nil {
-		log.Printf("new rcli fial error: addr=%v, opts=%#v, err=%+V",
+		logger.If(ctx, "new rcli fial error: addr=%v, opts=%#v, err=%+V",
 			addr, gopts, err)
 		return nil, err
 	}

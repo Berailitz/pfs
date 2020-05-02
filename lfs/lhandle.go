@@ -3,11 +3,11 @@ package lfs
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"github.com/Berailitz/pfs/fbackend"
+	"github.com/Berailitz/pfs/logger"
 )
 
 const (
@@ -38,7 +38,7 @@ func NewLHandle(id uint64, node uint64, fp *fbackend.FProxy) *LHandle {
 
 func (lh *LHandle) CheckRequest(ctx context.Context, r fuse.Request, hid uint64) {
 	if uint64(r.Hdr().Node) != lh.node || hid != lh.id {
-		log.Printf("mismatch request: requestNode=%v, realNode=%v, requestHandle=%v, readHandle=%v",
+		logger.If(ctx, "mismatch request: requestNode=%v, realNode=%v, requestHandle=%v, readHandle=%v",
 			r.Hdr().Node, lh.node, hid, lh.id)
 	}
 }

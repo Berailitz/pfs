@@ -3,17 +3,14 @@ package lfs
 import (
 	"context"
 	"fmt"
-	"log"
+
+	"github.com/Berailitz/pfs/logger"
 
 	"github.com/Berailitz/pfs/fbackend"
 
 	"bazil.org/fuse"
 
 	"bazil.org/fuse/fs"
-)
-
-const (
-	ContextLFSRequestKey = "lfs_request"
 )
 
 type LFS struct {
@@ -32,9 +29,10 @@ type LFSErr struct {
 var _ = (error)((*LFSErr)(nil))
 
 func NewLFS(
+	ctx context.Context,
 	fp *fbackend.FProxy) *LFS {
 	if fp == nil {
-		log.Fatalf("nil fbackend error")
+		logger.Pf(ctx, "nil fbackend error")
 	}
 	return &LFS{
 		fp: fp,
@@ -69,7 +67,7 @@ func (lfs *LFS) Umount() error {
 }
 
 func (lfs *LFS) buildRequestCtx(ctx context.Context, req fuse.Request) context.Context {
-	ctx = context.WithValue(ctx, ContextLFSRequestKey, req)
+	ctx = context.WithValue(ctx, logger.ContextLFSRequestKey, req)
 	ctx = lfs.fp.MakeRequestCtx(ctx)
 	return ctx
 }
@@ -79,5 +77,5 @@ func (e *LFSErr) Error() string {
 }
 
 func fuseDebug(msg interface{}) {
-	log.Printf("DEBUG: msg=%s\n", msg)
+	//logger.If(ctx, "DEBUG: msg=%s\n", msg)
 }

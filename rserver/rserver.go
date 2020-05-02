@@ -5,13 +5,13 @@ package rserver
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"time"
 
 	"bazil.org/fuse"
 
+	"github.com/Berailitz/pfs/logger"
 	"github.com/Berailitz/pfs/utility"
 
 	"github.com/Berailitz/pfs/fbackend"
@@ -447,12 +447,12 @@ func (s *RServer) AllocateRoot(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, 
 	}
 }
 
-func (s *RServer) RegisterFProxy(fp *fbackend.FProxy) {
+func (s *RServer) RegisterFProxy(ctx context.Context, fp *fbackend.FProxy) {
 	if fp == nil {
-		log.Fatalf("nil backend error")
+		logger.Pf(ctx, "nil backend error")
 	}
 	if s.fp != nil {
-		log.Fatalf("duplicate backend error")
+		logger.Pf(ctx, "duplicate backend error")
 	}
 	s.fp = fp
 }
@@ -471,15 +471,15 @@ func (s *RServer) Start(ctx context.Context, port int) error {
 	}
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		logger.Pf(ctx, "failed to listen: %v", err)
 	}
 	var opts []grpc.ServerOption
 	s.Server = grpc.NewServer(opts...)
 	pb.RegisterRemoteTreeServer(s.Server, s)
-	log.Printf("starting...localhost:%d", port)
+	logger.If(ctx, "starting...localhost:%d", port)
 	go func() {
 		if err := s.Server.Serve(lis); err != nil {
-			log.Printf("rserver serve error: err=%+v", err)
+			logger.Ef(ctx, "rserver serve error: err=%+v", err)
 		}
 	}()
 	time.Sleep(rServerStartTime) // wait for the server to start

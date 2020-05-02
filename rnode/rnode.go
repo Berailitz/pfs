@@ -29,9 +29,9 @@ type RNodeAttr struct {
 	// INVARIANT: attrs.Mode &^ (os.ModePerm|os.ModeDir|os.ModeSymlink) == 0
 	// INVARIANT: !(IsDir() && IsSymlink())
 	// INVARIANT: attrs.Size == len(contents)
-	NAttr     fuse.Attr
-	mtimeLock sync.Mutex
-	ctimeLock sync.Mutex
+	NAttr  fuse.Attr
+	NMTime int64
+	NCTime int64
 
 	// For symlinks, the target of the symlink.
 	//
@@ -68,7 +68,10 @@ func (rn *RNode) ID() uint64 {
 }
 
 func (rna *RNodeAttr) Attrs() fuse.Attr {
-	return rna.NAttr
+	attr := rna.NAttr
+	attr.Ctime = time.Unix(rna.NCTime, 0)
+	attr.Mtime = time.Unix(rna.NMTime, 0)
+	return attr
 }
 
 func (rn *RNode) Entries() []fuse.Dirent {
@@ -169,16 +172,18 @@ func (rn *RNode) SetAddr(addr string) {
 // time-related information (the RNode object will take care of that).
 func NewRNode(attrs fuse.Attr, id uint64) *RNode {
 	// Update time info.
-	now := time.Now()
 	attrs.Inode = id
-	attrs.Mtime = now
-	attrs.Crtime = now
+	// no need to set following 2 lines for NMTime and NCTime takes cares for them
+	// attrs.Mtime = now
+	// attrs.Crtime = now
 
 	// Create the object.
 	return &RNode{
 		NID: id,
 		RNodeAttr: RNodeAttr{
 			NAttr:   attrs,
+			NMTime:  attrs.Mtime.Unix(),
+			NCTime:  attrs.Ctime.Unix(),
 			NXattrs: make(map[string][]byte),
 		},
 		NCanLock: CanLockTrue,
@@ -502,15 +507,11 @@ func (rn *RNode) SetMode(m os.FileMode) {
 }
 
 func (rn *RNode) SetMtime(t time.Time) {
-	rn.mtimeLock.Lock()
-	defer rn.mtimeLock.Unlock()
-	rn.NAttr.Mtime = t
+	rn.NMTime = t.Unix()
 }
 
 func (rn *RNode) SetCtime(t time.Time) {
-	rn.ctimeLock.Lock()
-	defer rn.ctimeLock.Unlock()
-	rn.NAttr.Ctime = t
+	rn.NCTime = t.Unix()
 }
 
 func (e *RNodeErr) Error() string {

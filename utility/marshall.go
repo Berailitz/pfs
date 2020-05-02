@@ -78,7 +78,7 @@ func FromPbDirents(dirents []*pb.Dirent) []fuse.Dirent {
 func ToPbNode(node *rnode.RNode) *pb.Node {
 	return &pb.Node{
 		NID:       node.NID,
-		NAttr:     ToPbAttr(node.NAttr),
+		NAttr:     ToPbAttr(node.Attrs()),
 		NTarget:   node.NTarget,
 		NXattrs:   node.NXattrs,
 		NEntries:  ToPbDirents(node.NEntries),

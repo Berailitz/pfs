@@ -9,12 +9,8 @@ import (
 	"github.com/Berailitz/pfs/logger"
 	"github.com/Berailitz/pfs/utility"
 
-	"google.golang.org/grpc"
-
 	"github.com/Berailitz/pfs/rserver"
 )
-
-var gopts = []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
 
 type PFSParam struct {
 	Debug            bool   `yaml:"debug,omitempty"`
@@ -64,9 +60,9 @@ func (p *PFS) Mount(ctx context.Context) error {
 
 	p.ma.Start(ctx)
 
-	logger.If(ctx, "create fp: master=%v, localAddr=%v, gopts=%+v", p.param.Master, localAddr, gopts)
+	logger.If(ctx, "create fp: master=%v, localAddr=%v", p.param.Master, localAddr)
 	fp := fbackend.NewFProxy(ctx, utility.GetUID(ctx), utility.GetGID(ctx),
-		localAddr, gopts, p.ma, p.param.StaticTofCfgFile, p.param.BackupSize)
+		localAddr, p.ma, p.param.StaticTofCfgFile, p.param.BackupSize)
 	p.ma.SetFP(fp)
 	p.rsvr.RegisterFProxy(ctx, fp)
 

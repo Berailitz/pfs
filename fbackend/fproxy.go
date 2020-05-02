@@ -18,7 +18,6 @@ import (
 	pb "github.com/Berailitz/pfs/remotetree"
 
 	"github.com/Berailitz/pfs/utility"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -58,7 +57,6 @@ func NewFProxy(
 	uid uint32,
 	gid uint32,
 	localAddr string,
-	gopts []grpc.DialOption,
 	ma *RManager,
 	staticTofCfgFile string,
 	backupSize int) *FProxy {
@@ -66,15 +64,15 @@ func NewFProxy(
 	allcator := idallocator.NewIDAllocator(initialHandle)
 	fb := NewFBackEnd(uid, gid, allcator, wd)
 	if fb == nil {
-		logger.P(ctx, "new fp nil fb error: uid=%v, gid=%v, localAddr=%v, gopts=%+v",
-			uid, gid, localAddr, gopts)
+		logger.P(ctx, "new fp nil fb error: uid=%v, gid=%v, localAddr=%v",
+			uid, gid, localAddr)
 	}
 
 	fp := &FProxy{
 		fb:                 fb,
 		ma:                 ma,
 		wd:                 wd,
-		pool:               NewGCliPool(gopts, localAddr, wd),
+		pool:               NewGCliPool(localAddr, wd),
 		allcator:           allcator,
 		localAddr:          localAddr,
 		requestIDAllocator: idallocator.NewIDAllocator(firstLogID),

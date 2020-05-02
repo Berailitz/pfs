@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"google.golang.org/grpc"
-
 	pb "github.com/Berailitz/pfs/remotetree"
 	"github.com/Berailitz/pfs/utility"
 )
@@ -14,7 +12,6 @@ import (
 type GCliPool struct {
 	cmap  sync.Map // [addr]remotetree.RemoteTreeClient
 	wd    *WatchDog
-	gopts []grpc.DialOption
 	local string
 }
 
@@ -46,19 +43,18 @@ func (p *GCliPool) LoadWithoutRoute(ctx context.Context, addr string) (pb.Remote
 		}
 	}
 
-	gcli, err := utility.BuildGCli(ctx, addr, p.gopts)
+	gcli, err := utility.BuildGCli(ctx, addr)
 	if err != nil {
 		err := &GCliPoolErr{fmt.Sprintf("build gcli fial error: addr=%v, opts=%#v, err=%+v",
-			addr, p.gopts, err)}
+			addr, err)}
 		return nil, err
 	}
 	p.cmap.Store(addr, gcli)
 	return gcli, nil
 }
 
-func NewGCliPool(gopts []grpc.DialOption, local string, wd *WatchDog) *GCliPool {
+func NewGCliPool(local string, wd *WatchDog) *GCliPool {
 	return &GCliPool{
-		gopts: gopts,
 		local: local,
 		wd:    wd,
 	}

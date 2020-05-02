@@ -10,10 +10,7 @@ import (
 	pb "github.com/Berailitz/pfs/remotetree"
 
 	"github.com/Berailitz/pfs/utility"
-	"google.golang.org/grpc"
 )
-
-var gopts = []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
 
 func main() {
 	masterAddr := flag.String("masterAddr", "127.0.0.1:10000", "masterAddr")
@@ -22,10 +19,10 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
-	gcli, err := utility.BuildGCli(ctx, *masterAddr, gopts)
+	gcli, err := utility.BuildGCli(ctx, *masterAddr)
 	if err != nil {
-		logger.Pf(ctx, "new rcli fial error: master=%v, opts=%+v, err=%+V",
-			masterAddr, gopts, err)
+		logger.Pf(ctx, "new rcli fial error: master=%v, err=%+V",
+			masterAddr, err)
 		return
 	}
 

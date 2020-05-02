@@ -9,18 +9,26 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	rpcTimeout = 3
+)
+
+var (
+	gcliOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
+)
+
 type RemoteErr struct {
 	msg string
 }
 
 var _ = (error)((*RemoteErr)(nil))
 
-func BuildGCli(ctx context.Context, addr string, gopts []grpc.DialOption) (pb.RemoteTreeClient, error) {
+func BuildGCli(ctx context.Context, addr string) (pb.RemoteTreeClient, error) {
 	logger.If(ctx, "build gcli: addr=%v", addr)
-	conn, err := grpc.Dial(addr, gopts...)
+	conn, err := grpc.Dial(addr, gcliOptions...)
 	if err != nil {
 		logger.If(ctx, "new rcli fial error: addr=%v, opts=%#v, err=%+V",
-			addr, gopts, err)
+			addr, gcliOptions, err)
 		return nil, err
 	}
 	return pb.NewRemoteTreeClient(conn), nil

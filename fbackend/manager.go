@@ -126,24 +126,27 @@ func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
 	return false
 }
 
-func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) {
+func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) bool {
+	if addr == "" {
+		log.Printf("invalid empty addr error")
+		return false
+	}
+
 	m.muOwnerMapRead.Lock()
 	defer m.muOwnerMapRead.Unlock()
 
 	m.Owners.Store(ownerID, addr)
 	m.ownerMapRead[ownerID] = addr
+	return true
 }
 
 // RegisterOwner return 0 if err
 func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
-	if addr == "" {
-		log.Printf("invalid empty addr")
-		return 0
-	}
-
 	ownerID := m.ownerAllocator.Allocate()
 	if ownerID <= MaxOwnerID {
-		m.doAddOwner(ctx, ownerID, addr)
+		if !m.doAddOwner(ctx, ownerID, addr) {
+			return 0
+		}
 		m.proposalChan <- &Proposal{
 			Typ:   AddOwnerProposalType,
 			Key:   ownerID,
@@ -205,13 +208,18 @@ func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {
 	switch proposal.Typ {
 	case AddOwnerProposalType:
-		m.doAddOwner(ctx, proposal.Key, proposal.Value)
+		if !m.doAddOwner(ctx, proposal.Key, proposal.Value) {
+			err = &ManagerErr{fmt.Sprintf("invalid proposal value: proposal=%+v", proposal)}
+			log.Printf(err.Error())
+			return ErrorProposalState, err
+		}
 		m.ownerAllocator.SetNext(proposal.Key + 1)
 	case RemoveOwnerProposalType:
 		m.doRemoveOwner(ctx, proposal.Key)
 	case AddNodeProposalType:
 		ownerID, err := strconv.ParseInt(proposal.Value, 10, 64)
 		if err != nil {
+			log.Printf("add node proposal err: proposal=%+v, err=%+v", proposal, err)
 			return ErrorProposalState, err
 		}
 		m.NodeOwner.Store(proposal.Key, ownerID)
@@ -220,7 +228,9 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 		m.NodeOwner.Delete(proposal.Key)
 		atomic.AddUint64(&m.OwnerCounter[proposal.Key], ^uint64(0))
 	default:
-		return ErrorProposalState, &ManagerErr{fmt.Sprintf("invalid proposal type: proposal=%+v", proposal)}
+		err = &ManagerErr{fmt.Sprintf("invalid proposal type: proposal=%+v", proposal)}
+		log.Printf(err.Error())
+		return ErrorProposalState, err
 	}
 	return 0, nil
 }

@@ -108,6 +108,7 @@ func (s *RServer) GetOwnerMap(ctx context.Context, _ *pb.EmptyMsg) (*pb.Uint64St
 func (s *RServer) FetchNode(ctx context.Context, req *pb.NodeIsReadRequest) (*pb.Node, error) {
 	node, err := s.fp.LoadNode(ctx, req.Id, req.IsRead)
 	if err != nil {
+		logger.E(ctx, "fetch node load node error", "id", req.Id, "IsRead", req.IsRead)
 		return &pb.Node{
 			NID: 0,
 		}, nil

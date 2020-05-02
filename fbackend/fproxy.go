@@ -1012,28 +1012,29 @@ func (fp *FProxy) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 	return fp.ma.AllocateRoot(ctx, ownerID)
 }
 
-func (fp *FProxy) AnswerProposal(ctx context.Context, addr string, proposalID uint64, proposeType int64, key uint64, value string) (state int64, err error) {
+func (fp *FProxy) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {
 	if addr == fp.localAddr {
-		return fp.ma.AnswerProposal(ctx, addr, proposalID, proposeType, key, value)
+		return fp.ma.AnswerProposal(ctx, addr, proposal)
 	}
-	return fp.SendProposal(ctx, addr, proposalID, proposeType, key, value)
+	return fp.SendProposal(ctx, addr, proposal)
 }
 
-func (fp *FProxy) SendProposal(ctx context.Context, addr string, proposalID uint64, proposeType int64, key uint64, value string) (state int64, err error) {
+func (fp *FProxy) SendProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return 0, err
 	}
 
 	reply, err := gcli.Propose(ctx, &pb.ProposeRequest{
-		ProposeID:   proposalID,
-		ProposeType: proposeType,
-		Key:         key,
-		Value:       value,
+		Addr:        addr,
+		ProposeID:   proposal.ID,
+		ProposeType: proposal.Typ,
+		Key:         proposal.Key,
+		Value:       proposal.Value,
 	})
 	if err != nil {
-		log.Printf("rpc proposal error: addr=%v, proposalID=%v, proposalType=%v, key=%v, value=%v, err=%+v",
-			addr, proposalID, proposeType, key, value, err)
+		log.Printf("rpc proposal error: addr=%v, proposal=%v, err=%+v",
+			addr, proposal, err)
 		return 0, err
 	}
 	return reply.State, utility.FromPbErr(reply.Err)

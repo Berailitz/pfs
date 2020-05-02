@@ -28,6 +28,13 @@ const (
 	RemoveNodeProposalType  = 4
 )
 
+type Proposal struct {
+	ID    uint64
+	Typ   int64
+	Key   uint64
+	Value string
+}
+
 type RManager struct {
 	NodeOwner         sync.Map // [uint64]uint64
 	Owners            sync.Map // [uint64]string
@@ -147,7 +154,7 @@ func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 	return false
 }
 
-func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposalId uint64, proposeType int64, key uint64, value string) (state int64, err error) {
+func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {
 	return 0, nil
 }
 
@@ -156,14 +163,19 @@ func (m *RManager) broadcastProposal(ctx context.Context, proposeType int64, key
 	defer utility.RecoverWithStack(nil)
 	m.muOwnerMapRead.RLock()
 	defer m.muOwnerMapRead.RUnlock()
-	proposalID := m.proposalAllocator.Allocate()
+	propose := &Proposal{
+		ID:    m.proposalAllocator.Allocate(),
+		Typ:   proposeType,
+		Key:   key,
+		Value: value,
+	}
 	for _, addr := range m.ownerMapRead {
 		if addr != m.MasterAddr() {
 			// TODO handle state and err
-			_, err := m.fp.SendProposal(ctx, addr, proposalID, proposeType, key, value)
+			_, err := m.fp.SendProposal(ctx, addr, propose)
 			if err != nil {
-				log.Printf("rpc proposal error: addr=%v, proposalId=%v, proposalType=%v, key=%v, value=%v, err=%+v",
-					addr, proposalID, proposeType, key, value, err)
+				log.Printf("rpc proposal error: addr=%v, propose=%v, err=%+v",
+					addr, propose, err)
 			}
 		}
 	}

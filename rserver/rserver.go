@@ -53,7 +53,12 @@ func (s *RServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingReply,
 }
 
 func (s *RServer) Propose(ctx context.Context, req *pb.ProposeRequest) (*pb.ProposeReply, error) {
-	state, err := s.fp.AnswerProposal(ctx, req.Addr, req.ProposeID, req.ProposeType, req.Key, req.Value)
+	state, err := s.fp.AnswerProposal(ctx, req.Addr, &fbackend.Proposal{
+		ID:    req.ProposeID,
+		Typ:   req.ProposeType,
+		Key:   req.Key,
+		Value: req.Value,
+	})
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = utility.ToPbErr(err)

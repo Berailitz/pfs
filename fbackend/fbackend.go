@@ -354,7 +354,7 @@ func (fb *FBackEnd) AttachChild(
 	log.Printf("attach child: parentID=%v, childID=%v, name=%v, dt=%v, doOpen=%v",
 		parentID, childID, name, dt, doOpen)
 
-	parent, err := fb.LoadLocalNodeForWrite(ctx, parentID)
+	parent, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		log.Printf("sadd child load parent err: err=%v", err.Error())
 		return 0, err

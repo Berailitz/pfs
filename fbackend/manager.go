@@ -147,6 +147,10 @@ func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 	return false
 }
 
+func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposalId uint64, proposeType int64, key uint64, value string) (state int64, err error) {
+	return 0, nil
+}
+
 func (m *RManager) broadcastProposal(ctx context.Context, proposeType int64, key uint64, value string) {
 	// TODO: use queue
 	defer utility.RecoverWithStack(nil)
@@ -156,7 +160,7 @@ func (m *RManager) broadcastProposal(ctx context.Context, proposeType int64, key
 	for _, addr := range m.ownerMapRead {
 		if addr != m.MasterAddr() {
 			// TODO handle state and err
-			_, err := m.fp.sendProposal(ctx, addr, proposalID, proposeType, key, value)
+			_, err := m.fp.SendProposal(ctx, addr, proposalID, proposeType, key, value)
 			if err != nil {
 				log.Printf("rpc proposal error: addr=%v, proposalId=%v, proposalType=%v, key=%v, value=%v, err=%+v",
 					addr, proposalID, proposeType, key, value, err)

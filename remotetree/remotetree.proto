@@ -53,10 +53,11 @@ service RemoteTree {
 }
 
 message ProposeRequest {
-    uint64 proposeID = 1;
-    int64 proposeType = 2;
-    uint64 key = 3;
-    string value = 4;
+    string addr = 1;
+    uint64 proposeID = 2;
+    int64 proposeType = 3;
+    uint64 key = 4;
+    string value = 5;
 }
 
 message ProposeReply {

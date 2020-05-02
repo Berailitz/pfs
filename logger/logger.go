@@ -13,6 +13,8 @@ import (
 
 const (
 	ContextRequestIDKey = "request_id"
+	// frameToSkip is updated if func name is incorrect
+	frameToSkip = 10
 )
 
 var (
@@ -24,11 +26,12 @@ var (
 func init() {
 	logrus.SetReportCaller(true)
 	logrus.SetFormatter(&zt_formatter.ZtFormatter{
-		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+		CallerPrettyfier: func(_ *runtime.Frame) (string, string) {
+			pc := make([]uintptr, 1)
+			n := runtime.Callers(frameToSkip, pc)
+			frames := runtime.CallersFrames(pc[:n])
+			f, _ := frames.Next()
 			lastSlash := strings.LastIndexByte(f.Function, '/')
-			if lastSlash < 0 {
-				lastSlash = 0
-			}
 			return fmt.Sprintf("%d", f.Line), f.Function[lastSlash+1:]
 		},
 		Formatter: nested.Formatter{

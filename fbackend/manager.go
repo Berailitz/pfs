@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Berailitz/pfs/utility"
 
@@ -28,6 +29,11 @@ const (
 	RemoveNodeProposalType  = 4
 )
 
+const (
+	maRunnableName         = "manager"
+	maRunnableLoopInterval = time.Duration(0)
+)
+
 type Proposal struct {
 	ID    uint64
 	Typ   int64
@@ -36,12 +42,16 @@ type Proposal struct {
 }
 
 type RManager struct {
+	utility.Runnable
+
 	NodeOwner         sync.Map // [uint64]uint64
 	Owners            sync.Map // [uint64]string
 	OwnerCounter      [MaxOwnerID]uint64
 	nodeAllocator     *idallocator.IDAllocator
 	ownerAllocator    *idallocator.IDAllocator
 	proposalAllocator *idallocator.IDAllocator
+
+	proposalChan chan *Proposal
 
 	masterAddr string
 
@@ -79,7 +89,11 @@ func (m *RManager) Allocate(ctx context.Context, ownerID uint64) uint64 {
 	if _, ok := m.Owners.Load(ownerID); ok {
 		id := m.nodeAllocator.Allocate()
 		m.NodeOwner.Store(id, ownerID)
-		go m.broadcastProposal(ctx, AddNodeProposalType, id, strconv.FormatUint(ownerID, 10))
+		m.proposalChan <- &Proposal{
+			Typ:   AddNodeProposalType,
+			Key:   id,
+			Value: strconv.FormatUint(ownerID, 10),
+		}
 		return id
 	}
 	return 0
@@ -90,7 +104,10 @@ func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
 		if ownerID, ok := out.(uint64); ok {
 			m.NodeOwner.Delete(nodeID)
 			atomic.AddUint64(&m.OwnerCounter[ownerID], ^uint64(0))
-			go m.broadcastProposal(ctx, RemoveNodeProposalType, nodeID, "")
+			m.proposalChan <- &Proposal{
+				Typ: RemoveNodeProposalType,
+				Key: nodeID,
+			}
 			return true
 		}
 	}
@@ -101,12 +118,19 @@ func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
 func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
 	ownerID := m.ownerAllocator.Allocate()
 	if ownerID <= MaxOwnerID {
-		m.muOwnerMapRead.Lock()
-		defer m.muOwnerMapRead.Unlock()
+		func() {
+			m.muOwnerMapRead.Lock()
+			defer m.muOwnerMapRead.Unlock()
 
-		m.Owners.Store(ownerID, addr)
-		m.ownerMapRead[ownerID] = addr
-		go m.broadcastProposal(ctx, AddOwnerProposalType, ownerID, addr)
+			m.Owners.Store(ownerID, addr)
+			m.ownerMapRead[ownerID] = addr
+		}()
+
+		m.proposalChan <- &Proposal{
+			Typ:   AddOwnerProposalType,
+			Key:   ownerID,
+			Value: addr,
+		}
 
 		return ownerID
 	}
@@ -115,12 +139,17 @@ func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
 
 func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) bool {
 	if atomic.LoadUint64(&m.OwnerCounter[ownerID]) == 0 {
-		m.muOwnerMapRead.Lock()
-		defer m.muOwnerMapRead.Unlock()
+		func() {
+			m.muOwnerMapRead.Lock()
+			defer m.muOwnerMapRead.Unlock()
+			m.Owners.Delete(ownerID)
+			delete(m.ownerMapRead, ownerID)
+		}()
 
-		m.Owners.Delete(ownerID)
-		delete(m.ownerMapRead, ownerID)
-		go m.broadcastProposal(ctx, RemoveOwnerProposalType, ownerID, "")
+		m.proposalChan <- &Proposal{
+			Typ: RemoveOwnerProposalType,
+			Key: ownerID,
+		}
 
 		return true
 	}
@@ -158,24 +187,31 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 	return 0, nil
 }
 
-func (m *RManager) broadcastProposal(ctx context.Context, proposeType int64, key uint64, value string) {
-	// TODO: use queue
-	defer utility.RecoverWithStack(nil)
+func (m *RManager) Run(ctx context.Context) (err error) {
+	for {
+		select {
+		case <-m.Runnable.ToStop:
+			log.Printf("runnable is quitting: name=%v", m.Runnable.Name)
+			return nil
+		case proposal := <-m.proposalChan:
+			m.broadcastProposal(ctx, proposal)
+		}
+	}
+}
+
+func (m *RManager) broadcastProposal(ctx context.Context, proposal *Proposal) {
+	proposal.ID = m.proposalAllocator.Allocate()
+
 	m.muOwnerMapRead.RLock()
 	defer m.muOwnerMapRead.RUnlock()
-	propose := &Proposal{
-		ID:    m.proposalAllocator.Allocate(),
-		Typ:   proposeType,
-		Key:   key,
-		Value: value,
-	}
+
 	for _, addr := range m.ownerMapRead {
 		if addr != m.MasterAddr() {
 			// TODO handle state and err
-			_, err := m.fp.SendProposal(ctx, addr, propose)
+			_, err := m.fp.SendProposal(ctx, addr, proposal)
 			if err != nil {
-				log.Printf("rpc proposal error: addr=%v, propose=%v, err=%+v",
-					addr, propose, err)
+				log.Printf("rpc proposal error: addr=%v, proposal=%+v, err=%+v",
+					addr, proposal, err)
 			}
 		}
 	}
@@ -190,11 +226,14 @@ func (m *RManager) SetFP(fp *FProxy) {
 }
 
 // NewRManager do not register or allocate
-func NewRManager() *RManager {
-	return &RManager{
+func NewRManager(ctx context.Context) *RManager {
+	ma := &RManager{
 		nodeAllocator:     idallocator.NewIDAllocator(RootNodeID + 1), // since root is assigned by AllocateRoot, not allocated
 		ownerAllocator:    idallocator.NewIDAllocator(FirstOwnerID),
 		proposalAllocator: idallocator.NewIDAllocator(FirstProposalID),
 		ownerMapRead:      map[uint64]string{},
+		proposalChan:      make(chan *Proposal),
 	}
+	ma.InitRunnable(ctx, maRunnableName, maRunnableLoopInterval, ma.Run)
+	return ma
 }

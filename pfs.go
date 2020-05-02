@@ -32,6 +32,7 @@ type PFS struct {
 	param PFSParam
 	rsvr  *rserver.RServer
 	lfsvr *lfs.LFS
+	ma    *fbackend.RManager
 }
 
 func NewPFS(param PFSParam) *PFS {
@@ -50,19 +51,21 @@ func (p *PFS) Mount(ctx context.Context) error {
 
 	localAddr := fmt.Sprintf("%s:%d", p.param.Host, p.param.Port)
 
-	ma := fbackend.NewRManager()
-	ma.SetMaster(p.param.Master)
+	p.ma = fbackend.NewRManager(ctx)
+	p.ma.SetMaster(p.param.Master)
 
 	log.Printf("start rs: port=%v", p.param.Port)
-	p.rsvr = rserver.NewRServer(ma)
+	p.rsvr = rserver.NewRServer(p.ma)
 	if err := p.rsvr.Start(ctx, p.param.Port); err != nil {
 		log.Fatalf("start rs error: err=%+v", err)
 		return err
 	}
 
+	p.ma.Start(ctx)
+
 	log.Printf("create fp: master=%v, localAddr=%v, gopts=%+v", p.param.Master, localAddr, gopts)
-	fp := fbackend.NewFProxy(ctx, utility.GetUID(), utility.GetGID(), localAddr, gopts, ma, p.param.StaticTofCfgFile)
-	ma.SetFP(fp)
+	fp := fbackend.NewFProxy(ctx, utility.GetUID(), utility.GetGID(), localAddr, gopts, p.ma, p.param.StaticTofCfgFile)
+	p.ma.SetFP(fp)
 	p.rsvr.RegisterFProxy(fp)
 
 	p.rsvr.StartFP(ctx)
@@ -128,6 +131,7 @@ func (p *PFS) Stop(ctx context.Context) error {
 	log.Printf("stop pfs")
 	err := p.Umount()
 
+	p.ma.Stop(ctx)
 	if serr := p.stopRS(ctx); serr != nil && err == nil {
 		err = serr
 	}

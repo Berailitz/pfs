@@ -84,6 +84,7 @@ func ToPbNode(node *rnode.RNode) *pb.Node {
 		NEntries:  ToPbDirents(node.NEntries),
 		NContents: node.NContents,
 		CanLock:   node.NCanLock,
+		Version:   node.Version(),
 	}
 }
 
@@ -99,6 +100,7 @@ func FromPbNode(node *pb.Node) *rnode.RNode {
 		NContents: node.NContents,
 		NLock:     &sync.RWMutex{},
 		NCanLock:  node.CanLock,
+		NVersion:  node.Version,
 	}
 }
 

@@ -112,6 +112,7 @@ message Node {
     repeated Dirent NEntries = 5;
     bytes NContents = 6;
     int32 canLock = 7;
+    int64 version = 8;
 }
 
 message LookUpInodeRequest {

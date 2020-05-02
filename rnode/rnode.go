@@ -191,6 +191,7 @@ func NewRNode(attrs fuse.Attr, id uint64) *RNode {
 		},
 		NCanLock: CanLockTrue,
 		NLock:    &sync.RWMutex{},
+		NVersion: 0,
 	}
 }
 

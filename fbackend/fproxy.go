@@ -31,7 +31,6 @@ type FProxy struct {
 	fb        *FBackEnd
 	ma        *RManager
 	wd        *WatchDog
-	pcli      *RClient
 	pool      *GCliPool
 	localAddr string
 
@@ -54,15 +53,9 @@ func NewFProxy(
 	ma *RManager,
 	staticTofCfgFile string,
 	backupSize int) *FProxy {
-	pcli := NewRClient(ma, gopts)
-	if pcli == nil {
-		log.Fatalf("nil pcli error")
-	}
-	localID := pcli.RegisterSelf(ctx, localAddr)
-
 	wd := NewWatchDog(ctx, ma, localAddr, staticTofCfgFile, backupSize)
 	allcator := idallocator.NewIDAllocator(initialHandle)
-	fb := NewFBackEnd(uid, gid, allcator, localID, wd)
+	fb := NewFBackEnd(uid, gid, allcator, wd)
 	if fb == nil {
 		log.Fatalf("new fp nil fb error: uid=%v, gid=%v, localAddr=%v, gopts=%+v",
 			uid, gid, localAddr, gopts)
@@ -72,7 +65,6 @@ func NewFProxy(
 		fb:        fb,
 		ma:        ma,
 		wd:        wd,
-		pcli:      pcli,
 		pool:      NewGCliPool(gopts, localAddr, wd),
 		allcator:  allcator,
 		localAddr: localAddr,
@@ -182,7 +174,7 @@ func (fp *FProxy) RUnlockNode(ctx context.Context, id uint64) error {
 		return fp.fb.RUnlockNode(ctx, node)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
@@ -208,7 +200,7 @@ func (fp *FProxy) UnlockNode(ctx context.Context, node *rnode.RNode) error {
 		return fp.fb.UnlockNode(ctx, localNode)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
@@ -232,7 +224,7 @@ func (fp *FProxy) LookUpInode(
 		return fp.fb.LookUpInode(ctx, parentID, name)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, parentID)
+	addr := fp.QueryOwner(ctx, parentID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return 0, fuse.Attr{}, err
@@ -258,7 +250,7 @@ func (fp *FProxy) GetInodeAttributes(
 		return fp.fb.GetInodeAttributes(ctx, id)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return fuse.Attr{}, err
@@ -284,7 +276,7 @@ func (fp *FProxy) SetInodeAttributes(
 		return fp.fb.SetInodeAttributes(ctx, id, param)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return fuse.Attr{}, err
@@ -325,7 +317,7 @@ func (fp *FProxy) MkDir(
 //		return fp.fb.MkDir(ctx, parentID, name, mode)
 //	}
 //
-//	addr := fp.pcli.QueryOwner(ctx, parentID)
+//	addr := fp.QueryOwner(ctx, parentID)
 //	gcli, err := fp.pool.Load(addr)
 //	if err != nil {
 //		return 0, err
@@ -364,7 +356,7 @@ func (fp *FProxy) CreateNode(
 //		return fp.fb.CreateNode(ctx, parentID, name, mode)
 //	}
 //
-//	addr := fp.pcli.QueryOwner(ctx, parentID)
+//	addr := fp.QueryOwner(ctx, parentID)
 //	gcli, err := fp.pool.Load(addr)
 //	if err != nil {
 //		return 0, err
@@ -405,7 +397,7 @@ func (fp *FProxy) CreateFile(
 //		return fp.fb.CreateFile(ctx, parentID, name, mode, flags)
 //	}
 //
-//	addr := fp.pcli.QueryOwner(ctx, parentID)
+//	addr := fp.QueryOwner(ctx, parentID)
 //	gcli, err := fp.pool.Load(addr)
 //	if err != nil {
 //		return 0, 0, err
@@ -446,7 +438,7 @@ func (fp *FProxy) AttachChild(
 		return fp.fb.AttachChild(ctx, parentID, childID, name, dt, doOpen)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, parentID)
+	addr := fp.QueryOwner(ctx, parentID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return 0, err
@@ -486,7 +478,7 @@ func (fp *FProxy) CreateSymlink(
 //		return fp.fb.CreateSymlink(ctx, parentID, name, target)
 //	}
 //
-//	addr := fp.pcli.QueryOwner(ctx, parentID)
+//	addr := fp.QueryOwner(ctx, parentID)
 //	gcli, err := fp.pool.Load(addr)
 //	if err != nil {
 //		return 0, err
@@ -517,7 +509,7 @@ func (fp *FProxy) CreateLink(
 	}
 
 	// TODO: Parent owner start and acquire child
-	addr := fp.pcli.QueryOwner(ctx, parentID)
+	addr := fp.QueryOwner(ctx, parentID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return 0, err
@@ -550,7 +542,7 @@ func (fp *FProxy) Rename(
 	}
 
 	// TODO: NewParent owner start and acquire child, OldParent owner rm OldChild, rm node, NewParent add child
-	addr := fp.pcli.QueryOwner(ctx, newParent)
+	addr := fp.QueryOwner(ctx, newParent)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
@@ -579,7 +571,7 @@ func (fp *FProxy) DetachChild(
 		return fp.fb.DetachChild(ctx, parent, name)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, parent)
+	addr := fp.QueryOwner(ctx, parent)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
@@ -612,7 +604,7 @@ func (fp *FProxy) Unlink(
 		return fp.fb.Unlink(ctx, parent, name, childID)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, childID)
+	addr := fp.QueryOwner(ctx, childID)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
@@ -639,7 +631,7 @@ func (fp *FProxy) Open(
 		return fp.fb.Open(ctx, id, flags)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return 0, err
@@ -674,7 +666,7 @@ func (fp *FProxy) ReadDirAll(
 		return fp.fb.ReadDir(ctx, id)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return nil, err
@@ -740,7 +732,7 @@ func (fp *FProxy) ReadFile(
 		return fp.fb.ReadFile(ctx, id, length, offset)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return 0, nil, err
@@ -769,7 +761,7 @@ func (fp *FProxy) WriteFile(
 		return fp.fb.WriteFile(ctx, id, offset, data)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return 0, err
@@ -796,7 +788,7 @@ func (fp *FProxy) ReadSymlink(
 		return fp.fb.ReadSymlink(ctx, id)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return "", err
@@ -823,7 +815,7 @@ func (fp *FProxy) GetXattr(ctx context.Context,
 		return fp.fb.GetXattr(ctx, id, name, length)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return 0, nil, err
@@ -851,7 +843,7 @@ func (fp *FProxy) ListXattr(ctx context.Context,
 		return fp.fb.ListXattr(ctx, id, length)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return 0, nil, err
@@ -875,7 +867,7 @@ func (fp *FProxy) RemoveXattr(ctx context.Context, id uint64, name string) error
 		return fp.fb.RemoveXattr(ctx, id, name)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
@@ -899,7 +891,7 @@ func (fp *FProxy) SetXattr(ctx context.Context, id uint64, name string, flags ui
 		return fp.fb.SetXattr(ctx, id, name, flags, value)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
@@ -928,7 +920,7 @@ func (fp *FProxy) Fallocate(ctx context.Context,
 		return fp.fb.Fallocate(ctx, id, mode, length)
 	}
 
-	addr := fp.pcli.QueryOwner(ctx, id)
+	addr := fp.QueryOwner(ctx, id)
 	gcli, err := fp.pool.Load(addr)
 	if err != nil {
 		return err
@@ -981,36 +973,140 @@ func (fp *FProxy) isChildLocal(ctx context.Context, parentId uint64, name string
 }
 
 func (fp *FProxy) QueryOwner(ctx context.Context, nodeID uint64) string {
-	return fp.ma.QueryOwner(ctx, nodeID)
-}
+	if fp.localAddr == fp.ma.MasterAddr() {
+		return fp.ma.QueryOwner(ctx, nodeID)
+	}
 
-func (fp *FProxy) QueryAddr(ctx context.Context, nodeID uint64) string {
-	return fp.ma.QueryAddr(ctx, nodeID)
+	log.Printf("query owner: nodeID=%v", nodeID)
+	gcli, err := fp.pool.Load(fp.ma.MasterAddr())
+	if err != nil {
+		return ""
+	}
+
+	addr, err := gcli.QueryOwner(ctx, &pb.UInt64ID{
+		Id: nodeID,
+	})
+	if err != nil {
+		log.Printf("query owner error: nodeID=%v, err=%+v", nodeID, err)
+		return ""
+	}
+	log.Printf("query owner success: nodeID=%v, addr=%v", nodeID, addr.Addr)
+	return addr.Addr
 }
 
 func (fp *FProxy) Allocate(ctx context.Context, ownerID uint64) uint64 {
-	return fp.ma.Allocate(ctx, ownerID)
+	if fp.localAddr == fp.ma.MasterAddr() {
+		return fp.ma.Allocate(ctx, ownerID)
+	}
+
+	log.Printf("allocate node")
+	gcli, err := fp.pool.Load(fp.ma.MasterAddr())
+	if err != nil {
+		return 0
+	}
+
+	nodeID, err := gcli.Allocate(ctx, &pb.OwnerId{
+		Id: ownerID,
+	})
+	if err != nil {
+		log.Printf("allocate error: ownerID=%v, err=%+v", ownerID, err)
+		return 0
+	}
+	log.Printf("allocate node success: nodeID=%v", nodeID.Id)
+	return nodeID.Id
 }
 
 func (fp *FProxy) Deallocate(ctx context.Context, nodeID uint64) bool {
-	return fp.ma.Deallocate(ctx, nodeID)
+	if fp.localAddr == fp.ma.MasterAddr() {
+		return fp.ma.Deallocate(ctx, nodeID)
+	}
+
+	log.Printf("deallocate: nodeID=%v", nodeID)
+	gcli, err := fp.pool.Load(fp.ma.MasterAddr())
+	if err != nil {
+		return false
+	}
+
+	out, err := gcli.Deallocate(ctx, &pb.UInt64ID{
+		Id: nodeID,
+	})
+	if err != nil {
+		log.Printf("deallocate error: nodeID=%v, err=%+v", nodeID, err)
+		return false
+	}
+	if !out.Ok {
+		err := &FPErr{fmt.Sprintf("deallocate no node error: nodeID=%v, err=%+v", nodeID, err)}
+		log.Println(err.Error())
+		return false
+	}
+	log.Printf("deallocate success: nodeID=%v", nodeID)
+	return true
 }
 
 func (fp *FProxy) RegisterOwner(ctx context.Context, addr string) uint64 {
-	return fp.ma.RegisterOwner(ctx, addr)
+	if fp.localAddr == fp.ma.MasterAddr() {
+		return fp.ma.RegisterOwner(ctx, addr)
+	}
+
+	log.Printf("register owner: addr=%v", addr)
+	gcli, err := fp.pool.Load(fp.ma.MasterAddr())
+	if err != nil {
+		return 0
+	}
+
+	out, err := gcli.RegisterOwner(ctx, &pb.Addr{
+		Addr: addr,
+	})
+	if err != nil {
+		log.Printf("register owner error: addr=%v, err=%+v", addr, err)
+		return 0
+	}
+	log.Printf("register owner success: addr=%v", addr)
+	return out.Id
 }
 
 func (fp *FProxy) RemoveOwner(ctx context.Context, ownerID uint64) bool {
-	return fp.ma.RemoveOwner(ctx, ownerID)
-}
+	if fp.localAddr == fp.ma.MasterAddr() {
+		return fp.ma.RemoveOwner(ctx, ownerID)
+	}
 
-func (fp *FProxy) CopyOwnerMap(ctx context.Context) map[uint64]string {
-	return fp.ma.CopyOwnerMap(ctx)
+	log.Printf("remove owner: ownerID=%v", ownerID)
+	gcli, err := fp.pool.Load(fp.ma.MasterAddr())
+	if err != nil {
+		return false
+	}
 
+	out, err := gcli.RemoveOwner(ctx, &pb.OwnerId{
+		Id: ownerID,
+	})
+	if err != nil {
+		log.Printf("remove owner error: ownerID=%v, err=%+v", ownerID, err)
+		return false
+	}
+	log.Printf("remove owner success: ownerID=%v", ownerID)
+	return out.Ok
 }
 
 func (fp *FProxy) AllocateRoot(ctx context.Context, ownerID uint64) bool {
-	return fp.ma.AllocateRoot(ctx, ownerID)
+	if fp.localAddr == fp.ma.MasterAddr() {
+		return fp.ma.AllocateRoot(ctx, ownerID)
+	}
+
+	gcli, err := fp.pool.Load(fp.ma.MasterAddr())
+	if err != nil {
+		return false
+	}
+
+	log.Printf("allocate root: ownerID=%v", ownerID)
+	out, err := gcli.AllocateRoot(ctx, &pb.OwnerId{
+		Id: ownerID,
+	})
+	if err != nil {
+		log.Printf("allocate root error: ownerID=%v, err=%+v", ownerID, err)
+		return false
+	}
+	log.Printf("allocate root finished: ownerID=%v, out=%+v", ownerID, out)
+	return out.Ok
 }
 
 func (fp *FProxy) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {

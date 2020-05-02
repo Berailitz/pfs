@@ -66,12 +66,10 @@ func NewFBackEnd(
 	uid uint32,
 	gid uint32,
 	allocator *idallocator.IDAllocator,
-	localID uint64,
 	wd *WatchDog) *FBackEnd {
 	return &FBackEnd{
 		uid:             uid,
 		gid:             gid,
-		localID:         localID,
 		handleAllocator: allocator,
 		nodesRead:       make(map[uint64]*rnode.RNode),
 		wd:              wd,
@@ -85,9 +83,25 @@ func (fb *FBackEnd) SetFP(ctx context.Context, fp *FProxy) {
 
 	fb.fp = fp
 	// Set up the root rnode
+	fb.registerSelf(ctx, fp.localAddr)
 	if err := fb.MakeRoot(ctx); err != nil {
 		log.Printf("make root error, use remote root: err=%+v", err)
 	}
+}
+
+func (fb *FBackEnd) registerSelf(ctx context.Context, addr string) {
+	if fb.localID > 0 {
+		log.Fatalf("duplicate register error: addr=%v", addr)
+	}
+
+	localID := fb.fp.RegisterOwner(ctx, addr)
+	if localID > 0 {
+		fb.localID = localID
+		log.Printf("register success: addr=%v, localID=%v", addr, localID)
+		return
+	}
+
+	log.Fatalf("register error: addr=%v", addr)
 }
 
 func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool, localOnly bool) (*rnode.RNode, error) {

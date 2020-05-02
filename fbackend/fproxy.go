@@ -52,16 +52,17 @@ func NewFProxy(
 	localAddr string,
 	gopts []grpc.DialOption,
 	ma *RManager,
-	staticTofCfgFile string) *FProxy {
+	staticTofCfgFile string,
+	backupSize int) *FProxy {
 	pcli := NewRClient(ma, gopts)
 	if pcli == nil {
 		log.Fatalf("nil pcli error")
 	}
 	localID := pcli.RegisterSelf(ctx, localAddr)
 
-	wd := NewWatchDog(ctx, ma, staticTofCfgFile)
+	wd := NewWatchDog(ctx, ma, localAddr, staticTofCfgFile, backupSize)
 	allcator := idallocator.NewIDAllocator(initialHandle)
-	fb := NewFBackEnd(uid, gid, allcator, localID)
+	fb := NewFBackEnd(uid, gid, allcator, localID, wd)
 	if fb == nil {
 		log.Fatalf("new fp nil fb error: uid=%v, gid=%v, localAddr=%v, gopts=%+v",
 			uid, gid, localAddr, gopts)
@@ -1041,8 +1042,25 @@ func (fp *FProxy) SendProposal(ctx context.Context, addr string, proposal *Propo
 }
 
 func (fp *FProxy) PushNode(ctx context.Context, addr string, node *rnode.RNode) error {
-	// TODO: handle forwarding
-	return fp.fb.SaveRedundantNode(ctx, node)
+	if addr == fp.localAddr {
+		return fp.fb.SaveRedundantNode(ctx, node)
+	}
+
+	gcli, err := fp.pool.Load(addr)
+	if err != nil {
+		return err
+	}
+
+	reply, err := gcli.PushNode(ctx, &pb.PushNodeRequest{
+		Addr: addr,
+		Node: utility.ToPbNode(node),
+	})
+	if err != nil {
+		log.Printf("rpc push node error: addr=%v, node=%v, err=%+v",
+			addr, node, err)
+		return err
+	}
+	return utility.FromPbErr(reply)
 }
 
 func (e *FPErr) Error() string {

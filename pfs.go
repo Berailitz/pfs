@@ -26,6 +26,7 @@ type PFSParam struct {
 	FsType           string `yaml:"fsType,omitempty"`
 	VolumeName       string `yaml:"volumeName,omitempty"`
 	StaticTofCfgFile string `yaml:"staticTofCfgFile,omitempty"`
+	BackupSize       int    `json:"backupSize,omitempty"`
 }
 
 type PFS struct {
@@ -64,7 +65,8 @@ func (p *PFS) Mount(ctx context.Context) error {
 	p.ma.Start(ctx)
 
 	log.Printf("create fp: master=%v, localAddr=%v, gopts=%+v", p.param.Master, localAddr, gopts)
-	fp := fbackend.NewFProxy(ctx, utility.GetUID(), utility.GetGID(), localAddr, gopts, p.ma, p.param.StaticTofCfgFile)
+	fp := fbackend.NewFProxy(ctx, utility.GetUID(), utility.GetGID(),
+		localAddr, gopts, p.ma, p.param.StaticTofCfgFile, p.param.BackupSize)
 	p.ma.SetFP(fp)
 	p.rsvr.RegisterFProxy(fp)
 

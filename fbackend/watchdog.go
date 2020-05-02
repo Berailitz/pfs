@@ -27,7 +27,8 @@ type RouteRule struct {
 type WatchDog struct {
 	utility.Runnable
 
-	ma *RManager
+	ma        *RManager
+	localAddr string
 
 	tofMap       sync.Map         // map[string]int64
 	tofMapRead   map[string]int64 // map[string]int64
@@ -39,6 +40,8 @@ type WatchDog struct {
 	staticTofCfgFile string
 
 	nominee string
+
+	backupsOwnerMaps []*sync.Map // map[uint64]string
 }
 
 type WatchDogErr struct {
@@ -144,6 +147,33 @@ func (d *WatchDog) loadStaticTof(ctx context.Context) (staticTofMap map[string]i
 	return
 }
 
+func (d *WatchDog) randomOtherOwner(ctx context.Context) (addr string) {
+	d.muTofMapRead.RLock()
+	defer d.muTofMapRead.RUnlock()
+
+	for addr, _ := range d.tofMapRead {
+		if addr != d.localAddr {
+			return addr
+		}
+	}
+	return ""
+}
+
+func (d *WatchDog) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []string) {
+	for i, backupOwnerMap := range d.backupsOwnerMaps {
+		if addr := d.randomOtherOwner(ctx); addr != "" && !utility.InStringSlice(addr, addrs) {
+			if out, loaded := backupOwnerMap.LoadOrStore(nodeID, addr); loaded {
+				addr = out.(string)
+			}
+			log.Printf("get backup addrs: i=%v, addr=%v", i, addr)
+			addrs = append(addrs, addr)
+		} else {
+			break
+		}
+	}
+	return addrs
+}
+
 func (d *WatchDog) RunLoop(ctx context.Context) (err error) {
 	log.Printf("updating tof map")
 	owners, err := d.fp.GetOwnerMap(ctx)
@@ -196,11 +226,13 @@ func (d *WatchDog) RunLoop(ctx context.Context) (err error) {
 	return nil
 }
 
-func NewWatchDog(ctx context.Context, ma *RManager, staticTofCfgFile string) *WatchDog {
+func NewWatchDog(ctx context.Context, ma *RManager, localAddr string, staticTofCfgFile string, backupSize int) *WatchDog {
 	wd := &WatchDog{
 		ma:               ma,
+		localAddr:        localAddr,
 		tofMapRead:       make(map[string]int64),
 		staticTofCfgFile: staticTofCfgFile,
+		backupsOwnerMaps: make([]*sync.Map, backupSize),
 	}
 	wd.InitRunnable(ctx, wdRunnableName, wdRunnableLoopInterval, nil)
 	return wd

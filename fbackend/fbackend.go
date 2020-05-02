@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Berailitz/pfs/utility"
+
 	"bazil.org/fuse"
 
 	"github.com/Berailitz/pfs/idallocator"
@@ -35,6 +37,8 @@ type FBackEnd struct {
 
 	handleAllocator *idallocator.IDAllocator
 	handleMap       sync.Map // map[uint64]uint64
+
+	wd *WatchDog
 }
 
 type FBackEndErr struct {
@@ -62,13 +66,15 @@ func NewFBackEnd(
 	uid uint32,
 	gid uint32,
 	allocator *idallocator.IDAllocator,
-	localID uint64) *FBackEnd {
+	localID uint64,
+	wd *WatchDog) *FBackEnd {
 	return &FBackEnd{
 		uid:             uid,
 		gid:             gid,
 		localID:         localID,
 		handleAllocator: allocator,
 		nodesRead:       make(map[uint64]*rnode.RNode),
+		wd:              wd,
 	}
 }
 
@@ -149,6 +155,17 @@ func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (node *rnod
 	return fb.doLoadNodeForX(ctx, id, false, false)
 }
 
+func (fb *FBackEnd) pushBackupNode(ctx context.Context, copiedNode rnode.RNode) {
+	defer utility.RecoverWithStack(nil)
+
+	for i, addr := range fb.wd.getBackupAddrs(ctx, copiedNode.ID()) {
+		log.Printf("push backup node: i=%v, node=%v, addr=%v", i, copiedNode, addr)
+		if err := fb.fp.PushNode(ctx, addr, &copiedNode); err != nil {
+			log.Printf("push backup node err: i=%v, node=%v, addr=%v, err=%+v", i, copiedNode, addr, err)
+		}
+	}
+}
+
 func (fb *FBackEnd) doUnlockRemoteNode(ctx context.Context, node *rnode.RNode, isRead bool) (err error) {
 	id := node.ID()
 
@@ -171,6 +188,10 @@ func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, isRead 
 	if isRead {
 		node.RUnlock()
 	} else {
+		node.IncrVersion()
+		if fb.IsLocal(ctx, id) {
+			go fb.pushBackupNode(ctx, *node)
+		}
 		node.Unlock()
 	}
 	if fb.IsLocal(ctx, id) {
@@ -182,7 +203,6 @@ func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, isRead 
 }
 
 func (fb *FBackEnd) UnlockNode(ctx context.Context, node *rnode.RNode) error {
-	node.IncrVersion()
 	return fb.doUnlockNode(ctx, node, false)
 }
 

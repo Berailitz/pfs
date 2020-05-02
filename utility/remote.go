@@ -3,6 +3,9 @@ package utility
 import (
 	"context"
 	"fmt"
+	"time"
+
+	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 
 	"github.com/Berailitz/pfs/logger"
 	pb "github.com/Berailitz/pfs/remotetree"
@@ -10,11 +13,20 @@ import (
 )
 
 const (
-	rpcTimeout = 3
+	rpcTimeout = 3 * time.Second
 )
 
 var (
-	gcliOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
+	gcliOptions = []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.WithInsecure(),
+		grpc.WithStreamInterceptor(
+			grpc_retry.StreamClientInterceptor(
+				grpc_retry.WithPerRetryTimeout(rpcTimeout))),
+		grpc.WithUnaryInterceptor(
+			grpc_retry.UnaryClientInterceptor(
+				grpc_retry.WithPerRetryTimeout(rpcTimeout))),
+	}
 )
 
 type RemoteErr struct {

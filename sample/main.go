@@ -56,6 +56,7 @@ func main() {
 		log.Fatalf("load cfg error: cfg=%v, err=%+v", *cfg, err)
 	}
 
+	log.Printf("sample start: file=%v", cfg)
 	log.Printf("tc=%#v", tc)
 	if *dry {
 		return
@@ -95,5 +96,5 @@ func main() {
 	}
 
 	wg.Wait()
-	log.Printf("test finished")
+	log.Printf("sample finished: file=%v", cfg)
 }

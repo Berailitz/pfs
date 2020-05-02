@@ -31,7 +31,7 @@ type RServer struct {
 }
 
 func (s *RServer) Push(ctx context.Context, req *pb.Node) (*pb.Error, error) {
-	err := s.fp.SaveRedundantNode(ctx, utility.FromPbNode(req))
+	err := s.fp.PushNode(ctx, utility.FromPbNode(req))
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = utility.ToPbErr(err)

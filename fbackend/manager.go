@@ -201,6 +201,7 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 	switch proposal.Typ {
 	case AddOwnerProposalType:
 		m.doAddOwner(ctx, proposal.Key, proposal.Value)
+		m.ownerAllocator.SetNext(proposal.Key + 1)
 	case RemoveOwnerProposalType:
 		m.doRemoveOwner(ctx, proposal.Key)
 	case AddNodeProposalType:
@@ -209,6 +210,7 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 			return ErrorProposalState, err
 		}
 		m.NodeOwner.Store(proposal.Key, ownerID)
+		m.nodeAllocator.SetNext(proposal.Key + 1)
 	case RemoveNodeProposalType:
 		m.NodeOwner.Delete(proposal.Key)
 		atomic.AddUint64(&m.OwnerCounter[proposal.Key], ^uint64(0))

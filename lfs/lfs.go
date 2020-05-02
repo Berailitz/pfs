@@ -1,6 +1,7 @@
 package lfs
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -9,6 +10,10 @@ import (
 	"bazil.org/fuse"
 
 	"bazil.org/fuse/fs"
+)
+
+const (
+	ContextLFSRequestKey = "lfs_request"
 )
 
 type LFS struct {
@@ -44,7 +49,8 @@ func (lfs *LFS) Root() (fs.Node, error) {
 func (lfs *LFS) Mount(dir, fsName, fsType, volumeName string) (err error) {
 	lfs.c, err = fuse.Mount(dir, fuse.FSName(fsName), fuse.Subtype(fsType), fuse.VolumeName(volumeName))
 	lfs.svr = fs.New(lfs.c, &fs.Config{
-		Debug: fuseDebug,
+		Debug:       fuseDebug,
+		WithContext: lfs.buildRequestCtx,
 	})
 	lfs.root = NewLNode(fbackend.RootNodeID, lfs.fp, lfs.svr)
 	return err
@@ -60,6 +66,12 @@ func (lfs *LFS) Serve() error {
 
 func (lfs *LFS) Umount() error {
 	return lfs.c.Close()
+}
+
+func (lfs *LFS) buildRequestCtx(ctx context.Context, req fuse.Request) context.Context {
+	ctx = context.WithValue(ctx, ContextLFSRequestKey, req)
+	ctx = lfs.fp.MakeRequestCtx(ctx)
+	return ctx
 }
 
 func (e *LFSErr) Error() string {

@@ -20,7 +20,14 @@ import (
 	"google.golang.org/grpc"
 )
 
-const initialHandle = 1
+const (
+	initialHandle = 1
+)
+
+const (
+	firstLogID   = 1
+	RequestIDKey = "lfs_request_id"
+)
 
 type remoteHandle struct {
 	handle uint64
@@ -36,6 +43,8 @@ type FProxy struct {
 
 	allcator        *idallocator.IDAllocator
 	remoteHandleMap sync.Map // [uint64]remoteHandle
+
+	requestIDAllocator *idallocator.IDAllocator
 }
 
 type FPErr struct {
@@ -62,12 +71,13 @@ func NewFProxy(
 	}
 
 	fp := &FProxy{
-		fb:        fb,
-		ma:        ma,
-		wd:        wd,
-		pool:      NewGCliPool(gopts, localAddr, wd),
-		allcator:  allcator,
-		localAddr: localAddr,
+		fb:                 fb,
+		ma:                 ma,
+		wd:                 wd,
+		pool:               NewGCliPool(gopts, localAddr, wd),
+		allcator:           allcator,
+		localAddr:          localAddr,
+		requestIDAllocator: idallocator.NewIDAllocator(firstLogID),
 	}
 	fb.SetFP(ctx, fp)
 	wd.SetFP(fp)
@@ -1157,6 +1167,10 @@ func (fp *FProxy) PushNode(ctx context.Context, addr string, node *rnode.RNode) 
 		return err
 	}
 	return utility.FromPbErr(reply)
+}
+
+func (fp *FProxy) MakeRequestCtx(ctx context.Context) context.Context {
+	return context.WithValue(ctx, RequestIDKey, fp.requestIDAllocator.Allocate())
 }
 
 func (e *FPErr) Error() string {

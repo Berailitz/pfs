@@ -86,7 +86,7 @@ func (fb *FBackEnd) SetFP(ctx context.Context, fp *FProxy) {
 	// Set up the root rnode
 	fb.registerSelf(ctx, fp.localAddr)
 	if err := fb.MakeRoot(ctx); err != nil {
-		logger.Ef(ctx, "make root error, use remote root: err=%+v", err)
+		logger.W(ctx, "make root error, use remote root", "err", err)
 	}
 }
 
@@ -275,7 +275,7 @@ func (fb *FBackEnd) deleteNode(ctx context.Context, id uint64) error {
 // MakeRoot should only be called at new
 func (fb *FBackEnd) MakeRoot(ctx context.Context) error {
 	if ok := fb.fp.AllocateRoot(ctx, fb.localID); !ok {
-		logger.Ef(ctx, "make root allocate root error")
+		logger.W(ctx, "make root allocate root error")
 		return &FBackEndErr{"make root allocate root error"}
 	}
 	rootAttrs := fuse.Attr{
@@ -461,7 +461,7 @@ func (fb *FBackEnd) LookUpInode(
 	childID, _, ok := parent.LookUpChild(name)
 	if !ok {
 		err = syscall.ENOENT
-		logger.Ef(ctx, "fb look up inode child not exists error: parent=%v, name=%v, err=%v", parentID, name, err)
+		logger.W(ctx, "fb look up inode child not exists error", "parentID", parentID, "name", name, "err", err)
 		return 0, fuse.Attr{}, err
 	}
 

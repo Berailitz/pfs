@@ -182,6 +182,7 @@ func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, isRead 
 }
 
 func (fb *FBackEnd) UnlockNode(ctx context.Context, node *rnode.RNode) error {
+	node.IncrVersion()
 	return fb.doUnlockNode(ctx, node, false)
 }
 

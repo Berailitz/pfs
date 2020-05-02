@@ -55,6 +55,8 @@ type RNode struct {
 	NCanLock int32 // 0 for can lock
 
 	NAddr string
+
+	NVersion int64
 }
 
 type RNodeErr struct {
@@ -512,6 +514,18 @@ func (rn *RNode) SetMtime(t time.Time) {
 
 func (rn *RNode) SetCtime(t time.Time) {
 	rn.NCTime = t.Unix()
+}
+
+func (rn *RNode) Version() int64 {
+	return atomic.LoadInt64(&rn.NVersion)
+}
+
+func (rn *RNode) IncrVersion() {
+	atomic.AddInt64(&rn.NVersion, 1)
+}
+
+func (rn *RNode) SetVersion(version int64) {
+	atomic.StoreInt64(&rn.NVersion, version)
 }
 
 func (e *RNodeErr) Error() string {

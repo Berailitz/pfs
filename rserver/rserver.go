@@ -23,6 +23,10 @@ import (
 
 const rServerStartTime = time.Second * 2
 
+var (
+	rpcServerOption []grpc.ServerOption = nil
+)
+
 type RServer struct {
 	pb.UnimplementedRemoteTreeServer
 	Server *grpc.Server
@@ -474,8 +478,7 @@ func (s *RServer) Start(ctx context.Context, port int) error {
 	if err != nil {
 		logger.Pf(ctx, "failed to listen: %v", err)
 	}
-	var opts []grpc.ServerOption
-	s.Server = grpc.NewServer(opts...)
+	s.Server = grpc.NewServer(rpcServerOption...)
 	pb.RegisterRemoteTreeServer(s.Server, s)
 	logger.If(ctx, "starting...localhost:%d", port)
 	go func() {

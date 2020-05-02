@@ -2,6 +2,7 @@ package fbackend
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -27,6 +28,11 @@ const (
 	RemoveOwnerProposalType = 2
 	AddNodeProposalType     = 3
 	RemoveNodeProposalType  = 4
+)
+
+const (
+	SuccessProposalState = 0
+	ErrorProposalState   = 1
 )
 
 const (
@@ -60,6 +66,12 @@ type RManager struct {
 
 	fp *FProxy
 }
+
+type ManagerErr struct {
+	msg string
+}
+
+var _ = (error)((*ManagerErr)(nil))
 
 func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) string {
 	log.Printf("query owner: nodeID=%v", nodeID)
@@ -114,18 +126,19 @@ func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
 	return false
 }
 
+func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) {
+	m.muOwnerMapRead.Lock()
+	defer m.muOwnerMapRead.Unlock()
+
+	m.Owners.Store(ownerID, addr)
+	m.ownerMapRead[ownerID] = addr
+}
+
 // RegisterOwner return 0 if err
 func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
 	ownerID := m.ownerAllocator.Allocate()
 	if ownerID <= MaxOwnerID {
-		func() {
-			m.muOwnerMapRead.Lock()
-			defer m.muOwnerMapRead.Unlock()
-
-			m.Owners.Store(ownerID, addr)
-			m.ownerMapRead[ownerID] = addr
-		}()
-
+		m.doAddOwner(ctx, ownerID, addr)
 		m.proposalChan <- &Proposal{
 			Typ:   AddOwnerProposalType,
 			Key:   ownerID,
@@ -137,15 +150,16 @@ func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
 	return 0
 }
 
+func (m *RManager) doRemoveOwner(ctx context.Context, ownerID uint64) {
+	m.muOwnerMapRead.Lock()
+	defer m.muOwnerMapRead.Unlock()
+	m.Owners.Delete(ownerID)
+	delete(m.ownerMapRead, ownerID)
+}
+
 func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) bool {
 	if atomic.LoadUint64(&m.OwnerCounter[ownerID]) == 0 {
-		func() {
-			m.muOwnerMapRead.Lock()
-			defer m.muOwnerMapRead.Unlock()
-			m.Owners.Delete(ownerID)
-			delete(m.ownerMapRead, ownerID)
-		}()
-
+		m.doRemoveOwner(ctx, ownerID)
 		m.proposalChan <- &Proposal{
 			Typ: RemoveOwnerProposalType,
 			Key: ownerID,
@@ -184,6 +198,23 @@ func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 }
 
 func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {
+	switch proposal.Typ {
+	case AddOwnerProposalType:
+		m.doAddOwner(ctx, proposal.Key, proposal.Value)
+	case RemoveOwnerProposalType:
+		m.doRemoveOwner(ctx, proposal.Key)
+	case AddNodeProposalType:
+		ownerID, err := strconv.ParseInt(proposal.Value, 10, 64)
+		if err != nil {
+			return ErrorProposalState, err
+		}
+		m.NodeOwner.Store(proposal.Key, ownerID)
+	case RemoveNodeProposalType:
+		m.NodeOwner.Delete(proposal.Key)
+		atomic.AddUint64(&m.OwnerCounter[proposal.Key], ^uint64(0))
+	default:
+		return ErrorProposalState, &ManagerErr{fmt.Sprintf("invalid proposal type: proposal=%+v", proposal)}
+	}
 	return 0, nil
 }
 
@@ -236,4 +267,8 @@ func NewRManager(ctx context.Context) *RManager {
 	}
 	ma.InitRunnable(ctx, maRunnableName, maRunnableLoopInterval, ma.Run)
 	return ma
+}
+
+func (e *ManagerErr) Error() string {
+	return fmt.Sprintf("manager error: %v", e.msg)
 }

@@ -1032,6 +1032,11 @@ func (fp *FProxy) sendProposal(ctx context.Context, addr string, proposalId uint
 	return reply.State, utility.FromPbErr(reply.Err)
 }
 
+func (fp *FProxy) SaveRedundantNode(ctx context.Context, node *rnode.RNode) error {
+	// TODO: handle forwarding
+	return fp.fb.SaveRedundantNode(ctx, node)
+}
+
 func (e *FPErr) Error() string {
 	return fmt.Sprintf("fproxy error: %v", e.msg)
 }

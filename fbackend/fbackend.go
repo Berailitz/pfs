@@ -25,10 +25,11 @@ type FBackEnd struct {
 
 	mu sync.RWMutex
 
-	nodes       sync.Map // [uint64]*rnode.RNode
-	nodesRead   map[uint64]*rnode.RNode
-	muNodesRead sync.RWMutex
-	localID     uint64
+	nodes          sync.Map // [uint64]*rnode.RNode
+	redundantNodes sync.Map // [uint64]*rnode.RNode
+	nodesRead      map[uint64]*rnode.RNode
+	muNodesRead    sync.RWMutex
+	localID        uint64
 
 	fp *FProxy
 
@@ -1371,6 +1372,11 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 	}
 
 	log.Printf("fb fallocate success: id=%v, mode=%v, len=%v", id, mode, length)
+	return nil
+}
+
+func (fb *FBackEnd) SaveRedundantNode(ctx context.Context, node *rnode.RNode) error {
+	fb.redundantNodes.Store(node.ID(), node)
 	return nil
 }
 

@@ -30,6 +30,15 @@ type RServer struct {
 	ma     *fbackend.RManager
 }
 
+func (s *RServer) Push(ctx context.Context, req *pb.Node) (*pb.Error, error) {
+	err := s.fp.SaveRedundantNode(ctx, utility.FromPbNode(req))
+	var perr *pb.Error = &pb.Error{}
+	if err != nil {
+		perr = utility.ToPbErr(err)
+	}
+	return perr, nil
+}
+
 func (s *RServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingReply, error) {
 	offset, err := s.fp.Ping(ctx, req.Addr, false, false)
 	var perr *pb.Error = &pb.Error{}

@@ -282,7 +282,7 @@ func NewRManager(ctx context.Context) *RManager {
 		ownerMapRead:      map[uint64]string{},
 		proposalChan:      make(chan *Proposal),
 	}
-	ma.InitRunnable(ctx, maRunnableName, maRunnableLoopInterval, ma.Run)
+	ma.InitRunnable(ctx, maRunnableName, maRunnableLoopInterval, nil, ma.Run)
 	return ma
 }
 

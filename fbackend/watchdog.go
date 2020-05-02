@@ -174,7 +174,7 @@ func (d *WatchDog) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []s
 	return addrs
 }
 
-func (d *WatchDog) RunLoop(ctx context.Context) (err error) {
+func (d *WatchDog) runLoop(ctx context.Context) (err error) {
 	log.Printf("updating tof map")
 	owners, err := d.fp.GetOwnerMap(ctx)
 	if err != nil {
@@ -234,7 +234,7 @@ func NewWatchDog(ctx context.Context, ma *RManager, localAddr string, staticTofC
 		staticTofCfgFile: staticTofCfgFile,
 		backupsOwnerMaps: make([]*sync.Map, backupSize),
 	}
-	wd.InitRunnable(ctx, wdRunnableName, wdRunnableLoopInterval, nil)
+	wd.InitRunnable(ctx, wdRunnableName, wdRunnableLoopInterval, wd.runLoop, nil)
 	return wd
 }
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	zt_formatter "github.com/Berailitz/pfs/logger/formatter"
+	"github.com/rifflock/lfshook"
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
@@ -18,6 +19,10 @@ const (
 	frameToSkip = 10
 )
 
+const (
+	logPathPrefix = "pfs.log"
+)
+
 var (
 	contextLogMap = map[string]string{
 		ContextRequestIDKey: "ri",
@@ -25,8 +30,12 @@ var (
 )
 
 func init() {
-	logrus.SetReportCaller(true)
-	logrus.SetFormatter(&zt_formatter.ZtFormatter{
+	logPathMap := lfshook.PathMap{
+		logrus.DebugLevel: fmt.Sprintf("%v.%v", logPathPrefix, "debug"),
+		logrus.InfoLevel:  fmt.Sprintf("%v.%v", logPathPrefix, "info"),
+		logrus.ErrorLevel: fmt.Sprintf("%v.%v", logPathPrefix, "error"),
+	}
+	formatter := &zt_formatter.ZtFormatter{
 		CallerPrettyfier: func(_ *runtime.Frame) (string, string) {
 			pc := make([]uintptr, 1)
 			n := runtime.Callers(frameToSkip, pc)
@@ -38,7 +47,13 @@ func init() {
 		Formatter: nested.Formatter{
 			TimestampFormat: "15:04:05.000",
 		},
-	})
+	}
+	logrus.SetReportCaller(true)
+	logrus.SetFormatter(formatter)
+	logrus.AddHook(lfshook.NewHook(
+		logPathMap,
+		formatter,
+	))
 }
 
 func buildLogger(ctx context.Context) *logrus.Entry {

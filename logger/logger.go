@@ -6,9 +6,10 @@ import (
 	"runtime"
 	"strings"
 
+	zt_formatter "github.com/Berailitz/pfs/logger/formatter"
+
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
-	"github.com/zput/zxcTool/ztLog/zt_formatter"
 )
 
 const (

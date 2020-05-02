@@ -136,6 +136,11 @@ func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) 
 
 // RegisterOwner return 0 if err
 func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
+	if addr == "" {
+		log.Printf("invalid empty addr")
+		return 0
+	}
+
 	ownerID := m.ownerAllocator.Allocate()
 	if ownerID <= MaxOwnerID {
 		m.doAddOwner(ctx, ownerID, addr)

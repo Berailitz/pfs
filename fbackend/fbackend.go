@@ -284,6 +284,7 @@ func (fb *FBackEnd) MakeRoot(ctx context.Context) error {
 		log.Printf("make root store node error")
 		return err
 	}
+	log.Printf("make root success")
 	return nil
 }
 

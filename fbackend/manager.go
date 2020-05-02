@@ -232,6 +232,7 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 		logger.If(ctx, err.Error())
 		return ErrorProposalState, err
 	}
+	m.proposalAllocator.SetNext(proposal.ID + 1)
 	return 0, nil
 }
 

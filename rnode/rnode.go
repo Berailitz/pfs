@@ -320,18 +320,18 @@ func (rn *RNode) AddChild(
 	id uint64,
 	name string,
 	dt fuse.DirentType) {
-	var index int
+	//var index int
 
 	// Update the modification time.
 	rn.SetMtime(time.Now())
 
 	// No matter where we place the entry, make sure it has the correct Offset
 	// field.
-	defer func() {
-		entries := rn.Entries()
-		//entries[index].Offset = fuseops.DirOffset(index + 1)
-		rn.SetEntries(entries)
-	}()
+	//defer func() {
+	//	entries := rn.Entries()
+	//	//entries[index].Offset = fuseops.DirOffset(index + 1)
+	//	rn.SetEntries(entries)
+	//}()
 
 	// Set up the entry.
 	e := fuse.Dirent{
@@ -341,17 +341,17 @@ func (rn *RNode) AddChild(
 	}
 
 	// Look for a gap in which we can insert it.
-	for index = range rn.Entries() {
-		if rn.Entries()[index].Type == fuse.DT_Unknown {
-			entries := rn.Entries()
-			entries[index] = e
-			rn.SetEntries(entries)
-			return
-		}
-	}
+	//for index = range rn.Entries() {
+	//	if rn.Entries()[index].Type == fuse.DT_Unknown {
+	//		entries := rn.Entries()
+	//		entries[index] = e
+	//		rn.SetEntries(entries)
+	//		return
+	//	}
+	//}
 
 	// Append it to the end.
-	index = len(rn.Entries())
+	//index = len(rn.Entries())
 	rn.SetEntries(append(rn.Entries(), e))
 }
 

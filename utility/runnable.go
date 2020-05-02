@@ -11,14 +11,14 @@ type Runnable struct {
 	LoopInterval time.Duration
 	ToStop       chan interface{}
 	Stopped      chan interface{}
-	Run          func(ctx context.Context) error
+	run          func(ctx context.Context) error
 }
 
 func (r *Runnable) RunLoop(ctx context.Context) (err error) {
 	return nil
 }
 
-func (r *Runnable) run(ctx context.Context) (err error) {
+func (r *Runnable) runFunc(ctx context.Context) (err error) {
 	for {
 		select {
 		case <-r.ToStop:
@@ -40,7 +40,7 @@ func (r *Runnable) Start(ctx context.Context) {
 		}()
 
 		log.Printf("runnable start: name=%v", r.Name)
-		_ = r.Run(ctx)
+		_ = r.run(ctx)
 	}()
 }
 
@@ -56,8 +56,8 @@ func (r *Runnable) InitRunnable(ctx context.Context, name string, loopInterval t
 	r.LoopInterval = loopInterval
 	r.ToStop = make(chan interface{})
 	r.Stopped = make(chan interface{})
-	r.Run = runFunc
-	if r.Run == nil {
-		r.Run = r.run
+	r.run = runFunc
+	if r.run == nil {
+		r.run = r.runFunc
 	}
 }

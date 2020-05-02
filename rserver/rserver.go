@@ -30,8 +30,8 @@ type RServer struct {
 	ma     *fbackend.RManager
 }
 
-func (s *RServer) Push(ctx context.Context, req *pb.Node) (*pb.Error, error) {
-	err := s.fp.PushNode(ctx, utility.FromPbNode(req))
+func (s *RServer) Push(ctx context.Context, req *pb.PushNodeRequest) (*pb.Error, error) {
+	err := s.fp.PushNode(ctx, req.Addr, utility.FromPbNode(req.Node))
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = utility.ToPbErr(err)

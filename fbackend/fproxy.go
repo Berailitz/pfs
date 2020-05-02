@@ -1040,7 +1040,7 @@ func (fp *FProxy) SendProposal(ctx context.Context, addr string, proposal *Propo
 	return reply.State, utility.FromPbErr(reply.Err)
 }
 
-func (fp *FProxy) PushNode(ctx context.Context, node *rnode.RNode) error {
+func (fp *FProxy) PushNode(ctx context.Context, addr string, node *rnode.RNode) error {
 	// TODO: handle forwarding
 	return fp.fb.SaveRedundantNode(ctx, node)
 }

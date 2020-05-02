@@ -67,8 +67,8 @@ func (lfs *LFS) Umount() error {
 }
 
 func (lfs *LFS) buildRequestCtx(ctx context.Context, req fuse.Request) context.Context {
-	ctx = context.WithValue(ctx, logger.ContextLFSRequestKey, req)
 	ctx = lfs.fp.MakeRequestCtx(ctx)
+	logger.I(ctx, "lfs start", "request", req)
 	return ctx
 }
 

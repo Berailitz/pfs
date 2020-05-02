@@ -3,8 +3,8 @@ package logger
 import (
 	"context"
 	"fmt"
-	"path"
 	"runtime"
+	"strings"
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
@@ -12,14 +12,12 @@ import (
 )
 
 const (
-	ContextLFSRequestKey = "lfs_request"
-	ContextRequestIDKey  = "request_id"
+	ContextRequestIDKey = "request_id"
 )
 
 var (
 	contextLogMap = map[string]string{
-		ContextLFSRequestKey: "r",
-		ContextRequestIDKey:  "ri",
+		ContextRequestIDKey: "ri",
 	}
 )
 
@@ -27,10 +25,15 @@ func init() {
 	logrus.SetReportCaller(true)
 	logrus.SetFormatter(&zt_formatter.ZtFormatter{
 		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
-			filename := path.Base(f.File)
-			return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", filename, f.Line)
+			lastSlash := strings.LastIndexByte(f.Function, '/')
+			if lastSlash < 0 {
+				lastSlash = 0
+			}
+			return fmt.Sprintf("%d", f.Line), f.Function[lastSlash+1:]
 		},
-		Formatter: nested.Formatter{},
+		Formatter: nested.Formatter{
+			TimestampFormat: "15:04:05.000",
+		},
 	})
 }
 

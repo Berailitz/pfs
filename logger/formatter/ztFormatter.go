@@ -54,8 +54,8 @@ func (f *ZtFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	}
 
 	f.FormaterOperator.WriteCommonInfo(f, b, entry)
-	f.FormaterOperator.WriteField(f, b, entry)
 	f.FormaterOperator.WriteMessages(f, b, entry)
+	f.FormaterOperator.WriteField(f, b, entry)
 
 	b.WriteByte('\n')
 
@@ -118,8 +118,8 @@ func (f *ZtFormatter) WriteOrderedFields(b *bytes.Buffer, entry *logrus.Entry) {
 
 func (f *ZtFormatter) WriteField(b *bytes.Buffer, entry *logrus.Entry, field string) {
 	if f.HideKeys {
-		fmt.Fprintf(b, "[%v] ", entry.Data[field])
+		fmt.Fprintf(b, "[%v]", entry.Data[field])
 	} else {
-		fmt.Fprintf(b, "[%s:%v] ", field, entry.Data[field])
+		fmt.Fprintf(b, "[%s:%v]", field, entry.Data[field])
 	}
 }

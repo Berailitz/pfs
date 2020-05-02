@@ -21,17 +21,6 @@ func (*DefaultFormaterrOperator) WriteCommonInfo(f FormatterZTInterface, bPtr *b
 		timestampFormat = time.StampMilli
 	}
 
-	// add for zxc --------------- ---
-	fileVal, funcVal := f.WriteEntry(entry)
-	if fileFooColor := getFileFooColorByLevel(entry.Level); fileFooColor == colorRed {
-		bPtr.WriteString(fmt.Sprintf("\x1b[%dm[%s::%s]\x1b[0m ", fileFooColor, fileVal, funcVal))
-	} else {
-		bPtr.WriteString(fmt.Sprintf("[%s::%s] ", fileVal, funcVal))
-	}
-
-	// write time
-	bPtr.WriteString(entry.Time.Format(timestampFormat))
-
 	// write level
 	level := strings.ToUpper(entry.Level.String())
 
@@ -39,16 +28,26 @@ func (*DefaultFormaterrOperator) WriteCommonInfo(f FormatterZTInterface, bPtr *b
 		fmt.Fprintf(bPtr, "\x1b[%dm", levelColor)
 	}
 
-	bPtr.WriteString(" [")
+	bPtr.WriteString("")
 	if f.GetShowFullLevel() {
 		bPtr.WriteString(level)
 	} else {
 		bPtr.WriteString(level[:1])
 	}
-	bPtr.WriteString("] ")
 
 	if !f.GetNoColors() && f.GetNoFieldsColors() {
 		bPtr.WriteString("\x1b[0m")
+	}
+
+	// write time
+	bPtr.WriteString(entry.Time.Format(timestampFormat))
+
+	// add for zxc --------------- ---
+	fileVal, funcVal := f.WriteEntry(entry)
+	if fileFooColor := getFileFooColorByLevel(entry.Level); fileFooColor == colorRed {
+		bPtr.WriteString(fmt.Sprintf("\x1b[%dm[%s:%s]\x1b[0m", fileFooColor, fileVal, funcVal))
+	} else {
+		bPtr.WriteString(fmt.Sprintf("[%s:%s]", fileVal, funcVal))
 	}
 }
 

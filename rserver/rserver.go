@@ -479,11 +479,7 @@ func (s *RServer) Start(ctx context.Context, port int) error {
 }
 
 func (s *RServer) StartFP(ctx context.Context) {
-	go func() {
-		if err := s.fp.Run(ctx); err != nil {
-			log.Printf("fp run error: err=%+v", err)
-		}
-	}()
+	s.fp.Start(ctx)
 }
 
 func (s *RServer) Stop(ctx context.Context) error {

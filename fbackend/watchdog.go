@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	updateInterval = 10 * time.Second
-	tofUpdateRatio = 0.8
+	wdRunnableName         = "watchdog"
+	wdRunnableLoopInterval = 10 * time.Second
+	tofUpdateRatio         = 0.8
 )
 
 type RouteRule struct {
@@ -24,6 +25,8 @@ type RouteRule struct {
 }
 
 type WatchDog struct {
+	utility.Runnable
+
 	ma *RManager
 
 	tofMap       sync.Map         // map[string]int64
@@ -32,8 +35,6 @@ type WatchDog struct {
 
 	routeMap sync.Map // map[string]*RouteRule
 	fp       *FProxy
-	toStop   chan interface{}
-	stopped  chan interface{}
 
 	staticTofCfgFile string
 
@@ -143,7 +144,7 @@ func (d *WatchDog) loadStaticTof(ctx context.Context) (staticTofMap map[string]i
 	return
 }
 
-func (d *WatchDog) UpdateMap(ctx context.Context) {
+func (d *WatchDog) RunLoop(ctx context.Context) (err error) {
 	log.Printf("updating tof map")
 	owners, err := d.fp.GetOwnerMap(ctx)
 	if err != nil {
@@ -192,40 +193,17 @@ func (d *WatchDog) UpdateMap(ctx context.Context) {
 			d.ma.SetMaster(nominee)
 		}
 	}
+	return nil
 }
 
-func (d *WatchDog) Run(ctx context.Context) (err error) {
-	defer func() {
-		utility.RecoverWithStack(&err)
-		close(d.stopped)
-	}()
-
-	for {
-		select {
-		case <-d.toStop:
-			log.Printf("watch dog is quitting")
-			return nil
-		case <-time.After(updateInterval):
-			d.UpdateMap(ctx)
-		}
-	}
-}
-
-func (d *WatchDog) Stop(ctx context.Context) {
-	log.Printf("wd stopping")
-	close(d.toStop)
-	<-d.stopped
-	log.Printf("wd stopped")
-}
-
-func NewWatchDog(ma *RManager, staticTofCfgFile string) *WatchDog {
-	return &WatchDog{
+func NewWatchDog(ctx context.Context, ma *RManager, staticTofCfgFile string) *WatchDog {
+	wd := &WatchDog{
 		ma:               ma,
 		tofMapRead:       make(map[string]int64),
-		toStop:           make(chan interface{}),
-		stopped:          make(chan interface{}),
 		staticTofCfgFile: staticTofCfgFile,
 	}
+	wd.InitRunnable(ctx, wdRunnableName, wdRunnableLoopInterval, nil)
+	return wd
 }
 
 func (e *WatchDogErr) Error() string {

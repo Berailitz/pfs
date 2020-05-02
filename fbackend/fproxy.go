@@ -59,7 +59,7 @@ func NewFProxy(
 	}
 	localID := pcli.RegisterSelf(ctx, localAddr)
 
-	wd := NewWatchDog(ma, staticTofCfgFile)
+	wd := NewWatchDog(ctx, ma, staticTofCfgFile)
 	allcator := idallocator.NewIDAllocator(initialHandle)
 	fb := NewFBackEnd(uid, gid, allcator, localID)
 	if fb == nil {
@@ -81,8 +81,8 @@ func NewFProxy(
 	return fp
 }
 
-func (fp *FProxy) Run(ctx context.Context) error {
-	return fp.wd.Run(ctx)
+func (fp *FProxy) Start(ctx context.Context) {
+	fp.wd.Start(ctx)
 }
 
 func (fp *FProxy) Stop(ctx context.Context) {

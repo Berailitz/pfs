@@ -64,6 +64,9 @@ type RManager struct {
 	muOwnerMapRead sync.RWMutex
 	ownerMapRead   map[uint64]string
 
+	muNodeMapRead sync.RWMutex
+	nodeMapRead   map[uint64]uint64
+
 	fp *FProxy
 }
 
@@ -97,31 +100,49 @@ func (m *RManager) QueryAddr(ctx context.Context, ownerID uint64) string {
 	return ""
 }
 
+func (m *RManager) doAddNode(ctx context.Context, nodeID uint64, ownerID uint64) {
+	m.muNodeMapRead.Lock()
+	defer m.muNodeMapRead.Unlock()
+
+	m.NodeOwner.Store(nodeID, ownerID)
+	m.nodeMapRead[nodeID] = ownerID
+}
+
 func (m *RManager) Allocate(ctx context.Context, ownerID uint64) uint64 {
 	if _, ok := m.Owners.Load(ownerID); ok {
-		id := m.nodeAllocator.Allocate()
-		m.NodeOwner.Store(id, ownerID)
+		nodeID := m.nodeAllocator.Allocate()
+		m.doAddNode(ctx, nodeID, ownerID)
 		m.proposalChan <- &Proposal{
 			Typ:   AddNodeProposalType,
-			Key:   id,
+			Key:   nodeID,
 			Value: strconv.FormatUint(ownerID, 10),
 		}
-		return id
+		return nodeID
 	}
 	return 0
 }
 
-func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
+func (m *RManager) doRemoveNode(ctx context.Context, nodeID uint64) bool {
 	if out, ok := m.NodeOwner.Load(nodeID); ok {
 		if ownerID, ok := out.(uint64); ok {
+			m.muNodeMapRead.Lock()
+			defer m.muNodeMapRead.Unlock()
 			m.NodeOwner.Delete(nodeID)
+			delete(m.nodeMapRead, nodeID)
 			atomic.AddUint64(&m.OwnerCounter[ownerID], ^uint64(0))
-			m.proposalChan <- &Proposal{
-				Typ: RemoveNodeProposalType,
-				Key: nodeID,
-			}
 			return true
 		}
+	}
+	return false
+}
+
+func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
+	if m.doRemoveNode(ctx, nodeID) {
+		m.proposalChan <- &Proposal{
+			Typ: RemoveNodeProposalType,
+			Key: nodeID,
+		}
+		return true
 	}
 	return false
 }
@@ -195,6 +216,8 @@ func (m *RManager) MasterAddr() string {
 
 // AllocateRoot returns true if ownerID acquires the root node, false otherwise.
 // Note that AllocateRoot returns false if ownID is invalid.
+// No need to broadcast for 1. root owner is the first owner and there is no one to answer
+// 2. root owner will be automatically chose after recovery
 func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 	if _, ok := m.Owners.Load(ownerID); ok {
 		if _, loaded := m.NodeOwner.LoadOrStore(RootNodeID, ownerID); !loaded {
@@ -217,16 +240,15 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 	case RemoveOwnerProposalType:
 		m.doRemoveOwner(ctx, proposal.Key)
 	case AddNodeProposalType:
-		ownerID, err := strconv.ParseInt(proposal.Value, 10, 64)
+		ownerID, err := strconv.ParseUint(proposal.Value, 10, 64)
 		if err != nil {
 			logger.If(ctx, "add node proposal err: proposal=%+v, err=%+v", proposal, err)
 			return ErrorProposalState, err
 		}
-		m.NodeOwner.Store(proposal.Key, ownerID)
+		m.doAddNode(ctx, proposal.Key, ownerID)
 		m.nodeAllocator.SetNext(proposal.Key + 1)
 	case RemoveNodeProposalType:
-		m.NodeOwner.Delete(proposal.Key)
-		atomic.AddUint64(&m.OwnerCounter[proposal.Key], ^uint64(0))
+		m.doRemoveNode(ctx, proposal.Key)
 	default:
 		err = &ManagerErr{fmt.Sprintf("invalid proposal type: proposal=%+v", proposal)}
 		logger.If(ctx, err.Error())
@@ -280,7 +302,8 @@ func NewRManager(ctx context.Context) *RManager {
 		nodeAllocator:     idallocator.NewIDAllocator(RootNodeID + 1), // since root is assigned by AllocateRoot, not allocated
 		ownerAllocator:    idallocator.NewIDAllocator(FirstOwnerID),
 		proposalAllocator: idallocator.NewIDAllocator(FirstProposalID),
-		ownerMapRead:      map[uint64]string{},
+		ownerMapRead:      make(map[uint64]string),
+		nodeMapRead:       make(map[uint64]uint64),
 		proposalChan:      make(chan *Proposal),
 	}
 	ma.InitRunnable(ctx, maRunnableName, maRunnableLoopInterval, nil, ma.Run)

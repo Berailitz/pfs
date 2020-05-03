@@ -9,6 +9,12 @@ import (
 	"os"
 	"time"
 
+	grpc_logrus "github.com/Berailitz/pfs/logger/grpc"
+
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+
 	"bazil.org/fuse"
 
 	"github.com/Berailitz/pfs/logger"
@@ -24,7 +30,20 @@ import (
 const rServerStartTime = time.Second * 2
 
 var (
-	rpcServerOption []grpc.ServerOption = nil
+	rpcServerOption = []grpc.ServerOption{
+		grpc_middleware.WithStreamServerChain(
+			grpc_ctxtags.StreamServerInterceptor(
+				grpc_ctxtags.WithFieldExtractor(
+					grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_logrus.StreamServerInterceptor(
+				logger.Entry(), grpc_logrus.WithMessageProducer(logger.StubMessageProducer))),
+		grpc_middleware.WithUnaryServerChain(
+			grpc_ctxtags.UnaryServerInterceptor(
+				grpc_ctxtags.WithFieldExtractor(
+					grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_logrus.UnaryServerInterceptor(
+				logger.Entry(), grpc_logrus.WithMessageProducer(logger.StubMessageProducer))),
+	}
 )
 
 type RServer struct {

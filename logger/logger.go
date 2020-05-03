@@ -3,10 +3,13 @@ package logger
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"runtime"
 	"strings"
+
+	"google.golang.org/grpc/codes"
 
 	zt_formatter "github.com/Berailitz/pfs/logger/formatter"
 	"github.com/Berailitz/pfs/logger/lfshook"
@@ -26,11 +29,24 @@ const (
 	logPathTpl = "log/%v.log"
 )
 
+const (
+	logGRPCErrorKey      = "ge"
+	logGRPCCodeKey       = "gc"
+	logGRPCRequestKey    = "req"
+	logGRPCResponseKey   = "res"
+	logGRPCMethodKey     = "gm"
+	contextGRPCMethodKey = "grpc.method"
+)
+
 var (
 	contextLogMap = map[string]string{
 		ContextRequestIDKey: "ri",
 	}
 	loggerPackageNames = []string{"logger", "logrus"}
+)
+
+var (
+	entry *logrus.Entry = nil
 )
 
 func getPackageName(name string) string {
@@ -53,6 +69,11 @@ func init() {
 		logrus.InfoLevel:  fmt.Sprintf(logPathTpl, "i"),
 		logrus.WarnLevel:  fmt.Sprintf(logPathTpl, "w"),
 		logrus.ErrorLevel: fmt.Sprintf(logPathTpl, "e"),
+	}
+	logConsleMap := lfshook.WriterMap{
+		logrus.InfoLevel:  os.Stdout,
+		logrus.WarnLevel:  os.Stdout,
+		logrus.ErrorLevel: os.Stdout,
 	}
 	formatter := &zt_formatter.ZtFormatter{
 		CallerPrettyfier: func(_ *runtime.Frame) (string, string) {
@@ -82,6 +103,8 @@ func init() {
 	}
 	logrus.SetReportCaller(true)
 	logrus.SetFormatter(formatter)
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetOutput(ioutil.Discard)
 
 	logDir := path.Dir(logPathTpl)
 	if err := os.MkdirAll(logDir, 0644); err != nil {
@@ -89,9 +112,18 @@ func init() {
 	}
 
 	logrus.AddHook(lfshook.NewHook(
+		logConsleMap,
+		formatter,
+	))
+	logrus.AddHook(lfshook.NewHook(
 		logPathMap,
 		formatter,
 	))
+	entry = logrus.NewEntry(logrus.New())
+}
+
+func Entry() *logrus.Entry {
+	return entry
 }
 
 func buildLogger(ctx context.Context) *logrus.Entry {
@@ -152,4 +184,30 @@ func Ef(ctx context.Context, msg string, args ...interface{}) {
 func Pf(ctx context.Context, msg string, args ...interface{}) {
 	log(ctx, logrus.PanicLevel, fmt.Sprintf(msg, args...))
 	panic(fmt.Sprintf(msg, args...))
+}
+
+func StubMessageProducer(ctx context.Context, format string, level logrus.Level, code codes.Code, err error, fields logrus.Fields, req, resp interface{}) {
+	if err != nil {
+		fields[logGRPCErrorKey] = err
+	}
+	fields[logGRPCRequestKey] = req
+	fields[logGRPCResponseKey] = resp
+	fields[logGRPCMethodKey] = ctx.Value(contextGRPCMethodKey)
+	fields[logGRPCCodeKey] = code
+
+	entry := buildLogger(ctx).WithFields(fields)
+	switch level {
+	case logrus.DebugLevel:
+		entry.Debugf(format)
+	case logrus.InfoLevel:
+		entry.Infof(format)
+	case logrus.WarnLevel:
+		entry.Warningf(format)
+	case logrus.ErrorLevel:
+		entry.Errorf(format)
+	case logrus.FatalLevel:
+		entry.Fatalf(format)
+	case logrus.PanicLevel:
+		entry.Panicf(format)
+	}
 }

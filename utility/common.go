@@ -39,12 +39,12 @@ func GetGID(ctx context.Context) uint32 {
 }
 
 func RecoverWithStack(ctx context.Context, err *error) {
-	if r := recover(); r != nil {
+	if recovered := recover(); recovered != nil {
 		fallbackErr := fmt.Errorf("stacktrace from panic: \n%v\n", string(debug.Stack()))
-		logger.If(ctx, fallbackErr.Error())
+		logger.E(ctx, "stacktrace from panic", "stack", string(debug.Stack()), "err", err, "recovered", recovered)
 		if err != nil {
 			if *err == nil {
-				if rerr, ok := r.(error); ok {
+				if rerr, ok := recovered.(error); ok {
 					*err = rerr
 				} else {
 					*err = fallbackErr

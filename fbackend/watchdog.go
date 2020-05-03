@@ -197,7 +197,7 @@ func (d *WatchDog) runLoop(ctx context.Context) (err error) {
 		if ok {
 			logger.If(ctx, "use static tof: addr=%v, tof=%v", addr, tof)
 		} else {
-			tof, err := d.fp.Measure(ctx, addr, true, true)
+			tof, err := d.fp.Measure(ctx, addr)
 			if err != nil {
 				logger.If(ctx, "ping error: ownerID=%v, addr=%v, err=%+v",
 					addr, addr, err)

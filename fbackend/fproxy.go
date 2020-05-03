@@ -90,9 +90,9 @@ func (fp *FProxy) Stop(ctx context.Context) {
 	fp.wd.Stop(ctx)
 }
 
-func (fp *FProxy) Measure(ctx context.Context, addr string, disableCache bool, disableRoute bool) (tof int64, err error) {
+func (fp *FProxy) Measure(ctx context.Context, addr string) (tof int64, err error) {
 	departure := time.Now().UnixNano()
-	offset, err := fp.Ping(ctx, addr, disableCache, disableRoute)
+	offset, err := fp.Ping(ctx, addr, true, true)
 	arrival := time.Now().UnixNano()
 	return arrival - departure + offset, err
 }

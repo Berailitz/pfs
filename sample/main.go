@@ -88,11 +88,11 @@ func main() {
 			logger.If(ctx, "run pfs instance (%v/%v)", i+1, len(tc.CMD))
 			wg.Add(1)
 			if err := utility.RunCMD(ctx, wg, cc); err != nil {
-				logger.Ef(ctx, "run cmd error: i=%d, err=%+v", i, err)
+				logger.E(ctx, "run cmd error", "i", i, "err", err)
 			}
 		}
 	}
 
 	wg.Wait()
-	logger.If(ctx, "sample finished: file=%v", cfg)
+	logger.I(ctx, "sample finished", "cfg", *cfg)
 }

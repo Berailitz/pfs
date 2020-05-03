@@ -259,30 +259,84 @@ func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 	return false
 }
 
+func (m *RManager) loadManager(ctx context.Context, pbm *pb.Manager) {
+	m.muSync.Lock()
+	defer m.muSync.Unlock()
+
+	m.Owners = sync.Map{}
+	m.ownerMapRead = make(map[uint64]string)
+	if pbm.Owners != nil {
+		m.ownerMapRead = pbm.Owners
+		for k, v := range pbm.Owners {
+			m.Owners.Store(k, v)
+		}
+	}
+
+	m.NodeOwner = sync.Map{}
+	m.nodeMapRead = make(map[uint64]uint64)
+	if pbm.Nodes != nil {
+		m.nodeMapRead = m.nodeMapRead
+		for k, v := range pbm.Nodes {
+			m.NodeOwner.Store(k, v)
+		}
+	}
+
+	m.ownerAllocator.SetNext(pbm.NextOwner)
+	m.nodeAllocator.SetNext(pbm.NextNode)
+	m.proposalAllocator.SetNext(pbm.NextProposal)
+
+	m.masterAddr = pbm.MasterAddr
+}
+
+func (m *RManager) fetchManager(ctx context.Context) {
+	defer utility.RecoverWithStack(ctx, nil)
+
+	if m.fp == nil {
+		logger.E(ctx, "no fp, cannot fetch")
+		return
+	}
+
+	logger.W(ctx, "will fetch manager")
+	pbm, err := m.fp.CopyManager(ctx)
+	if err != nil {
+		logger.E(ctx, "fetch manager error", "err", err)
+		return
+	}
+	m.loadManager(ctx, pbm)
+}
+
 func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
 	switch proposal.Typ {
 	case AddOwnerProposalType:
-		if !m.doAddOwner(ctx, proposal.OwnerID, proposal.Value) {
+		if m.doAddOwner(ctx, proposal.OwnerID, proposal.Value) {
+			m.ownerAllocator.SetNext(proposal.OwnerID + 1)
+		} else {
 			err = &ManagerErr{fmt.Sprintf("invalid proposal value: proposal=%+v", proposal)}
-			logger.If(ctx, err.Error())
-			return ErrorProposalState, err
 		}
-		m.ownerAllocator.SetNext(proposal.OwnerID + 1)
 	case RemoveOwnerProposalType:
-		m.doRemoveOwner(ctx, proposal.OwnerID)
+		err = m.doRemoveOwner(ctx, proposal.OwnerID)
 	case AddNodeProposalType:
 		m.doAddNode(ctx, proposal.NodeID, proposal.OwnerID)
 		m.nodeAllocator.SetNext(proposal.NodeID + 1)
 	case RemoveNodeProposalType:
-		m.doRemoveNode(ctx, proposal.NodeID)
+		err = m.doRemoveNode(ctx, proposal.NodeID)
 	default:
 		err = &ManagerErr{fmt.Sprintf("invalid proposal type: proposal=%+v", proposal)}
-		logger.If(ctx, err.Error())
+	}
+
+	if err != nil {
+		logger.E(ctx, "answer proposal error", "proposal", proposal, "err", err)
 		return ErrorProposalState, err
 	}
+
+	if m.proposalAllocator.ReadNext() != proposal.ID {
+		logger.W(ctx, "answer proposal need fetch", "proposal", proposal)
+		go m.fetchManager(utility.WithoutCancel(ctx))
+	}
+
 	m.proposalAllocator.SetNext(proposal.ID + 1)
 	return 0, nil
 }
@@ -337,7 +391,6 @@ func (m *RManager) CopyManager(ctx context.Context) (*pb.Manager, error) {
 	func() {
 		for k, v := range m.nodeMapRead {
 			copiedNodes[k] = v
-
 		}
 	}()
 	func() {

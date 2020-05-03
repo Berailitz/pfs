@@ -96,6 +96,14 @@ func (d *WatchDog) CopyTofMap(ctx context.Context) (copied map[string]int64) {
 	return copied
 }
 
+func (d *WatchDog) smoothTof(ctx context.Context, addr string, rawTof int64) (smoothTof int64) {
+	smoothTof = rawTof
+	if oldTof, ok := d.realTof(addr); ok {
+		smoothTof = int64(float64(oldTof)*(1-tofUpdateRatio) + float64(rawTof)*tofUpdateRatio)
+	}
+	return smoothTof
+}
+
 func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
 	smoothTof := tof
 	if oldTof, ok := d.realTof(addr); ok {
@@ -116,24 +124,18 @@ func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
 	d.tofMapRead[addr] = tof
 }
 
-func (d *WatchDog) checkTransit(ctx context.Context, transit string, remoteTofMap map[string]int64) {
-	transitTof, ok := d.realTof(transit)
-	if !ok {
-		logger.Ef(ctx, "checkTransit no tof error: transit=%v", transit)
-		return
-	}
-
+func (d *WatchDog) checkTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
 	for dst, remoteTof := range remoteTofMap {
 		if out, ok := d.routeMap.Load(dst); ok {
 			if rule, ok := out.(*RouteRule); ok {
 				totalTof := transitTof + remoteTof
 				if rule.tof > totalTof {
 					d.routeMap.Store(dst, &RouteRule{
-						next: transit,
+						next: transitAddr,
 						tof:  totalTof,
 					})
 					logger.If(ctx, "save new rule: dst=%v, transit=%v, transitTof=%v, totalTof=%v, oldRule=%+v",
-						dst, transit, transitTof, totalTof, *rule)
+						dst, transitAddr, transitTof, totalTof, *rule)
 				}
 				continue
 			}
@@ -190,42 +192,40 @@ func (d *WatchDog) AnswerGossip(ctx context.Context, addr string) (tofMap map[st
 }
 
 func (d *WatchDog) runLoop(ctx context.Context) (err error) {
-	logger.If(ctx, "updating tof map")
+	logger.I(ctx, "updating tof map")
 	owners, err := d.fp.GetOwnerMap(ctx)
 	if err != nil {
-		logger.Ef(ctx, "get owners error: err=%+v", err)
+		logger.E(ctx, "get owners error", "err", err)
 	}
 
 	staticTofMap := d.loadStaticTof(ctx)
 	nomineeMap := make(map[string]int64, len(owners))
 
 	for _, addr := range owners {
-		tof, ok := staticTofMap[addr]
+		rawTof, ok := staticTofMap[addr]
 		if ok {
-			logger.If(ctx, "use static tof: addr=%v, tof=%v", addr, tof)
+			logger.I(ctx, "use static tof", "addr", addr, "rawTof", rawTof)
 		} else {
-			tof, err := d.fp.Measure(ctx, addr)
+			rawTof, err = d.fp.Measure(ctx, addr)
 			if err != nil {
-				logger.If(ctx, "ping error: ownerID=%v, addr=%v, err=%+v",
-					addr, addr, err)
+				logger.E(ctx, "ping error", "addr", addr, "rawTof", rawTof, "err", err)
 				continue
 			}
-			logger.If(ctx, "ping success: ownerID=%v, addr=%v, tof=%v",
-				addr, addr, tof)
+			logger.I(ctx, "ping success", "addr", addr, "rawTof", rawTof)
 		}
-		d.saveTof(ctx, addr, tof)
+		smoothTof := d.smoothTof(ctx, addr, rawTof)
+		d.saveTof(ctx, addr, smoothTof)
 
 		if addr == d.localAddr {
 			continue
 		}
 		remoteTofMap, nominee, err := d.fp.Gossip(ctx, addr)
 		if err != nil {
-			logger.If(ctx, "gossip error: ownerID=%v, addr=%v, err=%+v",
-				addr, addr, err)
+			logger.E(ctx, "gossip error", "addr", addr, "err", err)
 			continue
 		}
-		logger.If(ctx, "gossip success: addr=%v, remoteTofMap=%+v", addr, remoteTofMap)
-		d.checkTransit(ctx, addr, remoteTofMap)
+		logger.I(ctx, "gossip success", "addr", addr, "remoteTofMap", remoteTofMap)
+		d.checkTransit(ctx, addr, smoothTof, remoteTofMap)
 
 		if nominee != "" {
 			if counter, ok := nomineeMap[nominee]; ok {

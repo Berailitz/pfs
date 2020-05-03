@@ -306,8 +306,8 @@ func (d *WatchDog) runLoop(ctx context.Context) (err error) {
 		logger.I(ctx, "gossip success", "addr", addr, "remoteTofMap", remoteTofMap)
 		d.remoteTofMaps.Store(addr, remoteTofMap)
 
-		d.updateOldTransit(ctx, addr, smoothTof, remoteTofMap)
 		d.addNewTransit(ctx, addr, smoothTof, remoteTofMap)
+		d.updateOldTransit(ctx, addr, smoothTof, remoteTofMap)
 
 		if nominee != "" {
 			if counter, ok := nomineeMap[nominee]; ok {

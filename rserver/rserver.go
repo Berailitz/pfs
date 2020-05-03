@@ -35,7 +35,7 @@ var (
 			grpc_ctxtags.UnaryServerInterceptor(
 				grpc_ctxtags.WithFieldExtractor(
 					grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			utility.RequestIDServerInterceptor(),
+			utility.CtxMDServerInterceptor(),
 			grpc_logrus.UnaryServerInterceptor(
 				logger.Entry(), grpc_logrus.WithMessageProducer(logger.StubMessageProducer))),
 	}

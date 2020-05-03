@@ -27,7 +27,7 @@ var (
 		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(
 			grpc_middleware.ChainUnaryClient(
-				RequestIDClientInterceptor(),
+				CtxMDClientInterceptor(),
 				grpc_logrus.UnaryClientInterceptor(
 					logger.Entry(), grpc_logrus.WithMessageProducer(
 						logger.StubMessageProducer)),

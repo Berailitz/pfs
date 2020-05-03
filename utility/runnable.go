@@ -2,6 +2,7 @@ package utility
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/Berailitz/pfs/logger"
@@ -14,10 +15,13 @@ type Runnable struct {
 	Stopped      chan interface{}
 	run          func(ctx context.Context) error
 	runLoop      func(ctx context.Context) error
+	interval     int
 }
 
 func (r *Runnable) runFunc(ctx context.Context) (err error) {
 	for {
+		r.interval++
+		ctx = context.WithValue(ctx, logger.ContextRunnableIntervalIKey, strconv.Itoa(r.interval))
 		select {
 		case <-r.ToStop:
 			logger.I(ctx, "runnable is quitting", "name", r.Name)
@@ -33,6 +37,7 @@ func (r *Runnable) runFunc(ctx context.Context) (err error) {
 
 func (r *Runnable) Start(ctx context.Context) {
 	go func() {
+		ctx = context.WithValue(ctx, logger.ContextRunnableNameIKey, r.Name)
 		defer func() {
 			RecoverWithStack(ctx, nil)
 			close(r.Stopped)

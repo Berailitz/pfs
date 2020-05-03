@@ -21,14 +21,13 @@ import (
 type internalContextKeyType interface{}
 
 var (
+	ContextRunnableNameIKey     internalContextKeyType = "rn"
+	ContextRunnableIntervalIKey internalContextKeyType = "RI"
+
 	ContextRequestIDKey internalContextKeyType = "ri"
 	ContextLocalPortKey internalContextKeyType = "LP"
 	ContextCMDKey       internalContextKeyType = "cmd"
-	ContextDirKey       internalContextKeyType = "D"
-)
-
-const (
-	EmptyRequestID = ""
+	ContextDirKey       internalContextKeyType = "d"
 )
 
 const (
@@ -51,7 +50,14 @@ const (
 )
 
 var (
-	contextLogKeys     = []internalContextKeyType{ContextRequestIDKey, ContextLocalPortKey, ContextCMDKey, ContextDirKey}
+	ContextLogKeys = []internalContextKeyType{
+		ContextRequestIDKey,
+		ContextLocalPortKey,
+		ContextRunnableIntervalIKey,
+		ContextRunnableNameIKey,
+		ContextCMDKey,
+		ContextDirKey,
+	}
 	loggerPackageNames = []string{"logger", "logrus"}
 )
 
@@ -138,7 +144,7 @@ func Entry() *logrus.Entry {
 
 func buildLogger(ctx context.Context) *logrus.Entry {
 	fields := logrus.Fields{}
-	for _, contextKey := range contextLogKeys {
+	for _, contextKey := range ContextLogKeys {
 		if v := ctx.Value(contextKey); v != nil {
 			fields[contextKey.(string)] = v
 		}

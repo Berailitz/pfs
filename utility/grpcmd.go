@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func RequestIDClientInterceptor() grpc.UnaryClientInterceptor {
+func CtxMDClientInterceptor() grpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
 		method string, req, resp interface{},
@@ -20,15 +20,17 @@ func RequestIDClientInterceptor() grpc.UnaryClientInterceptor {
 			md = metadata.Pairs()
 		}
 
-		value := ctx.Value(logger.ContextRequestIDKey)
-		if requestID, ok := value.(string); ok && requestID != "" {
-			md[logger.ContextRequestIDKey.(string)] = []string{requestID}
+		for _, contextKey := range logger.ContextLogKeys {
+			if strValue, ok := ctx.Value(contextKey).(string); ok && strValue != "" {
+				md[contextKey.(string)] = []string{strValue}
+			}
 		}
+
 		return invoker(metadata.NewOutgoingContext(ctx, md), method, req, resp, cc, opts...)
 	}
 }
 
-func RequestIDServerInterceptor() grpc.UnaryServerInterceptor {
+func CtxMDServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
 		req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
@@ -37,15 +39,15 @@ func RequestIDServerInterceptor() grpc.UnaryServerInterceptor {
 		if !ok {
 			md = metadata.Pairs()
 		}
-		// Set request ID for context.
-		requestIDs := md[logger.ContextRequestIDKey.(string)]
-		if len(requestIDs) >= 1 {
-			ctx = context.WithValue(ctx, logger.ContextRequestIDKey, requestIDs[0])
-			return handler(ctx, req)
+
+		for _, contextKey := range logger.ContextLogKeys {
+			values := md[contextKey.(string)]
+			if len(values) >= 1 {
+				ctx = context.WithValue(ctx, contextKey, values[0])
+				return handler(ctx, req)
+			}
 		}
 
-		// Generate request ID and set context if not exists.
-		ctx = context.WithValue(ctx, logger.ContextRequestIDKey, logger.EmptyRequestID)
 		return handler(ctx, req)
 	}
 }

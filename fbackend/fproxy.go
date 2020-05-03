@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -1048,7 +1049,7 @@ func (fp *FProxy) PushNode(ctx context.Context, addr string, node *rnode.RNode) 
 }
 
 func (fp *FProxy) MakeRequestCtx(ctx context.Context) context.Context {
-	return context.WithValue(ctx, logger.ContextRequestIDKey, fp.requestIDAllocator.Allocate())
+	return context.WithValue(ctx, logger.ContextRequestIDKey, strconv.FormatUint(fp.requestIDAllocator.Allocate(), 10))
 }
 
 func (e *FPErr) Error() string {

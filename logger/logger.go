@@ -28,6 +28,10 @@ var (
 )
 
 const (
+	EmptyRequestID = ""
+)
+
+const (
 	// frameToSkip is updated if func name is incorrect
 	frameToSkip   = 5
 	maxStackDepth = 20

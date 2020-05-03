@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+
 	grpc_logrus "github.com/Berailitz/pfs/logger/grpc"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
@@ -24,13 +26,15 @@ var (
 		grpc.WithBlock(),
 		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(
-			grpc_logrus.UnaryClientInterceptor(
-				logger.Entry(), grpc_logrus.WithMessageProducer(
-					logger.StubMessageProducer))),
-		grpc.WithUnaryInterceptor(
-			grpc_retry.UnaryClientInterceptor(
-				grpc_retry.WithPerRetryTimeout(rpcTimeout),
-				grpc_retry.WithMax(rpcMaxRetries))),
+			grpc_middleware.ChainUnaryClient(
+				RequestIDClientInterceptor(),
+				grpc_logrus.UnaryClientInterceptor(
+					logger.Entry(), grpc_logrus.WithMessageProducer(
+						logger.StubMessageProducer)),
+				grpc_retry.UnaryClientInterceptor(
+					grpc_retry.WithPerRetryTimeout(rpcTimeout),
+					grpc_retry.WithMax(rpcMaxRetries)),
+			)),
 	}
 )
 

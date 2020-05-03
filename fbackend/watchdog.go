@@ -36,7 +36,7 @@ type WatchDog struct {
 	ma        *RManager
 	localAddr string
 
-	tofMap       sync.Map         // map[string]int64
+	realTofMap   sync.Map         // map[string]int64
 	tofMapRead   map[string]int64 // map[string]int64
 	muTofMapRead sync.RWMutex
 
@@ -72,11 +72,17 @@ func (d *WatchDog) Route(addr string) string {
 	return addr
 }
 
-func (d *WatchDog) Tof(addr string) (int64, bool) {
-	if distance, ok := d.tofMap.Load(addr); ok {
+func (d *WatchDog) LogicTof(addr string) (int64, bool) {
+	if out, ok := d.routeMap.Load(addr); ok {
+		return out.(*RouteRule).tof, true
+	}
+	return 0, false
+}
+
+func (d *WatchDog) realTof(addr string) (int64, bool) {
+	if distance, ok := d.realTofMap.Load(addr); ok {
 		return distance.(int64), true
 	}
-
 	return 0, false
 }
 
@@ -91,9 +97,9 @@ func (d *WatchDog) CopyTofMap(ctx context.Context) (copied map[string]int64) {
 }
 
 func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
-	d.tofMap.Store(addr, tof)
+	d.realTofMap.Store(addr, tof)
 	smoothTof := tof
-	if oldTof, ok := d.Tof(addr); ok {
+	if oldTof, ok := d.realTof(addr); ok {
 		smoothTof = int64(float64(oldTof)*(1-tofUpdateRatio) + float64(tof)*tofUpdateRatio)
 	}
 
@@ -110,7 +116,7 @@ func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
 }
 
 func (d *WatchDog) checkTransit(ctx context.Context, transit string, remoteTofMap map[string]int64) {
-	transitTof, ok := d.Tof(transit)
+	transitTof, ok := d.realTof(transit)
 	if !ok {
 		logger.Ef(ctx, "checkTransit no tof error: transit=%v", transit)
 		return

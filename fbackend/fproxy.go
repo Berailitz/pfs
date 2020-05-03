@@ -103,7 +103,7 @@ func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool, disa
 	}
 
 	if !disableCache {
-		if tof, ok := fp.wd.Tof(addr); ok {
+		if tof, ok := fp.wd.LogicTof(addr); ok {
 			return tof, nil
 		}
 	}

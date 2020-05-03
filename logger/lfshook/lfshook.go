@@ -3,13 +3,14 @@ package lfshook
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sync"
+
+	"github.com/sirupsen/logrus"
 )
 
 // We are logging to file, strip colors to make the output more readable.
@@ -159,32 +160,35 @@ func (hook *LfsHook) fileWrite(entry *logrus.Entry) error {
 		ok   bool
 	)
 
-	if path, ok = hook.paths[entry.Level]; !ok {
-		if hook.hasDefaultPath {
-			path = hook.defaultPath
-		} else {
-			return nil
+	for level := entry.Level; level < logrus.TraceLevel; level++ {
+		if path, ok = hook.paths[level]; !ok {
+			if hook.hasDefaultPath {
+				path = hook.defaultPath
+			} else {
+				return nil
+			}
 		}
+
+		dir := filepath.Dir(path)
+		os.MkdirAll(dir, os.ModePerm)
+
+		fd, err = os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+		if err != nil {
+			log.Println("failed to open logfile:", path, err)
+			return err
+		}
+		defer fd.Close()
+
+		// use our formatter instead of entry.String()
+		msg, err = hook.formatter.Format(entry)
+
+		if err != nil {
+			log.Println("failed to generate string for entry:", err)
+			return err
+		}
+		fd.Write(msg)
 	}
 
-	dir := filepath.Dir(path)
-	os.MkdirAll(dir, os.ModePerm)
-
-	fd, err = os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
-	if err != nil {
-		log.Println("failed to open logfile:", path, err)
-		return err
-	}
-	defer fd.Close()
-
-	// use our formatter instead of entry.String()
-	msg, err = hook.formatter.Format(entry)
-
-	if err != nil {
-		log.Println("failed to generate string for entry:", err)
-		return err
-	}
-	fd.Write(msg)
 	return nil
 }
 

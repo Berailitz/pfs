@@ -132,7 +132,7 @@ func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool, disa
 
 func (fp *FProxy) Gossip(ctx context.Context, addr string) (_ map[string]int64, nominee string, err error) {
 	if addr == fp.localAddr {
-		return fp.wd.CopyTofMap(ctx), fp.wd.Nominee(ctx), nil
+		return fp.wd.AnswerGossip(ctx, addr)
 	}
 
 	gcli, err := fp.pool.Load(ctx, addr)

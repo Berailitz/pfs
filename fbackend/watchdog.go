@@ -80,10 +80,6 @@ func (d *WatchDog) Tof(addr string) (int64, bool) {
 	return 0, false
 }
 
-func (d *WatchDog) Nominee(ctx context.Context) string {
-	return d.nominee
-}
-
 func (d *WatchDog) CopyTofMap(ctx context.Context) (copied map[string]int64) {
 	d.muTofMapRead.RLock()
 	defer d.muTofMapRead.RUnlock()
@@ -180,6 +176,10 @@ func (d *WatchDog) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []s
 		}
 	}
 	return addrs
+}
+
+func (d *WatchDog) AnswerGossip(ctx context.Context, addr string) (tofMap map[string]int64, nominee string, err error) {
+	return d.CopyTofMap(ctx), d.nominee, nil
 }
 
 func (d *WatchDog) runLoop(ctx context.Context) (err error) {

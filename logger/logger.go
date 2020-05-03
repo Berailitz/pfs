@@ -22,7 +22,7 @@ const (
 )
 
 const (
-	logPathPrefix = "log/pfs.log"
+	logPathTpl = "log/%v.log"
 )
 
 var (
@@ -34,9 +34,9 @@ var (
 func init() {
 	ctx := context.Background()
 	logPathMap := lfshook.PathMap{
-		logrus.DebugLevel: fmt.Sprintf("%v.%v", logPathPrefix, "debug"),
-		logrus.InfoLevel:  fmt.Sprintf("%v.%v", logPathPrefix, "info"),
-		logrus.ErrorLevel: fmt.Sprintf("%v.%v", logPathPrefix, "error"),
+		logrus.DebugLevel: fmt.Sprintf(logPathTpl, "d"),
+		logrus.InfoLevel:  fmt.Sprintf(logPathTpl, "i"),
+		logrus.ErrorLevel: fmt.Sprintf(logPathTpl, "e"),
 	}
 	formatter := &zt_formatter.ZtFormatter{
 		CallerPrettyfier: func(_ *runtime.Frame) (string, string) {
@@ -54,9 +54,9 @@ func init() {
 	logrus.SetReportCaller(true)
 	logrus.SetFormatter(formatter)
 
-	logDir := path.Dir(logPathPrefix)
+	logDir := path.Dir(logPathTpl)
 	if err := os.MkdirAll(logDir, 0644); err != nil {
-		P(ctx, "mkdir log dir error", "logDir", logDir, "logPathPrefix", logPathPrefix)
+		P(ctx, "mkdir log dir error", "logDir", logDir, "logPathTpl", logPathTpl)
 	}
 
 	logrus.AddHook(lfshook.NewHook(

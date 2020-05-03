@@ -949,7 +949,7 @@ func (fp *FProxy) RegisterOwner(ctx context.Context, addr string) uint64 {
 	return out.Id
 }
 
-func (fp *FProxy) RemoveOwner(ctx context.Context, ownerID uint64) bool {
+func (fp *FProxy) RemoveOwner(ctx context.Context, ownerID uint64) error {
 	if fp.localAddr == fp.ma.MasterAddr() {
 		return fp.ma.RemoveOwner(ctx, ownerID)
 	}
@@ -957,18 +957,21 @@ func (fp *FProxy) RemoveOwner(ctx context.Context, ownerID uint64) bool {
 	logger.I(ctx, "remove owner", "ownerID", ownerID)
 	gcli, err := fp.pool.Load(ctx, fp.ma.MasterAddr())
 	if err != nil {
-		return false
+		return err
 	}
 
-	out, err := gcli.RemoveOwner(ctx, &pb.OwnerId{
+	perr, err := gcli.RemoveOwner(ctx, &pb.OwnerId{
 		Id: ownerID,
 	})
+	if err == nil {
+		err = utility.FromPbErr(perr)
+	}
 	if err != nil {
 		logger.E(ctx, "remove owner error", "ownerID", ownerID, "err", err)
-		return false
+		return err
 	}
 	logger.I(ctx, "remove owner success", "ownerID", ownerID)
-	return out.Ok
+	return nil
 }
 
 func (fp *FProxy) AllocateRoot(ctx context.Context, ownerID uint64) bool {

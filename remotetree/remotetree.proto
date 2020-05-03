@@ -48,7 +48,7 @@ service RemoteTree {
     rpc Allocate(OwnerId) returns (UInt64ID) {}
     rpc Deallocate(UInt64ID) returns (Error) {}
     rpc RegisterOwner(Addr) returns (OwnerId) {}
-    rpc RemoveOwner(OwnerId) returns (IsOK) {}
+    rpc RemoveOwner(OwnerId) returns (Error) {}
     rpc AllocateRoot(OwnerId) returns (IsOK) {}
 }
 

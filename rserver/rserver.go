@@ -440,12 +440,15 @@ func (s *RServer) RegisterOwner(ctx context.Context, req *pb.Addr) (*pb.OwnerId,
 	}
 }
 
-func (s *RServer) RemoveOwner(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, error) {
+func (s *RServer) RemoveOwner(ctx context.Context, req *pb.OwnerId) (*pb.Error, error) {
+	var ferr error
 	if s.fp != nil {
-		return &pb.IsOK{Ok: s.fp.RemoveOwner(ctx, req.Id)}, nil
+		ferr = s.fp.RemoveOwner(ctx, req.Id)
 	} else {
-		return &pb.IsOK{Ok: s.ma.RemoveOwner(ctx, req.Id)}, nil
+		ferr = s.ma.RemoveOwner(ctx, req.Id)
 	}
+
+	return utility.ToPbErr(ferr), nil
 }
 
 func (s *RServer) AllocateRoot(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, error) {

@@ -41,7 +41,8 @@ const (
 )
 
 var (
-	NodeNotExistErr = &ManagerErr{"node not exist"}
+	NodeNotExistErr  = &ManagerErr{"node not exist"}
+	OwnerNotExistErr = &ManagerErr{"owner not exist"}
 )
 
 type Proposal struct {
@@ -197,30 +198,30 @@ func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
 	return 0
 }
 
-func (m *RManager) doRemoveOwner(ctx context.Context, ownerID uint64) bool {
+func (m *RManager) doRemoveOwner(ctx context.Context, ownerID uint64) error {
 	m.muOwnerMapRead.Lock()
 	defer m.muOwnerMapRead.Unlock()
 	if _, ok := m.Owners.Load(ownerID); ok {
 		m.Owners.Delete(ownerID)
 		delete(m.ownerMapRead, ownerID)
-		return true
+		return nil
 	}
-	return false
+	return OwnerNotExistErr
 }
 
-func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) bool {
+func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) (err error) {
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
-	if m.doRemoveOwner(ctx, ownerID) {
-		m.proposalChan <- &Proposal{
-			Typ:     RemoveOwnerProposalType,
-			OwnerID: ownerID,
-		}
-		return true
+	if err = m.doRemoveOwner(ctx, ownerID); err != nil {
+		return err
 	}
 
-	return false
+	m.proposalChan <- &Proposal{
+		Typ:     RemoveOwnerProposalType,
+		OwnerID: ownerID,
+	}
+	return nil
 }
 
 func (m *RManager) CopyOwnerMap(ctx context.Context) map[uint64]string {

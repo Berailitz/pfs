@@ -208,6 +208,9 @@ func (d *WatchDog) runLoop(ctx context.Context) (err error) {
 		}
 		d.saveTof(ctx, addr, tof)
 
+		if addr == d.localAddr {
+			continue
+		}
 		remoteTofMap, nominee, err := d.fp.Gossip(ctx, addr)
 		if err != nil {
 			logger.If(ctx, "gossip error: ownerID=%v, addr=%v, err=%+v",

@@ -159,7 +159,7 @@ func (d *WatchDog) updateOldTransit(ctx context.Context, transitAddr string, tra
 	}
 }
 
-func (d *WatchDog) checkTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
+func (d *WatchDog) addNewTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
 	for dst, remoteTof := range remoteTofMap {
 		if out, ok := d.routeMap.Load(dst); ok {
 			if rule, ok := out.(*RouteRule); ok {
@@ -262,7 +262,7 @@ func (d *WatchDog) runLoop(ctx context.Context) (err error) {
 		d.remoteTofMaps.Store(addr, remoteTofMap)
 
 		d.updateOldTransit(ctx, addr, smoothTof, remoteTofMap)
-		d.checkTransit(ctx, addr, smoothTof, remoteTofMap)
+		d.addNewTransit(ctx, addr, smoothTof, remoteTofMap)
 
 		if nominee != "" {
 			if counter, ok := nomineeMap[nominee]; ok {

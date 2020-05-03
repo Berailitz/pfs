@@ -69,7 +69,6 @@ func (d *WatchDog) SetFP(fp *FProxy) {
 }
 
 func (d *WatchDog) Route(addr string) string {
-	// TODO: find best route
 	if out, ok := d.routeMap.Load(addr); ok {
 		if route, ok := out.(*RouteRule); ok {
 			return route.next

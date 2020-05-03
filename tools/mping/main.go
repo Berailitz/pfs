@@ -15,7 +15,7 @@ import (
 func main() {
 	masterAddr := flag.String("masterAddr", "127.0.0.1:10000", "masterAddr")
 	dst := flag.String("dst", "127.0.0.1:10000", "dst")
-	src := flag.String("src", "127.0.0.1:10000", "src")
+	src := flag.String("src", "127.0.0.1:10010", "src")
 	flag.Parse()
 
 	ctx := context.Background()

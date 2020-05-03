@@ -40,6 +40,8 @@ type WatchDog struct {
 	tofMapRead   map[string]int64 // map[string]int64
 	muTofMapRead sync.RWMutex
 
+	remoteTofMaps sync.Map // map[string]map[string]int64, inner map is readonly
+
 	routeMap       sync.Map // map[string]*RouteRule
 	routeMapRead   map[string]*RouteRule
 	muRouteMapRead sync.RWMutex
@@ -249,12 +251,16 @@ func (d *WatchDog) runLoop(ctx context.Context) (err error) {
 		if addr == d.localAddr {
 			continue
 		}
+
+		d.remoteTofMaps.Delete(addr)
 		remoteTofMap, nominee, err := d.fp.Gossip(ctx, addr)
 		if err != nil {
 			logger.E(ctx, "gossip error", "addr", addr, "err", err)
 			continue
 		}
 		logger.I(ctx, "gossip success", "addr", addr, "remoteTofMap", remoteTofMap)
+		d.remoteTofMaps.Store(addr, remoteTofMap)
+
 		d.updateOldTransit(ctx, addr, smoothTof, remoteTofMap)
 		d.checkTransit(ctx, addr, smoothTof, remoteTofMap)
 

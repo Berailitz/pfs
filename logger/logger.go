@@ -51,6 +51,7 @@ func init() {
 	logPathMap := lfshook.PathMap{
 		logrus.DebugLevel: fmt.Sprintf(logPathTpl, "d"),
 		logrus.InfoLevel:  fmt.Sprintf(logPathTpl, "i"),
+		logrus.WarnLevel:  fmt.Sprintf(logPathTpl, "w"),
 		logrus.ErrorLevel: fmt.Sprintf(logPathTpl, "e"),
 	}
 	formatter := &zt_formatter.ZtFormatter{

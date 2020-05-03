@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	pb "github.com/Berailitz/pfs/remotetree"
@@ -54,9 +53,8 @@ type RManager struct {
 
 	muSync sync.RWMutex // lock when syncing, rlock when using
 
-	NodeOwner         sync.Map           // [uint64]uint64
-	Owners            sync.Map           // [uint64]string
-	OwnerCounter      [MaxOwnerID]uint64 // not used
+	NodeOwner         sync.Map // [uint64]uint64
+	Owners            sync.Map // [uint64]string
 	nodeAllocator     *idallocator.IDAllocator
 	ownerAllocator    *idallocator.IDAllocator
 	proposalAllocator *idallocator.IDAllocator
@@ -134,12 +132,11 @@ func (m *RManager) Allocate(ctx context.Context, ownerID uint64) uint64 {
 
 func (m *RManager) doRemoveNode(ctx context.Context, nodeID uint64) bool {
 	if out, ok := m.NodeOwner.Load(nodeID); ok {
-		if ownerID, ok := out.(uint64); ok {
+		if _, ok := out.(uint64); ok {
 			m.muNodeMapRead.Lock()
 			defer m.muNodeMapRead.Unlock()
 			m.NodeOwner.Delete(nodeID)
 			delete(m.nodeMapRead, nodeID)
-			atomic.AddUint64(&m.OwnerCounter[ownerID], ^uint64(0))
 			return true
 		}
 	}
@@ -195,26 +192,29 @@ func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
 	return 0
 }
 
-func (m *RManager) doRemoveOwner(ctx context.Context, ownerID uint64) {
+func (m *RManager) doRemoveOwner(ctx context.Context, ownerID uint64) bool {
 	m.muOwnerMapRead.Lock()
 	defer m.muOwnerMapRead.Unlock()
-	m.Owners.Delete(ownerID)
-	delete(m.ownerMapRead, ownerID)
+	if _, ok := m.Owners.Load(ownerID); ok {
+		m.Owners.Delete(ownerID)
+		delete(m.ownerMapRead, ownerID)
+		return true
+	}
+	return false
 }
 
 func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) bool {
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
-	if atomic.LoadUint64(&m.OwnerCounter[ownerID]) == 0 {
-		m.doRemoveOwner(ctx, ownerID)
+	if m.doRemoveOwner(ctx, ownerID) {
 		m.proposalChan <- &Proposal{
 			Typ:     RemoveOwnerProposalType,
 			OwnerID: ownerID,
 		}
-
 		return true
 	}
+
 	return false
 }
 

@@ -3,7 +3,6 @@ package fbackend
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -41,10 +40,11 @@ const (
 )
 
 type Proposal struct {
-	ID    uint64
-	Typ   int64
-	Key   uint64
-	Value string
+	ID      uint64
+	Typ     int64
+	OwnerID uint64
+	NodeID  uint64
+	Value   string
 }
 
 type RManager struct {
@@ -113,9 +113,9 @@ func (m *RManager) Allocate(ctx context.Context, ownerID uint64) uint64 {
 		nodeID := m.nodeAllocator.Allocate()
 		m.doAddNode(ctx, nodeID, ownerID)
 		m.proposalChan <- &Proposal{
-			Typ:   AddNodeProposalType,
-			Key:   nodeID,
-			Value: strconv.FormatUint(ownerID, 10),
+			Typ:     AddNodeProposalType,
+			NodeID:  nodeID,
+			OwnerID: ownerID,
 		}
 		return nodeID
 	}
@@ -139,8 +139,8 @@ func (m *RManager) doRemoveNode(ctx context.Context, nodeID uint64) bool {
 func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
 	if m.doRemoveNode(ctx, nodeID) {
 		m.proposalChan <- &Proposal{
-			Typ: RemoveNodeProposalType,
-			Key: nodeID,
+			Typ:    RemoveNodeProposalType,
+			NodeID: nodeID,
 		}
 		return true
 	}
@@ -169,9 +169,9 @@ func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
 			return 0
 		}
 		m.proposalChan <- &Proposal{
-			Typ:   AddOwnerProposalType,
-			Key:   ownerID,
-			Value: addr,
+			Typ:     AddOwnerProposalType,
+			OwnerID: ownerID,
+			Value:   addr,
 		}
 
 		return ownerID
@@ -190,8 +190,8 @@ func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) bool {
 	if atomic.LoadUint64(&m.OwnerCounter[ownerID]) == 0 {
 		m.doRemoveOwner(ctx, ownerID)
 		m.proposalChan <- &Proposal{
-			Typ: RemoveOwnerProposalType,
-			Key: ownerID,
+			Typ:     RemoveOwnerProposalType,
+			OwnerID: ownerID,
 		}
 
 		return true
@@ -231,24 +231,19 @@ func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {
 	switch proposal.Typ {
 	case AddOwnerProposalType:
-		if !m.doAddOwner(ctx, proposal.Key, proposal.Value) {
+		if !m.doAddOwner(ctx, proposal.OwnerID, proposal.Value) {
 			err = &ManagerErr{fmt.Sprintf("invalid proposal value: proposal=%+v", proposal)}
 			logger.If(ctx, err.Error())
 			return ErrorProposalState, err
 		}
-		m.ownerAllocator.SetNext(proposal.Key + 1)
+		m.ownerAllocator.SetNext(proposal.OwnerID + 1)
 	case RemoveOwnerProposalType:
-		m.doRemoveOwner(ctx, proposal.Key)
+		m.doRemoveOwner(ctx, proposal.OwnerID)
 	case AddNodeProposalType:
-		ownerID, err := strconv.ParseUint(proposal.Value, 10, 64)
-		if err != nil {
-			logger.If(ctx, "add node proposal err: proposal=%+v, err=%+v", proposal, err)
-			return ErrorProposalState, err
-		}
-		m.doAddNode(ctx, proposal.Key, ownerID)
-		m.nodeAllocator.SetNext(proposal.Key + 1)
+		m.doAddNode(ctx, proposal.NodeID, proposal.OwnerID)
+		m.nodeAllocator.SetNext(proposal.NodeID + 1)
 	case RemoveNodeProposalType:
-		m.doRemoveNode(ctx, proposal.Key)
+		m.doRemoveNode(ctx, proposal.NodeID)
 	default:
 		err = &ManagerErr{fmt.Sprintf("invalid proposal type: proposal=%+v", proposal)}
 		logger.If(ctx, err.Error())

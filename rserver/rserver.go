@@ -58,20 +58,17 @@ func (s *RServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingReply,
 
 func (s *RServer) Propose(ctx context.Context, req *pb.ProposeRequest) (_ *pb.ProposeReply, err error) {
 	var state int64
+	proposal := &fbackend.Proposal{
+		ID:      req.ProposeID,
+		Typ:     req.ProposeType,
+		OwnerID: req.OwnerID,
+		NodeID:  req.NodeID,
+		Value:   req.Value,
+	}
 	if s.fp == nil {
-		state, err = s.ma.AnswerProposal(ctx, req.Addr, &fbackend.Proposal{
-			ID:    req.ProposeID,
-			Typ:   req.ProposeType,
-			Key:   req.Key,
-			Value: req.Value,
-		})
+		state, err = s.ma.AnswerProposal(ctx, req.Addr, proposal)
 	} else {
-		state, err = s.fp.AnswerProposal(ctx, req.Addr, &fbackend.Proposal{
-			ID:    req.ProposeID,
-			Typ:   req.ProposeType,
-			Key:   req.Key,
-			Value: req.Value,
-		})
+		state, err = s.fp.AnswerProposal(ctx, req.Addr, proposal)
 	}
 
 	var perr *pb.Error = &pb.Error{}

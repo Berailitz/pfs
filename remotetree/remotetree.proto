@@ -55,8 +55,9 @@ message ProposeRequest {
     string addr = 1;
     uint64 proposeID = 2;
     int64 proposeType = 3;
-    uint64 key = 4;
-    string value = 5;
+    uint64 ownerID = 4;
+    uint64 nodeID = 5;
+    string value = 6;
 }
 
 message ProposeReply {

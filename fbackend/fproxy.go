@@ -993,7 +993,8 @@ func (fp *FProxy) SendProposal(ctx context.Context, addr string, proposal *Propo
 		Addr:        addr,
 		ProposeID:   proposal.ID,
 		ProposeType: proposal.Typ,
-		Key:         proposal.Key,
+		OwnerID:     proposal.OwnerID,
+		NodeID:      proposal.NodeID,
 		Value:       proposal.Value,
 	})
 	if err != nil {

@@ -77,12 +77,12 @@ func NewFProxy(
 		localAddr:          localAddr,
 		requestIDAllocator: idallocator.NewIDAllocator(firstLogID),
 	}
-	fb.SetFP(ctx, fp)
-	wd.SetFP(fp)
 	return fp
 }
 
 func (fp *FProxy) Start(ctx context.Context) {
+	fp.fb.SetFP(ctx, fp)
+	fp.wd.SetFP(fp)
 	fp.wd.Start(ctx)
 }
 

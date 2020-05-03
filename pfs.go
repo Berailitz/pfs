@@ -53,10 +53,6 @@ func (p *PFS) Mount(ctx context.Context) error {
 
 	logger.If(ctx, "start rs: port=%v", p.param.Port)
 	p.rsvr = rserver.NewRServer(p.ma)
-	if err := p.rsvr.Start(ctx, p.param.Port); err != nil {
-		logger.Pf(ctx, "start rs error: err=%+v", err)
-		return err
-	}
 
 	p.ma.Start(ctx)
 
@@ -66,6 +62,10 @@ func (p *PFS) Mount(ctx context.Context) error {
 	p.ma.SetFP(fp)
 	p.rsvr.RegisterFProxy(ctx, fp)
 
+	if err := p.rsvr.Start(ctx, p.param.Port); err != nil {
+		logger.Pf(ctx, "start rs error: err=%+v", err)
+		return err
+	}
 	p.rsvr.StartFP(ctx)
 
 	p.lfsvr = lfs.NewLFS(ctx, fp)

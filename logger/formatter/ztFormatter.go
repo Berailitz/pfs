@@ -9,6 +9,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	maxFieldLength = 300
+)
+
 type ZtFormatter struct {
 	nested.Formatter
 	// CallerPrettyfier can be set by the user to modify the content
@@ -117,9 +121,15 @@ func (f *ZtFormatter) WriteOrderedFields(b *bytes.Buffer, entry *logrus.Entry) {
 }
 
 func (f *ZtFormatter) WriteField(b *bytes.Buffer, entry *logrus.Entry, field string) {
+	var text string
 	if f.HideKeys {
-		fmt.Fprintf(b, "[%v]", entry.Data[field])
+		text = fmt.Sprintf("[%v]", entry.Data[field])
 	} else {
-		fmt.Fprintf(b, "[%s:%v]", field, entry.Data[field])
+		text = fmt.Sprintf("[%s:%v]", field, entry.Data[field])
 	}
+	length := len(text)
+	if length > maxFieldLength {
+		length = maxFieldLength
+	}
+	fmt.Fprintf(b, text[:length])
 }

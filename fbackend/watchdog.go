@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"sync"
 	"time"
 
@@ -127,16 +128,60 @@ func (d *WatchDog) saveRoute(ctx context.Context, addr string, next string, tof 
 		next: addr,
 		tof:  tof,
 	}
-	d.routeMap.Store(addr, rule)
 	d.muRouteMapRead.Lock()
 	defer d.muRouteMapRead.Unlock()
+	d.saveRouteWithoutLock(ctx, addr, rule)
+}
+
+func (d *WatchDog) saveRouteWithoutLock(ctx context.Context, addr string, rule *RouteRule) {
+	d.routeMap.Store(addr, rule)
 	d.routeMapRead[addr] = rule
 }
 
 // do not need lock
-func (d *WatchDog) findRoute(ctx context.Context, dst string) bool {
-	//TODO
-	return true
+func (d *WatchDog) findRoute(ctx context.Context, dst string) *RouteRule {
+	if tof, ok := d.realTof(dst); ok {
+		d.saveRoute(ctx, dst, dst, tof)
+		return &RouteRule{
+			next: dst,
+			tof:  tof,
+		}
+	}
+
+	shortestRule := &RouteRule{
+		next: dst,
+		tof:  math.MaxInt64,
+	}
+	for transitAddr, transitRule := range d.routeMapRead {
+		out, ok := d.remoteTofMaps.Load(transitAddr)
+		if !ok {
+			logger.W(ctx, "non remoteTofMap but has tofMap", "transitAddr", transitAddr)
+			continue
+		}
+
+		remoteTofMap, ok := out.(map[string]int64)
+		if !ok {
+			logger.E(ctx, "remoteTofMap not map error",
+				"transitAddr", transitAddr, "remoteTofMap", remoteTofMap)
+			continue
+		}
+
+		remoteTof, ok := remoteTofMap[dst]
+		if !ok {
+			logger.W(ctx, "remote has offline owner", "transitAddr", transitAddr, "dst", dst)
+			continue
+		}
+
+		if totalTof := remoteTof + transitRule.tof; totalTof < shortestRule.tof {
+			shortestRule.tof = totalTof
+		}
+	}
+
+	if shortestRule.tof == math.MaxInt64 {
+		return nil
+	}
+
+	return shortestRule
 }
 
 func (d *WatchDog) updateOldTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
@@ -146,15 +191,16 @@ func (d *WatchDog) updateOldTransit(ctx context.Context, transitAddr string, tra
 		if rule.next == transitAddr {
 			if remoteTof, ok := remoteTofMap[dst]; ok {
 				rule.tof = remoteTof + transitTof
-				d.routeMap.Store(dst, rule)
-				d.routeMapRead[dst] = rule
+				d.saveRouteWithoutLock(ctx, dst, rule)
 				continue
 			}
 
-			if !d.findRoute(ctx, dst) {
-				logger.E(ctx, "owner offline", "dst", dst)
-				// TODO: handle offline
+			if rule = d.findRoute(ctx, dst); rule != nil {
+				d.saveRouteWithoutLock(ctx, dst, rule)
 			}
+
+			logger.E(ctx, "owner offline", "dst", dst)
+			// TODO: handle offline
 		}
 	}
 }

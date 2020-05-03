@@ -24,6 +24,7 @@ var (
 	ContextRequestIDKey internalContextKeyType = "ri"
 	ContextLocalPortKey internalContextKeyType = "LP"
 	ContextCMDKey       internalContextKeyType = "cmd"
+	ContextDirKey       internalContextKeyType = "D"
 )
 
 const (
@@ -46,7 +47,7 @@ const (
 )
 
 var (
-	contextLogKeys     = []internalContextKeyType{ContextRequestIDKey, ContextLocalPortKey, ContextCMDKey}
+	contextLogKeys     = []internalContextKeyType{ContextRequestIDKey, ContextLocalPortKey, ContextCMDKey, ContextDirKey}
 	loggerPackageNames = []string{"logger", "logrus"}
 )
 

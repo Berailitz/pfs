@@ -14,6 +14,7 @@ import (
 )
 
 type LFS struct {
+	dir  string
 	root *LNode
 	c    *fuse.Conn
 	fp   *fbackend.FProxy
@@ -45,6 +46,7 @@ func (lfs *LFS) Root() (fs.Node, error) {
 
 // Serve blocks until umount or error
 func (lfs *LFS) Mount(dir, fsName, fsType, volumeName string) (err error) {
+	lfs.dir = dir
 	lfs.c, err = fuse.Mount(dir, fuse.FSName(fsName), fuse.Subtype(fsType), fuse.VolumeName(volumeName))
 	lfs.svr = fs.New(lfs.c, &fs.Config{
 		Debug:       fuseDebug,
@@ -68,6 +70,7 @@ func (lfs *LFS) Umount() error {
 
 func (lfs *LFS) buildRequestCtx(ctx context.Context, req fuse.Request) context.Context {
 	ctx = lfs.fp.MakeRequestCtx(ctx)
+	ctx = context.WithValue(ctx, logger.ContextDirKey, lfs.dir)
 	logger.I(ctx, "lfs start", "request", req)
 	return ctx
 }

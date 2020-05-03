@@ -64,17 +64,21 @@ type WatchDogErr struct {
 
 var _ = (error)((*WatchDogErr)(nil))
 
+var (
+	NoRouteErr = &WatchDogErr{"no route"}
+)
+
 func (d *WatchDog) SetFP(fp *FProxy) {
 	d.fp = fp
 }
 
-func (d *WatchDog) Route(addr string) string {
+func (d *WatchDog) Route(addr string) (string, error) {
 	if out, ok := d.routeMap.Load(addr); ok {
 		if route, ok := out.(*RouteRule); ok {
-			return route.next
+			return route.next, nil
 		}
 	}
-	return addr
+	return "", NoRouteErr
 }
 
 func (d *WatchDog) LogicTof(addr string) (int64, bool) {
@@ -335,6 +339,7 @@ func NewWatchDog(ctx context.Context, ma *RManager, localAddr string, staticTofC
 		staticTofCfgFile: staticTofCfgFile,
 		backupsOwnerMaps: make([]*sync.Map, backupSize),
 	}
+	wd.saveRoute(ctx, localAddr, localAddr, math.MaxInt64)
 	switch ma.MasterAddr() {
 	case localAddr:
 		wd.state = LeadingState
@@ -342,6 +347,7 @@ func NewWatchDog(ctx context.Context, ma *RManager, localAddr string, staticTofC
 		wd.state = LookingState
 	default:
 		wd.state = FollowingState
+		wd.saveRoute(ctx, ma.MasterAddr(), ma.MasterAddr(), math.MaxInt64)
 	}
 	wd.InitRunnable(ctx, wdRunnableName, wdRunnableLoopInterval, wd.runLoop, nil)
 	return wd

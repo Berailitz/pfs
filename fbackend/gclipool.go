@@ -21,8 +21,11 @@ type GCliPoolErr struct {
 
 var _ = (error)((*GCliPoolErr)(nil))
 
-func (p *GCliPool) Load(ctx context.Context, addr string) (pb.RemoteTreeClient, error) {
-	hopAddr := p.wd.Route(addr)
+func (p *GCliPool) Load(ctx context.Context, addr string) (_ pb.RemoteTreeClient, err error) {
+	hopAddr, err := p.wd.Route(addr)
+	if err != nil {
+		return nil, err
+	}
 	return p.LoadWithoutRoute(ctx, hopAddr)
 }
 

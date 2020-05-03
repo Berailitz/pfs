@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
-set -x -e
+set -x
 
-dir="x"
-umount $dir
+debugPort=18180
+
+umount x
+umount y
+
+kill "$(ps -ef|grep "dlv --listen=:$debugPort"|head -n 1|awk '{print $2}')"

@@ -97,11 +97,12 @@ func (d *WatchDog) CopyTofMap(ctx context.Context) (copied map[string]int64) {
 }
 
 func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
-	d.realTofMap.Store(addr, tof)
 	smoothTof := tof
 	if oldTof, ok := d.realTof(addr); ok {
 		smoothTof = int64(float64(oldTof)*(1-tofUpdateRatio) + float64(tof)*tofUpdateRatio)
 	}
+
+	d.realTofMap.Store(addr, smoothTof)
 
 	if _, ok := d.routeMap.Load(addr); !ok {
 		d.routeMap.Store(addr, &RouteRule{

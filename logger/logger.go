@@ -18,8 +18,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type internalContextKeyType interface{}
+
+var (
+	ContextRequestIDKey internalContextKeyType = "ri"
+	ContextLocalPortKey internalContextKeyType = "LP"
+	ContextCMDKey       internalContextKeyType = "cmd"
+)
+
 const (
-	ContextRequestIDKey = "request_id"
 	// frameToSkip is updated if func name is incorrect
 	frameToSkip   = 5
 	maxStackDepth = 20
@@ -39,9 +46,7 @@ const (
 )
 
 var (
-	contextLogMap = map[string]string{
-		ContextRequestIDKey: "ri",
-	}
+	contextLogKeys     = []internalContextKeyType{ContextRequestIDKey, ContextLocalPortKey, ContextCMDKey}
 	loggerPackageNames = []string{"logger", "logrus"}
 )
 
@@ -128,9 +133,9 @@ func Entry() *logrus.Entry {
 
 func buildLogger(ctx context.Context) *logrus.Entry {
 	fields := logrus.Fields{}
-	for contextKey, logKey := range contextLogMap {
+	for _, contextKey := range contextLogKeys {
 		if v := ctx.Value(contextKey); v != nil {
-			fields[logKey] = v
+			fields[contextKey.(string)] = v
 		}
 	}
 	return logrus.WithFields(fields)

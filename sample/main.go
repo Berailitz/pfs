@@ -63,32 +63,34 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	for i, pc := range tc.PFS {
-		logger.If(ctx, "run pfs instance (%v/%v)", i+1, len(tc.PFS))
-		p := pfs.NewPFS(ctx, pc)
+		pfsCtx := context.WithValue(ctx, logger.ContextLocalPortKey, pc.Port)
+		logger.If(pfsCtx, "run pfs instance (%v/%v)", i+1, len(tc.PFS))
+		p := pfs.NewPFS(pfsCtx, pc)
 		if p == nil {
-			logger.Pf(ctx, "create pfs error")
+			logger.Pf(pfsCtx, "create pfs error")
 			return
 		}
 
-		if err := p.Mount(ctx); err != nil {
-			logger.Pf(ctx, "mount pfs error: i=%d, err=%+v", i, err)
+		if err := p.Mount(pfsCtx); err != nil {
+			logger.Pf(pfsCtx, "mount pfs error: i=%d, err=%+v", i, err)
 		}
 
 		wg.Add(1)
 		go func(j int) {
 			defer wg.Done()
-			if err := p.Run(ctx); err != nil {
-				logger.Ef(ctx, "run pfs error: i=%d, err=%+v", j, err)
+			if err := p.Run(pfsCtx); err != nil {
+				logger.Ef(pfsCtx, "run pfs error: i=%d, err=%+v", j, err)
 			}
 		}(i)
 	}
 
 	if !*ncmd {
 		for i, cc := range tc.CMD {
-			logger.If(ctx, "run pfs instance (%v/%v)", i+1, len(tc.CMD))
+			cmdCtx := context.WithValue(ctx, logger.ContextCMDKey, cc.CMD)
+			logger.If(cmdCtx, "run pfs instance (%v/%v)", i+1, len(tc.CMD))
 			wg.Add(1)
-			if err := utility.RunCMD(ctx, wg, cc); err != nil {
-				logger.E(ctx, "run cmd error", "i", i, "err", err)
+			if err := utility.RunCMD(cmdCtx, wg, cc); err != nil {
+				logger.E(cmdCtx, "run cmd error", "i", i, "err", err)
 			}
 		}
 	}

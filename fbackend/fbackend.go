@@ -369,8 +369,7 @@ func (fb *FBackEnd) allocateInode(
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) deallocateInode(ctx context.Context, id uint64) error {
 	logger.If(ctx, "deallocate: id=%v", id)
-	if ok := fb.fp.Deallocate(ctx, id); !ok {
-		err := &FBackEndErr{fmt.Sprintf("deallocate no node error: nodeID=%v", id)}
+	if err := fb.fp.Deallocate(ctx, id); err != nil {
 		logger.Ef(ctx, "deallocate master deallocate error: id=%v, err=%+v", id, err)
 		return err
 	}

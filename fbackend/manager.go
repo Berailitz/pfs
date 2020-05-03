@@ -40,6 +40,10 @@ const (
 	maRunnableLoopInterval = time.Duration(0)
 )
 
+var (
+	NodeNotExistErr = &ManagerErr{"node not exist"}
+)
+
 type Proposal struct {
 	ID      uint64
 	Typ     int64
@@ -130,31 +134,32 @@ func (m *RManager) Allocate(ctx context.Context, ownerID uint64) uint64 {
 	return 0
 }
 
-func (m *RManager) doRemoveNode(ctx context.Context, nodeID uint64) bool {
+func (m *RManager) doRemoveNode(ctx context.Context, nodeID uint64) error {
 	if out, ok := m.NodeOwner.Load(nodeID); ok {
 		if _, ok := out.(uint64); ok {
 			m.muNodeMapRead.Lock()
 			defer m.muNodeMapRead.Unlock()
 			m.NodeOwner.Delete(nodeID)
 			delete(m.nodeMapRead, nodeID)
-			return true
+			return nil
 		}
 	}
-	return false
+	return NodeNotExistErr
 }
 
-func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
+func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) (err error) {
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
-	if m.doRemoveNode(ctx, nodeID) {
-		m.proposalChan <- &Proposal{
-			Typ:    RemoveNodeProposalType,
-			NodeID: nodeID,
-		}
-		return true
+	if err = m.doRemoveNode(ctx, nodeID); err != nil {
+		return err
 	}
-	return false
+
+	m.proposalChan <- &Proposal{
+		Typ:    RemoveNodeProposalType,
+		NodeID: nodeID,
+	}
+	return nil
 }
 
 func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) bool {

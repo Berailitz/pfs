@@ -902,7 +902,7 @@ func (fp *FProxy) Allocate(ctx context.Context, ownerID uint64) uint64 {
 	return nodeID.Id
 }
 
-func (fp *FProxy) Deallocate(ctx context.Context, nodeID uint64) bool {
+func (fp *FProxy) Deallocate(ctx context.Context, nodeID uint64) error {
 	if fp.localAddr == fp.ma.MasterAddr() {
 		return fp.ma.Deallocate(ctx, nodeID)
 	}
@@ -910,23 +910,21 @@ func (fp *FProxy) Deallocate(ctx context.Context, nodeID uint64) bool {
 	logger.I(ctx, "deallocate", "nodeID", nodeID)
 	gcli, err := fp.pool.Load(ctx, fp.ma.MasterAddr())
 	if err != nil {
-		return false
+		return err
 	}
 
-	out, err := gcli.Deallocate(ctx, &pb.UInt64ID{
+	perr, err := gcli.Deallocate(ctx, &pb.UInt64ID{
 		Id: nodeID,
 	})
+	if err == nil {
+		err = utility.FromPbErr(perr)
+	}
 	if err != nil {
 		logger.E(ctx, "deallocate error", "nodeID", nodeID, "err", err)
-		return false
-	}
-	if !out.Ok {
-		err := &FPErr{fmt.Sprintf("deallocate no node error: nodeID=%v, err=%+v", nodeID, err)}
-		logger.E(ctx, "deallocate no node error", "nodeID", nodeID, "err", err)
-		return false
+		return err
 	}
 	logger.I(ctx, "deallocate success", "nodeID", nodeID)
-	return true
+	return nil
 }
 
 func (fp *FProxy) RegisterOwner(ctx context.Context, addr string) uint64 {

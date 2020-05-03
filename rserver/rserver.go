@@ -421,12 +421,15 @@ func (s *RServer) Allocate(ctx context.Context, req *pb.OwnerId) (*pb.UInt64ID, 
 	}
 }
 
-func (s *RServer) Deallocate(ctx context.Context, req *pb.UInt64ID) (*pb.IsOK, error) {
+func (s *RServer) Deallocate(ctx context.Context, req *pb.UInt64ID) (*pb.Error, error) {
+	var ferr error
 	if s.fp != nil {
-		return &pb.IsOK{Ok: s.fp.Deallocate(ctx, req.Id)}, nil
+		ferr = s.fp.Deallocate(ctx, req.Id)
 	} else {
-		return &pb.IsOK{Ok: s.ma.Deallocate(ctx, req.Id)}, nil
+		ferr = s.ma.Deallocate(ctx, req.Id)
 	}
+
+	return utility.ToPbErr(ferr), nil
 }
 
 func (s *RServer) RegisterOwner(ctx context.Context, req *pb.Addr) (*pb.OwnerId, error) {

@@ -131,6 +131,32 @@ func (d *WatchDog) saveRoute(ctx context.Context, addr string, next string, tof 
 	d.routeMapRead[addr] = rule
 }
 
+// do not need lock
+func (d *WatchDog) findRoute(ctx context.Context, dst string) bool {
+	//TODO
+	return true
+}
+
+func (d *WatchDog) updateOldTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
+	d.muRouteMapRead.Lock()
+	defer d.muRouteMapRead.Unlock()
+	for dst, rule := range d.routeMapRead {
+		if rule.next == transitAddr {
+			if remoteTof, ok := remoteTofMap[dst]; ok {
+				rule.tof = remoteTof + transitTof
+				d.routeMap.Store(dst, rule)
+				d.routeMapRead[dst] = rule
+				continue
+			}
+
+			if !d.findRoute(ctx, dst) {
+				logger.E(ctx, "owner offline", "dst", dst)
+				// TODO: handle offline
+			}
+		}
+	}
+}
+
 func (d *WatchDog) checkTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
 	for dst, remoteTof := range remoteTofMap {
 		if out, ok := d.routeMap.Load(dst); ok {
@@ -229,6 +255,7 @@ func (d *WatchDog) runLoop(ctx context.Context) (err error) {
 			continue
 		}
 		logger.I(ctx, "gossip success", "addr", addr, "remoteTofMap", remoteTofMap)
+		d.updateOldTransit(ctx, addr, smoothTof, remoteTofMap)
 		d.checkTransit(ctx, addr, smoothTof, remoteTofMap)
 
 		if nominee != "" {

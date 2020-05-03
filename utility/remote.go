@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	rpcTimeout = 3 * time.Second
+	rpcTimeout    = 3 * time.Second
+	rpcMaxRetries = 1
 )
 
 var (
@@ -32,10 +33,12 @@ var (
 					logger.StubMessageProducer))),
 		grpc.WithStreamInterceptor(
 			grpc_retry.StreamClientInterceptor(
-				grpc_retry.WithPerRetryTimeout(rpcTimeout))),
+				grpc_retry.WithPerRetryTimeout(rpcTimeout),
+				grpc_retry.WithMax(rpcMaxRetries))),
 		grpc.WithUnaryInterceptor(
 			grpc_retry.UnaryClientInterceptor(
-				grpc_retry.WithPerRetryTimeout(rpcTimeout))),
+				grpc_retry.WithPerRetryTimeout(rpcTimeout),
+				grpc_retry.WithMax(rpcMaxRetries))),
 	}
 )
 

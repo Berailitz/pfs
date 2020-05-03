@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	zt_formatter "github.com/Berailitz/pfs/logger/formatter"
-	"github.com/rifflock/lfshook"
+	"github.com/Berailitz/pfs/logger/lfshook"
 
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"

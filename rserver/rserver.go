@@ -31,12 +31,6 @@ const rServerStartTime = time.Second * 2
 
 var (
 	rpcServerOption = []grpc.ServerOption{
-		grpc_middleware.WithStreamServerChain(
-			grpc_ctxtags.StreamServerInterceptor(
-				grpc_ctxtags.WithFieldExtractor(
-					grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			grpc_logrus.StreamServerInterceptor(
-				logger.Entry(), grpc_logrus.WithMessageProducer(logger.StubMessageProducer))),
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(
 				grpc_ctxtags.WithFieldExtractor(

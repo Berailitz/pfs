@@ -23,18 +23,10 @@ var (
 	gcliOptions = []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithInsecure(),
-		grpc.WithStreamInterceptor(
-			grpc_logrus.StreamClientInterceptor(
-				logger.Entry(), grpc_logrus.WithMessageProducer(
-					logger.StubMessageProducer))),
 		grpc.WithUnaryInterceptor(
 			grpc_logrus.UnaryClientInterceptor(
 				logger.Entry(), grpc_logrus.WithMessageProducer(
 					logger.StubMessageProducer))),
-		grpc.WithStreamInterceptor(
-			grpc_retry.StreamClientInterceptor(
-				grpc_retry.WithPerRetryTimeout(rpcTimeout),
-				grpc_retry.WithMax(rpcMaxRetries))),
 		grpc.WithUnaryInterceptor(
 			grpc_retry.UnaryClientInterceptor(
 				grpc_retry.WithPerRetryTimeout(rpcTimeout),

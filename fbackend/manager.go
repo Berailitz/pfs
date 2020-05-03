@@ -50,6 +50,8 @@ type Proposal struct {
 type RManager struct {
 	utility.Runnable
 
+	muSync sync.RWMutex // lock when syncing, rlock when using
+
 	NodeOwner         sync.Map // [uint64]uint64
 	Owners            sync.Map // [uint64]string
 	OwnerCounter      [MaxOwnerID]uint64
@@ -77,10 +79,13 @@ type ManagerErr struct {
 var _ = (error)((*ManagerErr)(nil))
 
 func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) string {
+	m.muSync.RLock()
+	defer m.muSync.RUnlock()
+
 	logger.If(ctx, "query owner: nodeID=%v", nodeID)
 	if ownerOut, ok := m.NodeOwner.Load(nodeID); ok {
 		if owner, ok := ownerOut.(uint64); ok {
-			addr := m.QueryAddr(ctx, owner)
+			addr := m.queryAddr(ctx, owner)
 			logger.If(ctx, "query owner success: nodeID=%v, addr=%v", nodeID, addr)
 			return addr
 		}
@@ -91,7 +96,7 @@ func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) string {
 	return ""
 }
 
-func (m *RManager) QueryAddr(ctx context.Context, ownerID uint64) string {
+func (m *RManager) queryAddr(ctx context.Context, ownerID uint64) string {
 	if out, ok := m.Owners.Load(ownerID); ok {
 		if addr, ok := out.(string); ok {
 			return addr
@@ -109,6 +114,9 @@ func (m *RManager) doAddNode(ctx context.Context, nodeID uint64, ownerID uint64)
 }
 
 func (m *RManager) Allocate(ctx context.Context, ownerID uint64) uint64 {
+	m.muSync.RLock()
+	defer m.muSync.RUnlock()
+
 	if _, ok := m.Owners.Load(ownerID); ok {
 		nodeID := m.nodeAllocator.Allocate()
 		m.doAddNode(ctx, nodeID, ownerID)
@@ -137,6 +145,9 @@ func (m *RManager) doRemoveNode(ctx context.Context, nodeID uint64) bool {
 }
 
 func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) bool {
+	m.muSync.RLock()
+	defer m.muSync.RUnlock()
+
 	if m.doRemoveNode(ctx, nodeID) {
 		m.proposalChan <- &Proposal{
 			Typ:    RemoveNodeProposalType,
@@ -163,6 +174,9 @@ func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) 
 
 // RegisterOwner return 0 if err
 func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
+	m.muSync.RLock()
+	defer m.muSync.RUnlock()
+
 	ownerID := m.ownerAllocator.Allocate()
 	if ownerID <= MaxOwnerID {
 		if !m.doAddOwner(ctx, ownerID, addr) {
@@ -187,6 +201,9 @@ func (m *RManager) doRemoveOwner(ctx context.Context, ownerID uint64) {
 }
 
 func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) bool {
+	m.muSync.RLock()
+	defer m.muSync.RUnlock()
+
 	if atomic.LoadUint64(&m.OwnerCounter[ownerID]) == 0 {
 		m.doRemoveOwner(ctx, ownerID)
 		m.proposalChan <- &Proposal{
@@ -200,6 +217,9 @@ func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) bool {
 }
 
 func (m *RManager) CopyOwnerMap(ctx context.Context) map[uint64]string {
+	m.muSync.RLock()
+	defer m.muSync.RUnlock()
+
 	m.muOwnerMapRead.RLock()
 	defer m.muOwnerMapRead.RUnlock()
 
@@ -219,6 +239,9 @@ func (m *RManager) MasterAddr() string {
 // No need to broadcast for 1. root owner is the first owner and there is no one to answer
 // 2. root owner will be automatically chose after recovery
 func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
+	m.muSync.RLock()
+	defer m.muSync.RUnlock()
+
 	if _, ok := m.Owners.Load(ownerID); ok {
 		if _, loaded := m.NodeOwner.LoadOrStore(RootNodeID, ownerID); !loaded {
 			logger.If(ctx, "root allocated: ownerID=%v", ownerID)
@@ -229,6 +252,9 @@ func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
 }
 
 func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {
+	m.muSync.RLock()
+	defer m.muSync.RUnlock()
+
 	switch proposal.Typ {
 	case AddOwnerProposalType:
 		if !m.doAddOwner(ctx, proposal.OwnerID, proposal.Value) {
@@ -266,6 +292,9 @@ func (m *RManager) Run(ctx context.Context) (err error) {
 }
 
 func (m *RManager) broadcastProposal(ctx context.Context, proposal *Proposal) {
+	m.muSync.RLock()
+	defer m.muSync.RUnlock()
+
 	proposal.ID = m.proposalAllocator.Allocate()
 
 	m.muOwnerMapRead.RLock()

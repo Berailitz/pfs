@@ -52,9 +52,9 @@ type RManager struct {
 
 	muSync sync.RWMutex // lock when syncing, rlock when using
 
-	NodeOwner         sync.Map // [uint64]uint64
-	Owners            sync.Map // [uint64]string
-	OwnerCounter      [MaxOwnerID]uint64
+	NodeOwner         sync.Map           // [uint64]uint64
+	Owners            sync.Map           // [uint64]string
+	OwnerCounter      [MaxOwnerID]uint64 // not used
 	nodeAllocator     *idallocator.IDAllocator
 	ownerAllocator    *idallocator.IDAllocator
 	proposalAllocator *idallocator.IDAllocator

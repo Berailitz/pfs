@@ -40,8 +40,11 @@ type WatchDog struct {
 	tofMapRead   map[string]int64 // map[string]int64
 	muTofMapRead sync.RWMutex
 
-	routeMap sync.Map // map[string]*RouteRule
-	fp       *FProxy
+	routeMap       sync.Map // map[string]*RouteRule
+	routeMapRead   map[string]*RouteRule
+	muRouteMapRead sync.RWMutex
+
+	fp *FProxy
 
 	staticTofCfgFile string
 
@@ -105,23 +108,27 @@ func (d *WatchDog) smoothTof(ctx context.Context, addr string, rawTof int64) (sm
 }
 
 func (d *WatchDog) saveRealTof(ctx context.Context, addr string, tof int64) {
-	smoothTof := tof
-	if oldTof, ok := d.realTof(addr); ok {
-		smoothTof = int64(float64(oldTof)*(1-tofUpdateRatio) + float64(tof)*tofUpdateRatio)
-	}
-
-	d.realTofMap.Store(addr, smoothTof)
+	d.realTofMap.Store(addr, tof)
+	func() {
+		d.muTofMapRead.Lock()
+		defer d.muTofMapRead.Unlock()
+		d.tofMapRead[addr] = tof
+	}()
 
 	if _, ok := d.routeMap.Load(addr); !ok {
-		d.routeMap.Store(addr, &RouteRule{
-			next: addr,
-			tof:  smoothTof,
-		})
+		d.saveRoute(ctx, addr, addr, tof)
 	}
+}
 
-	d.muTofMapRead.Lock()
-	defer d.muTofMapRead.Unlock()
-	d.tofMapRead[addr] = tof
+func (d *WatchDog) saveRoute(ctx context.Context, addr string, next string, tof int64) {
+	rule := &RouteRule{
+		next: addr,
+		tof:  tof,
+	}
+	d.routeMap.Store(addr, rule)
+	d.muRouteMapRead.Lock()
+	defer d.muRouteMapRead.Unlock()
+	d.routeMapRead[addr] = rule
 }
 
 func (d *WatchDog) checkTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
@@ -130,10 +137,7 @@ func (d *WatchDog) checkTransit(ctx context.Context, transitAddr string, transit
 			if rule, ok := out.(*RouteRule); ok {
 				totalTof := transitTof + remoteTof
 				if rule.tof > totalTof {
-					d.routeMap.Store(dst, &RouteRule{
-						next: transitAddr,
-						tof:  totalTof,
-					})
+					d.saveRoute(ctx, dst, transitAddr, totalTof)
 					logger.If(ctx, "save new rule: dst=%v, transit=%v, transitTof=%v, totalTof=%v, oldRule=%+v",
 						dst, transitAddr, transitTof, totalTof, *rule)
 				}
@@ -249,6 +253,7 @@ func NewWatchDog(ctx context.Context, ma *RManager, localAddr string, staticTofC
 		ma:               ma,
 		localAddr:        localAddr,
 		tofMapRead:       make(map[string]int64),
+		routeMapRead:     make(map[string]*RouteRule),
 		staticTofCfgFile: staticTofCfgFile,
 		backupsOwnerMaps: make([]*sync.Map, backupSize),
 	}

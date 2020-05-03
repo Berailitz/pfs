@@ -18,7 +18,8 @@ import (
 const (
 	ContextRequestIDKey = "request_id"
 	// frameToSkip is updated if func name is incorrect
-	frameToSkip = 10
+	frameToSkip   = 5
+	maxStackDepth = 20
 )
 
 const (
@@ -29,7 +30,21 @@ var (
 	contextLogMap = map[string]string{
 		ContextRequestIDKey: "ri",
 	}
+	loggerPackageNames = []string{"logger", "logrus"}
 )
+
+func getPackageName(name string) string {
+	for {
+		lastPeriod := strings.LastIndex(name, ".")
+		lastSlash := strings.LastIndex(name, "/")
+		if lastPeriod > lastSlash {
+			name = name[:lastPeriod]
+		} else {
+			break
+		}
+	}
+	return name
+}
 
 func init() {
 	ctx := context.Background()
@@ -40,12 +55,25 @@ func init() {
 	}
 	formatter := &zt_formatter.ZtFormatter{
 		CallerPrettyfier: func(_ *runtime.Frame) (string, string) {
-			pc := make([]uintptr, 1)
+			pc := make([]uintptr, maxStackDepth)
 			n := runtime.Callers(frameToSkip, pc)
-			frames := runtime.CallersFrames(pc[:n])
-			f, _ := frames.Next()
-			lastSlash := strings.LastIndexByte(f.Function, '/')
-			return fmt.Sprintf("%d", f.Line), f.Function[lastSlash+1:]
+			for i := 0; i < n; i++ {
+				frames := runtime.CallersFrames(pc[i:n])
+				f, _ := frames.Next()
+				packageName := getPackageName(f.Function)
+				isOutOfLogger := true
+				for _, loggerPackageName := range loggerPackageNames {
+					if pos := strings.LastIndex(packageName, loggerPackageName); pos != -1 {
+						isOutOfLogger = false
+					}
+				}
+
+				if isOutOfLogger {
+					lastSlash := strings.LastIndexByte(f.Function, '/')
+					return fmt.Sprintf("%d", f.Line), f.Function[lastSlash+1:]
+				}
+			}
+			return "", ""
 		},
 		Formatter: nested.Formatter{
 			TimestampFormat: "15:04:05.000",

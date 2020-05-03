@@ -20,10 +20,11 @@ func (r *Runnable) runFunc(ctx context.Context) (err error) {
 	for {
 		select {
 		case <-r.ToStop:
-			logger.If(ctx, "runnable is quitting: name=%v", r.Name)
+			logger.I(ctx, "runnable is quitting", "name", r.Name)
 			return nil
 		case <-time.After(r.LoopInterval):
 			if err = r.runLoop(ctx); err != nil {
+				logger.E(ctx, "runFunc error", "name", r.Name, "err", err)
 				return err
 			}
 		}

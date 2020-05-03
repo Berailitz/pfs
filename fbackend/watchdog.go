@@ -126,6 +126,13 @@ func (d *WatchDog) saveRealTof(ctx context.Context, addr string, tof int64) {
 	}
 }
 
+func (d *WatchDog) deleteRoute(ctx context.Context, addr string) {
+	d.routeMap.Delete(addr)
+	d.muRouteMapRead.Lock()
+	defer d.muRouteMapRead.Unlock()
+	delete(d.routeMapRead, addr)
+}
+
 func (d *WatchDog) saveRoute(ctx context.Context, addr string, next string, tof int64) {
 	rule := &RouteRule{
 		next: addr,
@@ -203,6 +210,7 @@ func (d *WatchDog) updateOldTransit(ctx context.Context, transitAddr string, tra
 			}
 
 			logger.E(ctx, "owner offline", "dst", dst)
+			d.deleteRoute(ctx, dst)
 			// TODO: handle offline
 		}
 	}

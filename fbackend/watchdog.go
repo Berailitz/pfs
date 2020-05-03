@@ -104,7 +104,7 @@ func (d *WatchDog) smoothTof(ctx context.Context, addr string, rawTof int64) (sm
 	return smoothTof
 }
 
-func (d *WatchDog) saveTof(ctx context.Context, addr string, tof int64) {
+func (d *WatchDog) saveRealTof(ctx context.Context, addr string, tof int64) {
 	smoothTof := tof
 	if oldTof, ok := d.realTof(addr); ok {
 		smoothTof = int64(float64(oldTof)*(1-tofUpdateRatio) + float64(tof)*tofUpdateRatio)
@@ -214,7 +214,7 @@ func (d *WatchDog) runLoop(ctx context.Context) (err error) {
 			logger.I(ctx, "ping success", "addr", addr, "rawTof", rawTof)
 		}
 		smoothTof := d.smoothTof(ctx, addr, rawTof)
-		d.saveTof(ctx, addr, smoothTof)
+		d.saveRealTof(ctx, addr, smoothTof)
 
 		if addr == d.localAddr {
 			continue

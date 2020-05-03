@@ -19,6 +19,12 @@ const (
 	tofUpdateRatio         = 0.8
 )
 
+const (
+	LookingState   = 0
+	LeadingState   = 1
+	FollowingState = 2
+)
+
 type RouteRule struct {
 	next string
 	tof  int64
@@ -42,6 +48,8 @@ type WatchDog struct {
 	nominee string
 
 	backupsOwnerMaps []*sync.Map // map[uint64]string
+
+	state int64
 }
 
 type WatchDogErr struct {
@@ -233,6 +241,14 @@ func NewWatchDog(ctx context.Context, ma *RManager, localAddr string, staticTofC
 		tofMapRead:       make(map[string]int64),
 		staticTofCfgFile: staticTofCfgFile,
 		backupsOwnerMaps: make([]*sync.Map, backupSize),
+	}
+	switch ma.MasterAddr() {
+	case localAddr:
+		wd.state = LeadingState
+	case "":
+		wd.state = LookingState
+	default:
+		wd.state = FollowingState
 	}
 	wd.InitRunnable(ctx, wdRunnableName, wdRunnableLoopInterval, wd.runLoop, nil)
 	return wd

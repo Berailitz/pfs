@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	pb "github.com/Berailitz/pfs/remotetree"
+
 	"github.com/Berailitz/pfs/logger"
 	"github.com/Berailitz/pfs/utility"
 
@@ -318,6 +320,34 @@ func (m *RManager) SetMaster(masterAddr string) {
 
 func (m *RManager) SetFP(fp *FProxy) {
 	m.fp = fp
+}
+
+func (m *RManager) CopyManager(ctx context.Context) (*pb.Manager, error) {
+	m.muSync.Lock()
+	defer m.muSync.Unlock()
+
+	copiedNodes := make(map[uint64]uint64)
+	copiedOwners := make(map[uint64]string)
+	func() {
+		for k, v := range m.nodeMapRead {
+			copiedNodes[k] = v
+
+		}
+	}()
+	func() {
+		for k, v := range m.ownerMapRead {
+			copiedOwners[k] = v
+		}
+	}()
+	return &pb.Manager{
+		Err:          nil,
+		Owners:       copiedOwners,
+		Nodes:        copiedNodes,
+		NextOwner:    m.ownerAllocator.ReadNext(),
+		NextNode:     m.nodeAllocator.ReadNext(),
+		NextProposal: m.proposalAllocator.ReadNext(),
+		MasterAddr:   m.MasterAddr(),
+	}, nil
 }
 
 // NewRManager do not register or allocate

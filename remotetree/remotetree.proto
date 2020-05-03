@@ -9,6 +9,7 @@ service RemoteTree {
     //rpc WUnlock(UInt64ID) returns (StatusReply) {}
     rpc Propose(ProposeRequest) returns (ProposeReply) {}
     rpc PushNode(PushNodeRequest) returns (Error) {}
+    rpc CopyManager(EmptyMsg) returns (Manager) {}
 
     rpc Ping(PingRequest) returns (PingReply) {}
     rpc Gossip(GossipRequest) returns (GossipReply) {}
@@ -49,6 +50,16 @@ service RemoteTree {
     rpc RegisterOwner(Addr) returns (OwnerId) {}
     rpc RemoveOwner(OwnerId) returns (IsOK) {}
     rpc AllocateRoot(OwnerId) returns (IsOK) {}
+}
+
+message Manager {
+    Error err = 1;
+    map<uint64, string> owners = 2;
+    map<uint64, uint64> nodes = 3;
+    uint64 nextOwner = 4;
+    uint64 nextNode = 5;
+    uint64 nextProposal = 6;
+    string masterAddr = 7;
 }
 
 message ProposeRequest {

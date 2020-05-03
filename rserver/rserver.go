@@ -94,6 +94,10 @@ func (s *RServer) Gossip(ctx context.Context, req *pb.GossipRequest) (*pb.Gossip
 	}, nil
 }
 
+func (s *RServer) CopyManager(ctx context.Context, req *pb.EmptyMsg) (*pb.Manager, error) {
+	return s.fp.CopyManager(ctx)
+}
+
 func (s *RServer) GetOwnerMap(ctx context.Context, _ *pb.EmptyMsg) (*pb.Uint64StrMapMsg, error) {
 	ownerMap, err := s.fp.GetOwnerMap(ctx)
 	var perr *pb.Error = &pb.Error{}

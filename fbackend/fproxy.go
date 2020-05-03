@@ -150,6 +150,25 @@ func (fp *FProxy) Gossip(ctx context.Context, addr string) (_ map[string]int64, 
 	return reply.TofMap, reply.Nominee, utility.FromPbErr(reply.Err)
 }
 
+func (fp *FProxy) CopyManager(ctx context.Context) (*pb.Manager, error) {
+	addr := fp.ma.MasterAddr()
+	if addr == fp.localAddr {
+		return fp.ma.CopyManager(ctx)
+	}
+
+	gcli, err := fp.pool.Load(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+
+	reply, err := gcli.CopyManager(ctx, &pb.EmptyMsg{})
+	if err != nil {
+		logger.E(ctx, "fp copy manager error", "addr", addr, "err", err)
+		return nil, err
+	}
+	return reply, nil
+}
+
 func (fp *FProxy) GetOwnerMap(ctx context.Context) (map[uint64]string, error) {
 	addr := fp.ma.MasterAddr()
 	if addr == fp.localAddr {

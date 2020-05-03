@@ -3,6 +3,8 @@ package logger
 import (
 	"context"
 	"fmt"
+	"os"
+	"path"
 	"runtime"
 	"strings"
 
@@ -20,7 +22,7 @@ const (
 )
 
 const (
-	logPathPrefix = "pfs.log"
+	logPathPrefix = "log/pfs.log"
 )
 
 var (
@@ -30,6 +32,7 @@ var (
 )
 
 func init() {
+	ctx := context.Background()
 	logPathMap := lfshook.PathMap{
 		logrus.DebugLevel: fmt.Sprintf("%v.%v", logPathPrefix, "debug"),
 		logrus.InfoLevel:  fmt.Sprintf("%v.%v", logPathPrefix, "info"),
@@ -50,6 +53,12 @@ func init() {
 	}
 	logrus.SetReportCaller(true)
 	logrus.SetFormatter(formatter)
+
+	logDir := path.Dir(logPathPrefix)
+	if err := os.MkdirAll(logDir, 0644); err != nil {
+		P(ctx, "mkdir log dir error", "logDir", logDir, "logPathPrefix", logPathPrefix)
+	}
+
 	logrus.AddHook(lfshook.NewHook(
 		logPathMap,
 		formatter,

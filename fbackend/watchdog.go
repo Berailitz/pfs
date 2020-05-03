@@ -56,6 +56,8 @@ type WatchDog struct {
 	backupsOwnerMaps []*sync.Map // map[uint64]string
 
 	state int64
+
+	electionID int64
 }
 
 type WatchDogErr struct {

@@ -57,7 +57,7 @@ message VoteRequest {
     string addr = 1;
     string voter = 2;
     int64 electionID = 3;
-    int64 proposalID = 4;
+    uint64 proposalID = 4;
     string nominee = 5;
 }
 

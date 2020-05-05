@@ -86,7 +86,7 @@ type Proposal struct {
 type Vote struct {
 	Voter      string
 	ElectionID int64
-	ProposalID int64
+	ProposalID uint64
 	Nominee    string
 }
 

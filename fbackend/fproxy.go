@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
 
@@ -41,7 +40,7 @@ type FProxy struct {
 	localAddr string
 
 	allcator        *idallocator.IDAllocator
-	remoteHandleMap sync.Map // [uint64]remoteHandle
+	remoteHandleMap utility.IterableMap // [uint64]remoteHandle
 
 	requestIDAllocator *idallocator.IDAllocator
 }

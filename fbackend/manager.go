@@ -116,7 +116,8 @@ type RManager struct {
 
 	proposalChan chan *Proposal
 
-	masterAddr string
+	muMasterAddr sync.RWMutex
+	masterAddr   string
 
 	muOwnerMapRead sync.RWMutex
 	ownerMapRead   map[uint64]string
@@ -338,6 +339,8 @@ func (m *RManager) CopyOwnerMap(ctx context.Context) map[uint64]string {
 }
 
 func (m *RManager) MasterAddr() string {
+	m.muMasterAddr.RLock()
+	defer m.muMasterAddr.RUnlock()
 	return m.masterAddr
 }
 
@@ -476,6 +479,8 @@ func (m *RManager) broadcastProposal(ctx context.Context, proposal *Proposal) {
 }
 
 func (m *RManager) SetMaster(ctx context.Context, masterAddr string) {
+	m.muMasterAddr.Lock()
+	defer m.muMasterAddr.Unlock()
 	m.masterAddr = masterAddr
 }
 

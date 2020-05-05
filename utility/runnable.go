@@ -3,9 +3,17 @@ package utility
 import (
 	"context"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/Berailitz/pfs/logger"
+)
+
+const (
+	NotStartYetState    = 0
+	RunningState        = 1
+	SelfStoppedState    = 2
+	OutsideStoppedState = 3
 )
 
 type Runnable struct {
@@ -16,6 +24,7 @@ type Runnable struct {
 	run          func(ctx context.Context) error
 	runLoop      func(ctx context.Context) error
 	interval     int
+	state        int64
 }
 
 func (r *Runnable) runFunc(ctx context.Context) (err error) {
@@ -36,19 +45,31 @@ func (r *Runnable) runFunc(ctx context.Context) (err error) {
 }
 
 func (r *Runnable) Start(ctx context.Context) {
+	atomic.StoreInt64(&r.state, RunningState)
 	go func() {
 		ctx = context.WithValue(ctx, logger.ContextRunnableNameIKey, r.Name)
 		defer func() {
 			RecoverWithStack(ctx, nil)
+			if atomic.LoadInt64(&r.state) == SelfStoppedState {
+				close(r.ToStop)
+			}
 			close(r.Stopped)
 		}()
 
 		logger.If(ctx, "runnable start: name=%v", r.Name)
 		_ = r.run(ctx)
+		atomic.StoreInt64(&r.state, SelfStoppedState)
 	}()
 }
 
 func (r *Runnable) Stop(ctx context.Context) {
+	oldState := atomic.LoadInt64(&r.state)
+	if oldState == RunningState {
+		logger.E(ctx, "not running error", "name", r.Name, "state", oldState)
+		return
+	}
+
+	atomic.StoreInt64(&r.state, OutsideStoppedState)
 	logger.If(ctx, "runnable stopping: name=%v", r.Name)
 	close(r.ToStop)
 	<-r.Stopped

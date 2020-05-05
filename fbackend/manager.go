@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/im7mortal/kmutex"
+
 	"gopkg.in/yaml.v2"
 
 	pb "github.com/Berailitz/pfs/remotetree"
@@ -148,7 +150,9 @@ type RManager struct {
 
 	staticTofCfgFile string
 
-	backupsOwnerMaps []*utility.IterableMap // map[uint64]string
+	backupSize       int
+	backupOwnerMap   utility.IterableMap // map[uint64][]string
+	muBackupOwnerMap *kmutex.Kmutex
 
 	muElectionID sync.RWMutex
 	electionID   int64
@@ -765,29 +769,31 @@ func (m *RManager) loadStaticTof(ctx context.Context) (staticTofMap map[string]i
 	return
 }
 
-func (m *RManager) randomOtherOwner(ctx context.Context) (addr string) {
+func (m *RManager) randomBackupOwners(ctx context.Context, addrs []string, size int) []string {
 	m.realTofMap.Range(func(key, value interface{}) bool {
-		if skey := key.(string); skey != m.localAddr {
-			addr = skey
+		if len(addrs) >= size {
 			return false
+		}
+
+		if skey := key.(string); skey != m.localAddr && !utility.InStringSlice(skey, addrs) {
+			addrs = append(addrs, skey)
 		}
 		return true
 	})
-	return ""
+	return addrs
 }
 
 func (m *RManager) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []string) {
-	for i, backupOwnerMap := range m.backupsOwnerMaps {
-		if addr := m.randomOtherOwner(ctx); addr != "" && !utility.InStringSlice(addr, addrs) {
-			if out, loaded := backupOwnerMap.LoadOrStore(nodeID, addr); loaded {
-				addr = out.(string)
-			}
-			logger.If(ctx, "get backup addrs: i=%v, addr=%v", i, addr)
-			addrs = append(addrs, addr)
-		} else {
-			break
-		}
+	m.muBackupOwnerMap.Lock(nodeID)
+	defer m.muBackupOwnerMap.Unlock(nodeID)
+
+	if out, ok := m.backupOwnerMap.Load(nodeID); ok {
+		addrs = out.([]string)
 	}
+
+	addrs = m.randomBackupOwners(ctx, addrs, m.backupSize)
+	logger.If(ctx, "get backup addrs", "nodeID", nodeID, "addrs", addrs)
+	m.backupOwnerMap.Store(nodeID, addrs)
 	return addrs
 }
 
@@ -1067,7 +1073,8 @@ func NewRManager(ctx context.Context, localAddr string, masterAddr string, stati
 		localAddr:         localAddr,
 		masterAddr:        masterAddr,
 		staticTofCfgFile:  staticTofCfgFile,
-		backupsOwnerMaps:  make([]*utility.IterableMap, backupSize),
+		backupSize:        backupSize,
+		muBackupOwnerMap:  kmutex.New(),
 		voteChan:          make(chan *Vote),
 		vote: Vote{
 			Voter:      localAddr,

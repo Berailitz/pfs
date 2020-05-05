@@ -729,7 +729,19 @@ func (m *RManager) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []s
 	return addrs
 }
 
+func (m *RManager) isMasterAlive(ctx context.Context) (ok bool) {
+	_, err := m.fp.Measure(ctx, m.MasterAddr())
+	return err == nil
+}
+
 func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (masterAddr string, err error) {
+	if m.State(ctx) != LookingState {
+		if m.isMasterAlive(ctx) {
+			return m.MasterAddr(), nil
+		}
+		// TODO: handle offline
+	}
+	// TODO: handle vote
 	return "", nil
 }
 

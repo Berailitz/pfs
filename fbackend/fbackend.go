@@ -35,7 +35,7 @@ type FBackEnd struct {
 	fp *FProxy
 
 	handleAllocator *idallocator.IDAllocator
-	handleMap       sync.Map // map[uint64]uint64
+	handleMap       utility.IterableMap // map[uint64]uint64
 
 	ma *RManager
 }

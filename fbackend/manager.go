@@ -376,7 +376,7 @@ func (m *RManager) loadManager(ctx context.Context, pbm *pb.Manager) {
 	m.nodeAllocator.SetNext(pbm.NextNode)
 	m.proposalAllocator.SetNext(pbm.NextProposal)
 
-	m.masterAddr = pbm.MasterAddr
+	m.SetMaster(pbm.MasterAddr)
 }
 
 func (m *RManager) fetchManager(ctx context.Context) {

@@ -842,7 +842,12 @@ func (m *RManager) recountVotesWithoutLock(ctx context.Context) {
 
 func (m *RManager) addVoteWithoutLock(ctx context.Context, nominee string, addition int64) (isNewNominee bool) {
 	if oldPoll, ok := m.nomineeMap[nominee]; ok {
-		m.nomineeMap[nominee] = oldPoll + addition
+		newPoll := oldPoll + addition
+		if newPoll < 0 {
+			logger.E(ctx, "poll reached minus", "nominee", nominee, "addition", addition)
+			newPoll = 0
+		}
+		m.nomineeMap[nominee] = newPoll
 		return false
 	}
 	return true

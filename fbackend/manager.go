@@ -507,14 +507,14 @@ func (m *RManager) ElectionID(ctx context.Context) int64 {
 }
 
 func (m *RManager) ErrIfNotLeadingState(ctx context.Context) error {
-	if atomic.LoadInt64(&m._state) != LeadingState {
+	if m.State(ctx) != LeadingState {
 		return NotLeadingStateErr
 	}
 	return nil
 }
 
 func (m *RManager) ErrIfNotFollowingState(ctx context.Context) error {
-	if atomic.LoadInt64(&m._state) == FollowingState {
+	if m.State(ctx) != FollowingState {
 		return NotFollowingStateErr
 	}
 	return nil

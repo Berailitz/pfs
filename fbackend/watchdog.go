@@ -22,8 +22,9 @@ const (
 
 const (
 	LookingState   = 0
-	LeadingState   = 1
-	FollowingState = 2
+	SyncingState   = 1
+	LeadingState   = 2
+	FollowingState = 3
 )
 
 type RouteRule struct {

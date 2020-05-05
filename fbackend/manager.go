@@ -108,6 +108,7 @@ type RouteRule struct {
 
 const (
 	ballotTimeToLive = time.Second * 30
+	minBallotBoxSize = 2
 )
 
 type Ballot struct {
@@ -892,6 +893,49 @@ func (m *RManager) sweepOldBallots(ctx context.Context) {
 	}
 }
 
+func (m *RManager) canExitElection(ctx context.Context) bool {
+	newMasterAddr := m.doElectionReachAgreement(ctx)
+	if newMasterAddr != "" {
+		logger.W(ctx, "exit election", "newMasterAddr", newMasterAddr)
+		m.SetMaster(ctx, newMasterAddr)
+		// TODO: sync data
+		if newMasterAddr == m.localAddr {
+			m.SetState(ctx, LeadingState)
+		} else {
+			m.SetState(ctx, FollowingState)
+		}
+		return true
+	}
+
+	logger.I(ctx, "still in election")
+	return false
+}
+
+func (m *RManager) doElectionReachAgreement(ctx context.Context) (newMasterAddr string) {
+	mapSize := len(m.CopyOwnerMap(ctx))
+
+	if m.State(ctx) != LookingState {
+		logger.E(ctx, "not in election error")
+		if masterAddr := m.MasterAddr(); masterAddr != "" {
+			logger.W(ctx, "process as in agreement", "masterAddr", masterAddr)
+			return masterAddr
+		}
+
+		logger.E(ctx, "not in election and no masterAddr error")
+		return ""
+	}
+
+	m.muBallots.Lock()
+	defer m.muBallots.Unlock()
+	if len(m.nomineeMap) == 1 && len(m.ballots) >= minBallotBoxSize && len(m.ballots)<<1 > mapSize {
+		for nominee, _ := range m.nomineeMap {
+			return nominee
+		}
+	}
+
+	return ""
+}
+
 func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (masterAddr string, err error) {
 	if m.State(ctx) != LookingState {
 		if m.isMasterAlive(ctx) {
@@ -928,7 +972,7 @@ func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (mas
 		m.SetVote(ctx, vote.Nominee, EmptyProposalID)
 	}
 
-	//TODO: check majority
+	m.canExitElection(ctx)
 	return "", nil
 }
 
@@ -993,6 +1037,7 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	//		m.SetMaster(ctx, nominee)
 	//	}
 	//}
+	m.canExitElection(ctx)
 	return nil
 }
 

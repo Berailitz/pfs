@@ -893,17 +893,22 @@ func (m *RManager) sweepOldBallots(ctx context.Context) {
 	}
 }
 
+func (m *RManager) syncWithMaster(ctx context.Context) {
+	m.SetState(ctx, SyncingState)
+	m.fetchManager(ctx)
+	if m.MasterAddr() == m.localAddr {
+		m.SetState(ctx, LeadingState)
+	} else {
+		m.SetState(ctx, FollowingState)
+	}
+}
+
 func (m *RManager) canExitElection(ctx context.Context) bool {
 	newMasterAddr := m.doElectionReachAgreement(ctx)
 	if newMasterAddr != "" {
 		logger.W(ctx, "exit election", "newMasterAddr", newMasterAddr)
 		m.SetMaster(ctx, newMasterAddr)
-		// TODO: sync data
-		if newMasterAddr == m.localAddr {
-			m.SetState(ctx, LeadingState)
-		} else {
-			m.SetState(ctx, FollowingState)
-		}
+		m.syncWithMaster(ctx)
 		return true
 	}
 

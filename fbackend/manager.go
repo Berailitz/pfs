@@ -926,6 +926,12 @@ func (m *RManager) replaceUnreachableNodes(ctx context.Context) {
 					continue
 				}
 
+				if err := m.fp.MakeRegular(ctx, backupAddr, nodeID); err != nil {
+					logger.E(ctx, "replace make regular error",
+						"backupAddr", backupAddr, "backupOwnerID", backupOwnerID, "nodeID", nodeID, "err", err)
+					continue
+				}
+
 				m.doAddNode(ctx, nodeID, backupOwnerID)
 				m.proposalChan <- &Proposal{
 					Typ:     UpdateOwnerIDProposalType,

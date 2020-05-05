@@ -221,6 +221,25 @@ func (fb *FBackEnd) RUnlockNode(ctx context.Context, node *rnode.RNode) error {
 	return fb.doUnlockNode(ctx, node, true)
 }
 
+func (fb *FBackEnd) MakeRegular(
+	ctx context.Context,
+	nodeID uint64) error {
+	backupNode, ok := fb.redundantNodes.Load(nodeID)
+	if !ok {
+		logger.E(ctx, "make regular backup node not exist error", "nodeID", nodeID)
+		return &FBackEndErr{fmt.Sprintf("backup node not exist: nodeID=%v", nodeID)}
+	}
+
+	if err := fb.storeNode(ctx, nodeID, backupNode.(*rnode.RNode)); err != nil {
+		logger.E(ctx, "make regular store backup node error", "nodeID", nodeID)
+		return err
+	}
+
+	fb.redundantNodes.Delete(nodeID)
+	logger.I(ctx, "make regular success", "nodeID", nodeID)
+	return nil
+}
+
 func (fb *FBackEnd) UpdateNode(ctx context.Context, node *rnode.RNode) error {
 	localNode, err := fb.LoadLocalNode(ctx, node.ID())
 	if err != nil {

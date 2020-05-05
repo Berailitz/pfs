@@ -114,6 +114,11 @@ func (s *RServer) Propose(ctx context.Context, req *pb.ProposeRequest) (_ *pb.Pr
 	}, nil
 }
 
+func (s *RServer) MakeRegular(ctx context.Context, req *pb.UInt64IDAddr) (*pb.Error, error) {
+	ferr := s.fp.MakeRegular(ctx, req.Addr, req.Id)
+	return utility.ToPbErr(ferr), nil
+}
+
 func (s *RServer) Gossip(ctx context.Context, req *pb.GossipRequest) (*pb.GossipReply, error) {
 	tofMap, err := s.fp.Gossip(ctx, req.Addr)
 	var perr *pb.Error = &pb.Error{}

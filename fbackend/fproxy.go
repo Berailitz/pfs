@@ -146,6 +146,27 @@ func (fp *FProxy) Vote(ctx context.Context, addr string, vote *Vote) (masterAddr
 	return reply.MasterAddr, utility.FromPbErr(reply.Err)
 }
 
+func (fp *FProxy) MakeRegular(ctx context.Context, addr string, nodeID uint64) (err error) {
+	if addr == fp.localAddr {
+		return fp.fb.MakeRegular(ctx, nodeID)
+	}
+
+	gcli, err := fp.pool.Load(ctx, addr)
+	if err != nil {
+		return err
+	}
+
+	perr, err := gcli.MakeRegular(ctx, &pb.UInt64IDAddr{
+		Addr: addr,
+		Id:   nodeID,
+	})
+	if err != nil {
+		logger.E(ctx, "fp make regular error", "addr", addr, "err", err)
+		return err
+	}
+	return utility.FromPbErr(perr)
+}
+
 func (fp *FProxy) Gossip(ctx context.Context, addr string) (_ map[string]int64, err error) {
 	if addr == fp.localAddr {
 		return fp.ma.AnswerGossip(ctx, addr)

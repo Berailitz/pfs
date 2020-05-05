@@ -51,6 +51,10 @@ const (
 	tofUpdateRatio         = 0.8
 )
 
+const (
+	newElectionIDByIncr = 0
+)
+
 var (
 	NodeNotExistErr    = &ManagerErr{"node not exist"}
 	OwnerNotExistErr   = &ManagerErr{"owner not exist"}
@@ -136,6 +140,9 @@ type RManager struct {
 	nominee string
 
 	backupsOwnerMaps []*sync.Map // map[uint64]string
+
+	muElectionID sync.RWMutex
+	electionID   int64
 }
 
 type ManagerErr struct {
@@ -476,6 +483,29 @@ func (m *RManager) State(ctx context.Context) int64 {
 	return atomic.LoadInt64(&m._state)
 }
 
+func (m *RManager) enterNewElection(ctx context.Context, newElectionID int64) {
+	m.muElectionID.Lock()
+	defer m.muElectionID.Unlock()
+
+	if newElectionID == newElectionIDByIncr {
+		if m.State(ctx) == LookingState {
+			logger.E(ctx, "incr election ID on looking state err")
+			return
+		}
+		m.SetState(ctx, LookingState)
+		newElectionID = m.electionID + 1
+	}
+
+	m.electionID = newElectionID
+	// TODO: invalidate old votes, re-send votes
+}
+
+func (m *RManager) ElectionID(ctx context.Context) int64 {
+	m.muElectionID.Lock()
+	defer m.muElectionID.Unlock()
+	return m.electionID
+}
+
 func (m *RManager) ErrIfNotLeadingState(ctx context.Context) error {
 	if atomic.LoadInt64(&m._state) != LeadingState {
 		return NotLeadingStateErr
@@ -647,15 +677,14 @@ func (m *RManager) findRoute(ctx context.Context, dst string) *RouteRule {
 	return shortestRule
 }
 
-func (m *RManager) startElection(ctx context.Context) {
+func (m *RManager) turnIntoElectionState(ctx context.Context) {
 	if m.State(ctx) == LookingState {
-		logger.I(ctx, "already in election")
+		logger.W(ctx, "already in election")
 		return
 	}
 
 	logger.W(ctx, "start election")
-	m.SetState(ctx, LookingState)
-	// TODO: send votes, async
+	m.enterNewElection(ctx, newElectionIDByIncr)
 }
 
 func (m *RManager) updateOldTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
@@ -676,7 +705,7 @@ func (m *RManager) updateOldTransit(ctx context.Context, transitAddr string, tra
 			logger.E(ctx, "owner offline", "dst", dst)
 			m.deleteRoute(ctx, dst)
 			if dst == m.MasterAddr() {
-				m.startElection(ctx)
+				m.turnIntoElectionState(ctx)
 			}
 		}
 	}
@@ -753,10 +782,15 @@ func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (mas
 			return m.MasterAddr(), nil
 		}
 
-		m.startElection(ctx)
+		m.turnIntoElectionState(ctx)
+		return "", nil
 	}
 
-	// TODO: handle vote
+	if vote.ElectionID > m.ElectionID(ctx) {
+		m.enterNewElection(ctx, vote.ElectionID)
+	}
+
+	// TODO: handle current election vote
 	return "", nil
 }
 

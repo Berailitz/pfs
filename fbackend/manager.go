@@ -918,22 +918,26 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	return nil
 }
 
+func (m *RManager) useRemoteMasterAddr(ctx context.Context, remoteMasterAddr string, voter string) {
+	if _, err := m.fp.Measure(ctx, remoteMasterAddr); err == nil {
+		m.saveDefaultDirectRoute(ctx, remoteMasterAddr)
+	} else {
+		m.saveRoute(ctx, remoteMasterAddr, voter, math.MaxInt64)
+	}
+	m.SetMaster(ctx, remoteMasterAddr)
+}
+
 func (m *RManager) broadcastVote(ctx context.Context, vote *Vote) {
 	for _, addr := range m.CopyOwnerMap(ctx) {
 		if addr != m.localAddr {
-			masterAddr, err := m.fp.Vote(ctx, addr, vote)
+			remoteMasterAddr, err := m.fp.Vote(ctx, addr, vote)
 			if err != nil {
 				logger.If(ctx, "rpc vote error: addr=%v, vote=%+v, err=%+v",
 					addr, vote, err)
 			}
 
-			if masterAddr != "" {
-				if _, err := m.fp.Measure(ctx, masterAddr); err == nil {
-					m.saveDefaultDirectRoute(ctx, masterAddr)
-				} else {
-					m.saveRoute(ctx, masterAddr, addr, math.MaxInt64)
-				}
-				m.SetMaster(ctx, masterAddr)
+			if remoteMasterAddr != "" {
+				m.useRemoteMasterAddr(ctx, remoteMasterAddr, addr)
 			}
 		}
 	}

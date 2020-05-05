@@ -162,6 +162,7 @@ type RManager struct {
 	muElectionID sync.RWMutex
 	electionID   int64
 
+	// muBallots protects ballots and nomineeMap
 	muBallots  sync.RWMutex
 	ballots    map[string]*Ballot
 	nomineeMap map[string]int64

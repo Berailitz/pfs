@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/Berailitz/pfs/logger"
+
 	pb "github.com/Berailitz/pfs/remotetree"
 	"github.com/Berailitz/pfs/utility"
 )
@@ -24,6 +26,7 @@ var _ = (error)((*GCliPoolErr)(nil))
 func (p *GCliPool) Load(ctx context.Context, addr string) (_ pb.RemoteTreeClient, err error) {
 	hopAddr, err := p.wd.Route(addr)
 	if err != nil {
+		logger.E(ctx, "load gcli error", "addr", addr, "err", err)
 		return nil, err
 	}
 	return p.LoadWithoutRoute(ctx, hopAddr)

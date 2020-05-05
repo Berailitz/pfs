@@ -427,12 +427,15 @@ func (s *RServer) QueryOwner(ctx context.Context, req *pb.UInt64ID) (*pb.Addr, e
 	}
 }
 
-func (s *RServer) Allocate(ctx context.Context, req *pb.OwnerId) (*pb.UInt64ID, error) {
+func (s *RServer) Allocate(ctx context.Context, req *pb.OwnerId) (*pb.UInt64Reply, error) {
+	var id uint64
+	var ferr error
 	if s.fp != nil {
-		return &pb.UInt64ID{Id: s.fp.Allocate(ctx, req.Id)}, nil
+		id, ferr = s.fp.Allocate(ctx, req.Id)
 	} else {
-		return &pb.UInt64ID{Id: s.ma.Allocate(ctx, req.Id)}, nil
+		id, ferr = s.ma.Allocate(ctx, req.Id)
 	}
+	return &pb.UInt64Reply{Id: id, Err: utility.ToPbErr(ferr)}, nil
 }
 
 func (s *RServer) Deallocate(ctx context.Context, req *pb.UInt64ID) (*pb.Error, error) {

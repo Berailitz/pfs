@@ -121,7 +121,7 @@ func (m *RManager) doAddNode(ctx context.Context, nodeID uint64, ownerID uint64)
 	m.nodeMapRead[nodeID] = ownerID
 }
 
-func (m *RManager) Allocate(ctx context.Context, ownerID uint64) uint64 {
+func (m *RManager) Allocate(ctx context.Context, ownerID uint64) (uint64, error) {
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
@@ -133,9 +133,9 @@ func (m *RManager) Allocate(ctx context.Context, ownerID uint64) uint64 {
 			NodeID:  nodeID,
 			OwnerID: ownerID,
 		}
-		return nodeID
+		return nodeID, nil
 	}
-	return 0
+	return 0, OwnerNotExistErr
 }
 
 func (m *RManager) doRemoveNode(ctx context.Context, nodeID uint64) error {

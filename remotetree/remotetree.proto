@@ -45,7 +45,7 @@ service RemoteTree {
     rpc Fallocate(FallocateRequest) returns (Error) {}
 
     rpc QueryOwner(UInt64ID) returns (Addr) {}
-    rpc Allocate(OwnerId) returns (UInt64ID) {}
+    rpc Allocate(OwnerId) returns (UInt64Reply) {}
     rpc Deallocate(UInt64ID) returns (Error) {}
     rpc RegisterOwner(Addr) returns (UInt64Reply) {}
     rpc RemoveOwner(OwnerId) returns (Error) {}

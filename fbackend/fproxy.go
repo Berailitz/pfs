@@ -881,7 +881,7 @@ func (fp *FProxy) QueryOwner(ctx context.Context, nodeID uint64) string {
 	return addr.Addr
 }
 
-func (fp *FProxy) Allocate(ctx context.Context, ownerID uint64) uint64 {
+func (fp *FProxy) Allocate(ctx context.Context, ownerID uint64) (uint64, error) {
 	if fp.localAddr == fp.ma.MasterAddr() {
 		return fp.ma.Allocate(ctx, ownerID)
 	}
@@ -889,18 +889,21 @@ func (fp *FProxy) Allocate(ctx context.Context, ownerID uint64) uint64 {
 	logger.I(ctx, "allocate node")
 	gcli, err := fp.pool.Load(ctx, fp.ma.MasterAddr())
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
-	nodeID, err := gcli.Allocate(ctx, &pb.OwnerId{
+	reply, err := gcli.Allocate(ctx, &pb.OwnerId{
 		Id: ownerID,
 	})
+	if err == nil {
+		err = utility.FromPbErr(reply.Err)
+	}
 	if err != nil {
 		logger.E(ctx, "allocate error", "ownerID", ownerID, "err", err)
-		return 0
+		return 0, err
 	}
-	logger.I(ctx, "allocate node success", "nodeID", nodeID.Id)
-	return nodeID.Id
+	logger.I(ctx, "allocate node success", "nodeID", reply.Id)
+	return reply.Id, err
 }
 
 func (fp *FProxy) Deallocate(ctx context.Context, nodeID uint64) error {

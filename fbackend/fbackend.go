@@ -352,19 +352,21 @@ func (fb *FBackEnd) unlock() {
 // LOCKS_REQUIRED(fb.mu)
 func (fb *FBackEnd) allocateInode(
 	ctx context.Context,
-	attrs fuse.Attr) (uint64, *rnode.RNode) {
+	attrs fuse.Attr) (*rnode.RNode, error) {
 	// Create the rnode.RNode.
-	id := fb.fp.Allocate(ctx, fb.localID)
-	if id > 0 {
-		node := rnode.NewRNode(attrs, id)
-		if err := fb.storeNode(ctx, id, node); err != nil {
-			logger.Ef(ctx, "allocate inode store error: id=%v, err=%v", id, err)
-			return 0, nil
-		}
-		return id, node
+	id, err := fb.fp.Allocate(ctx, fb.localID)
+	if err != nil {
+		logger.E(ctx, "allocate inode error", "err", err)
+		return nil, err
 	}
 
-	return 0, nil
+	node := rnode.NewRNode(attrs, id)
+	if err := fb.storeNode(ctx, id, node); err != nil {
+		logger.Ef(ctx, "allocate inode store error: id=%v, err=%v", id, err)
+		return nil, err
+	}
+	return node, nil
+
 }
 
 // LOCKS_REQUIRED(fb.mu)
@@ -579,20 +581,24 @@ func (fb *FBackEnd) MkDir(
 	}
 
 	// Allocate a child.
-	childID, _ := fb.allocateInode(ctx, childAttrs)
+	child, err := fb.allocateInode(ctx, childAttrs)
+	if err != nil {
+		logger.E(ctx, "mkdir allocate inode error", "childAttrs", childAttrs, "err", err)
+		return 0, err
+	}
 	defer func() {
 		if err != nil {
-			if derr := fb.deallocateInode(ctx, childID); derr != nil {
-				logger.Ef(ctx, "mkdir deallocate node error: childID=%v, derr=%+V", childID, derr)
+			if derr := fb.deallocateInode(ctx, child.ID()); derr != nil {
+				logger.Ef(ctx, "mkdir deallocate node error", "childID", child.ID(), "derr", derr)
 			}
 		}
 	}()
 
-	_, err = fb.fp.AttachChild(ctx, parentID, childID, name, fuse.DT_Dir, false)
+	_, err = fb.fp.AttachChild(ctx, parentID, child.ID(), name, fuse.DT_Dir, false)
 
 	logger.If(ctx, "fb mkdir result: parent=%v, name=%v, mode=%v, childID=%v, err=%+v",
-		parentID, name, mode, childID, err)
-	return childID, err
+		parentID, name, mode, child.ID(), err)
+	return child.ID(), err
 }
 
 // LOCKS_REQUIRED(fb.mu)
@@ -621,20 +627,24 @@ func (fb *FBackEnd) CreateNode(
 	}
 
 	// Allocate a child.
-	childID, _ := fb.allocateInode(ctx, childAttrs)
+	child, err := fb.allocateInode(ctx, childAttrs)
+	if err != nil {
+		logger.E(ctx, "create node allocate inode error", "childAttrs", childAttrs, "err", err)
+		return 0, err
+	}
 	defer func() {
 		if err != nil {
-			if derr := fb.deallocateInode(ctx, childID); derr != nil {
-				logger.Ef(ctx, "create node deallocate node error: childID=%v, derr=%+V", childID, derr)
+			if derr := fb.deallocateInode(ctx, child.ID()); derr != nil {
+				logger.Ef(ctx, "create node deallocate node error: childID=%v, derr=%+V", child.ID(), derr)
 			}
 		}
 	}()
 
-	_, err = fb.fp.AttachChild(ctx, parentID, childID, name, fuse.DT_File, false)
+	_, err = fb.fp.AttachChild(ctx, parentID, child.ID(), name, fuse.DT_File, false)
 
 	logger.If(ctx, "fb create node result: parent=%v, name=%v, mode=%v, childID=%v, err=%+v",
-		parentID, name, mode, childID, err)
-	return childID, err
+		parentID, name, mode, child.ID(), err)
+	return child.ID(), err
 }
 
 // LOCKS_REQUIRED(fb.mu)
@@ -643,7 +653,7 @@ func (fb *FBackEnd) CreateFile(
 	parentID uint64,
 	name string,
 	mode os.FileMode,
-	flags uint32) (childID uint64, handleID uint64, err error) {
+	flags uint32) (_ uint64, _ uint64, err error) {
 	fb.lock()
 	defer fb.unlock()
 
@@ -664,20 +674,24 @@ func (fb *FBackEnd) CreateFile(
 	}
 
 	// Allocate a child.
-	childID, _ = fb.allocateInode(ctx, childAttrs)
+	child, err := fb.allocateInode(ctx, childAttrs)
+	if err != nil {
+		logger.E(ctx, "create file allocate inode error", "childAttrs", childAttrs, "err", err)
+		return 0, 0, err
+	}
 	defer func() {
 		if err != nil {
-			if derr := fb.deallocateInode(ctx, childID); derr != nil {
-				logger.Ef(ctx, "create file deallocate node error: childID=%v, derr=%+V", childID, derr)
+			if derr := fb.deallocateInode(ctx, child.ID()); derr != nil {
+				logger.Ef(ctx, "create file deallocate node error: childID=%v, derr=%+V", child.ID(), derr)
 			}
 		}
 	}()
 
-	handleID, err = fb.fp.AttachChild(ctx, parentID, childID, name, fuse.DT_File, true)
+	handleID, err := fb.fp.AttachChild(ctx, parentID, child.ID(), name, fuse.DT_File, true)
 
 	logger.If(ctx, "fb create file result: parent=%v, name=%v, mode=%v, childID=%v, handleID=%v, err=%+v",
-		parentID, name, mode, childID, handleID, err)
-	return childID, handleID, err
+		parentID, name, mode, child.ID(), handleID, err)
+	return child.ID(), handleID, err
 }
 
 func (fb *FBackEnd) CreateSymlink(
@@ -705,21 +719,25 @@ func (fb *FBackEnd) CreateSymlink(
 	}
 
 	// Allocate a child.
-	childID, child := fb.allocateInode(ctx, childAttrs)
+	child, err := fb.allocateInode(ctx, childAttrs)
+	if err != nil {
+		logger.E(ctx, "create symlink allocate inode error", "childAttrs", childAttrs, "err", err)
+		return 0, err
+	}
 	defer func() {
 		if err != nil {
-			if derr := fb.deallocateInode(ctx, childID); derr != nil {
-				logger.Ef(ctx, "create file deallocate node error: childID=%v, derr=%+V", childID, derr)
+			if derr := fb.deallocateInode(ctx, child.ID()); derr != nil {
+				logger.Ef(ctx, "create file deallocate node error: childID=%v, derr=%+V", child.ID(), derr)
 			}
 		}
 	}()
 	child.SetTarget(target)
 
-	_, err = fb.fp.AttachChild(ctx, parentID, childID, name, fuse.DT_Link, false)
+	_, err = fb.fp.AttachChild(ctx, parentID, child.ID(), name, fuse.DT_Link, false)
 
 	logger.If(ctx, "fb create symlink result: parent=%v, name=%v, target=%v, err=%+v",
 		parentID, name, target, err)
-	return childID, nil
+	return child.ID(), nil
 }
 
 func (fb *FBackEnd) CreateLink(

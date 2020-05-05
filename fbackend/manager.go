@@ -52,6 +52,11 @@ const (
 )
 
 const (
+	voteRunnableName         = "voter"
+	voteRunnableLoopInterval = time.Duration(0)
+)
+
+const (
 	newElectionIDByIncr = 0
 )
 
@@ -99,6 +104,7 @@ type RouteRule struct {
 
 type RManager struct {
 	broadcastRunner utility.Runnable
+	voteRunner      utility.Runnable
 
 	muSync sync.RWMutex // lock when syncing, rlock when using
 
@@ -147,6 +153,8 @@ type RManager struct {
 	muBallots  sync.RWMutex
 	ballots    map[string]string
 	nomineeMap map[string]int64
+
+	voteChan chan *Vote
 }
 
 type ManagerErr struct {
@@ -902,13 +910,35 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	return nil
 }
 
+func (m *RManager) sendVote(ctx context.Context, vote *Vote) {
+	// TODO: send a vote
+}
+
+func (m *RManager) broadcastVote(ctx context.Context, vote *Vote) {
+	// TODO: broadcast a vote
+}
+
+func (m *RManager) runVoter(ctx context.Context) (err error) {
+	for {
+		select {
+		case <-m.voteRunner.ToStop:
+			logger.If(ctx, "runnable is quitting: name=%v", m.broadcastRunner.Name)
+			return nil
+		case vote := <-m.voteChan:
+			m.broadcastVote(ctx, vote)
+		}
+	}
+}
+
 func (m *RManager) Start(ctx context.Context) {
 	m.broadcastRunner.Start(ctx)
+	m.voteRunner.Start(ctx)
 	m.watchDogRunner.Start(ctx)
 }
 
 func (m *RManager) Stop(ctx context.Context) {
 	m.broadcastRunner.Stop(ctx)
+	m.voteRunner.Stop(ctx)
 	m.watchDogRunner.Stop(ctx)
 }
 
@@ -927,6 +957,7 @@ func NewRManager(ctx context.Context, localAddr string, masterAddr string, stati
 		routeMapRead:      make(map[string]*RouteRule),
 		staticTofCfgFile:  staticTofCfgFile,
 		backupsOwnerMaps:  make([]*sync.Map, backupSize),
+		voteChan:          make(chan *Vote),
 	}
 	switch masterAddr {
 	case localAddr:
@@ -939,6 +970,7 @@ func NewRManager(ctx context.Context, localAddr string, masterAddr string, stati
 	}
 	ma.saveDefaultDirectRoute(ctx, localAddr)
 	ma.broadcastRunner.InitRunnable(ctx, maRunnableName, maRunnableLoopInterval, nil, ma.runBroadcast)
+	ma.voteRunner.InitRunnable(ctx, voteRunnableName, voteRunnableLoopInterval, nil, ma.runVoter)
 	ma.watchDogRunner.InitRunnable(ctx, wdRunnableName, wdRunnableLoopInterval, ma.runWatchDogLoop, nil)
 	return ma
 }

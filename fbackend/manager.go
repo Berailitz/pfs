@@ -884,7 +884,15 @@ func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (mas
 
 	m.saveVote(ctx, vote)
 
-	//TODO: update my vote
+	if vote.ProposalID > m.CopyVote(ctx).ProposalID {
+		m.SetVote(ctx, vote.Nominee, vote.ProposalID)
+	}
+
+	if vote.Nominee < m.CopyVote(ctx).Nominee {
+		m.SetVote(ctx, vote.Nominee, EmptyProposalID)
+	}
+
+	//TODO: check majority
 	return "", nil
 }
 

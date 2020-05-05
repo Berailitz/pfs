@@ -873,6 +873,24 @@ func (m *RManager) saveVote(ctx context.Context, vote *Vote) {
 	m.addVoteWithoutLock(ctx, vote.Nominee, 1)
 }
 
+func (m *RManager) sweepOldBallots(ctx context.Context) {
+	logger.I(ctx, "sweep old ballots")
+
+	m.muBallots.Lock()
+	defer m.muBallots.Unlock()
+
+	now := time.Now()
+	for voter, ballot := range m.ballots {
+		if ballot.Deadline.Before(now) {
+			logger.W(ctx, "sweep old ballot", "ballot", ballot, "voter", voter)
+			delete(m.ballots, voter)
+			if m.addVoteWithoutLock(ctx, ballot.Nominee, -1) {
+				logger.E(ctx, "old ballot with non-exists nominee", "ballot", ballot, "voter", voter)
+			}
+		}
+	}
+}
+
 func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (masterAddr string, err error) {
 	if m.State(ctx) != LookingState {
 		if m.isMasterAlive(ctx) {
@@ -918,6 +936,8 @@ func (m *RManager) AnswerGossip(ctx context.Context, addr string) (tofMap map[st
 }
 
 func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
+	m.sweepOldBallots(ctx)
+
 	logger.I(ctx, "updating tof map")
 	owners, err := m.fp.GetOwnerMap(ctx)
 	if err != nil {

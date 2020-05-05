@@ -789,6 +789,36 @@ func (m *RManager) isMasterAlive(ctx context.Context) (ok bool) {
 	return err == nil
 }
 
+func (m *RManager) recountVotesWithoutLock(ctx context.Context) {
+	logger.W(ctx, "recounting votes")
+	// TODO: recount votes
+}
+
+func (m *RManager) addVoteWithoutLock(ctx context.Context, nominee string, addition int64) (isNewNominee bool) {
+	if oldPoll, ok := m.nomineeMap[nominee]; ok {
+		m.nomineeMap[nominee] = oldPoll + addition
+		return false
+	}
+	return true
+}
+
+func (m *RManager) saveVote(ctx context.Context, vote *Vote) {
+	m.muBallots.Lock()
+	defer m.muBallots.Unlock()
+
+	if oldNominee, ok := m.ballots[vote.Voter]; ok {
+		logger.I(ctx, "revoke vote", "vote", vote)
+		if m.addVoteWithoutLock(ctx, oldNominee, -1) {
+			logger.E(ctx, "old nominee not exist error")
+			m.recountVotesWithoutLock(ctx)
+		}
+	}
+
+	logger.I(ctx, "save new vote", "vote", vote)
+	m.ballots[vote.Voter] = vote.Nominee
+	m.addVoteWithoutLock(ctx, vote.Nominee, 1)
+}
+
 func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (masterAddr string, err error) {
 	if m.State(ctx) != LookingState {
 		if m.isMasterAlive(ctx) {
@@ -803,7 +833,7 @@ func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (mas
 		m.enterNewElection(ctx, vote.ElectionID)
 	}
 
-	// TODO: handle current election vote
+	m.saveVote(ctx, vote)
 	return "", nil
 }
 

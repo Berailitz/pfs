@@ -524,15 +524,10 @@ func (s *RServer) Start(ctx context.Context, port int) error {
 	return nil
 }
 
-func (s *RServer) StartFP(ctx context.Context) {
-	s.fp.Start(ctx)
-}
-
 func (s *RServer) Stop(ctx context.Context) error {
 	if s.Server == nil {
 		return fmt.Errorf("server is nil error")
 	}
 	s.Server.Stop()
-	s.fp.Stop(ctx)
 	return nil
 }

@@ -39,7 +39,7 @@ type FBackEnd struct {
 	handleAllocator *idallocator.IDAllocator
 	handleMap       sync.Map // map[uint64]uint64
 
-	wd *WatchDog
+	ma *RManager
 }
 
 type FBackEndErr struct {
@@ -67,13 +67,13 @@ func NewFBackEnd(
 	uid uint32,
 	gid uint32,
 	allocator *idallocator.IDAllocator,
-	wd *WatchDog) *FBackEnd {
+	ma *RManager) *FBackEnd {
 	return &FBackEnd{
 		uid:             uid,
 		gid:             gid,
 		handleAllocator: allocator,
 		nodesRead:       make(map[uint64]*rnode.RNode),
-		wd:              wd,
+		ma:              ma,
 	}
 }
 
@@ -172,7 +172,7 @@ func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (node *rnod
 func (fb *FBackEnd) pushBackupNode(ctx context.Context, copiedNode rnode.RNode) {
 	defer utility.RecoverWithStack(ctx, nil)
 
-	for i, addr := range fb.wd.getBackupAddrs(ctx, copiedNode.ID()) {
+	for i, addr := range fb.ma.getBackupAddrs(ctx, copiedNode.ID()) {
 		logger.If(ctx, "push backup node: i=%v, node=%v, addr=%v", i, copiedNode, addr)
 		if err := fb.fp.PushNode(ctx, addr, &copiedNode); err != nil {
 			logger.If(ctx, "push backup node err: i=%v, node=%v, addr=%v, err=%+v", i, copiedNode, addr, err)

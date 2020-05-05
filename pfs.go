@@ -48,7 +48,7 @@ func (p *PFS) Mount(ctx context.Context) error {
 
 	localAddr := fmt.Sprintf("%s:%d", p.param.Host, p.param.Port)
 
-	p.ma = fbackend.NewRManager(ctx)
+	p.ma = fbackend.NewRManager(ctx, localAddr, p.param.Master, p.param.StaticTofCfgFile, p.param.BackupSize)
 	p.ma.SetMaster(p.param.Master)
 
 	logger.If(ctx, "start rs: port=%v", p.param.Port)
@@ -66,7 +66,6 @@ func (p *PFS) Mount(ctx context.Context) error {
 		logger.Pf(ctx, "start rs error: err=%+v", err)
 		return err
 	}
-	p.rsvr.StartFP(ctx)
 
 	p.lfsvr = lfs.NewLFS(ctx, fp)
 	logger.If(ctx, "mount fs: dir=%v, fsName=%v, fsType=%v, volumeName=%v",

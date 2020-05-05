@@ -13,7 +13,7 @@ import (
 
 type GCliPool struct {
 	cmap  sync.Map // [addr]remotetree.RemoteTreeClient
-	wd    *WatchDog
+	ma    *RManager
 	local string
 }
 
@@ -24,7 +24,7 @@ type GCliPoolErr struct {
 var _ = (error)((*GCliPoolErr)(nil))
 
 func (p *GCliPool) Load(ctx context.Context, addr string) (_ pb.RemoteTreeClient, err error) {
-	hopAddr, err := p.wd.Route(addr)
+	hopAddr, err := p.ma.Route(addr)
 	if err != nil {
 		logger.E(ctx, "load gcli error", "addr", addr, "err", err)
 		return nil, err
@@ -59,10 +59,10 @@ func (p *GCliPool) LoadWithoutRoute(ctx context.Context, addr string) (pb.Remote
 	return gcli, nil
 }
 
-func NewGCliPool(local string, wd *WatchDog) *GCliPool {
+func NewGCliPool(local string, ma *RManager) *GCliPool {
 	return &GCliPool{
 		local: local,
-		wd:    wd,
+		ma:    ma,
 	}
 }
 

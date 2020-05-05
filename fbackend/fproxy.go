@@ -37,7 +37,6 @@ type remoteHandle struct {
 type FProxy struct {
 	fb        *FBackEnd
 	ma        *RManager
-	wd        *WatchDog
 	pool      *GCliPool
 	localAddr string
 
@@ -61,9 +60,8 @@ func NewFProxy(
 	ma *RManager,
 	staticTofCfgFile string,
 	backupSize int) *FProxy {
-	wd := NewWatchDog(ctx, ma, localAddr, staticTofCfgFile, backupSize)
 	allcator := idallocator.NewIDAllocator(initialHandle)
-	fb := NewFBackEnd(uid, gid, allcator, wd)
+	fb := NewFBackEnd(uid, gid, allcator, ma)
 	if fb == nil {
 		logger.P(ctx, "new fp nil fb error: uid=%v, gid=%v, localAddr=%v",
 			uid, gid, localAddr)
@@ -72,23 +70,13 @@ func NewFProxy(
 	fp := &FProxy{
 		fb:                 fb,
 		ma:                 ma,
-		wd:                 wd,
-		pool:               NewGCliPool(localAddr, wd),
+		pool:               NewGCliPool(localAddr, ma),
 		allcator:           allcator,
 		localAddr:          localAddr,
 		requestIDAllocator: idallocator.NewIDAllocator(firstLogID),
 	}
+	fb.SetFP(ctx, fp)
 	return fp
-}
-
-func (fp *FProxy) Start(ctx context.Context) {
-	fp.fb.SetFP(ctx, fp)
-	fp.wd.SetFP(fp)
-	fp.wd.Start(ctx)
-}
-
-func (fp *FProxy) Stop(ctx context.Context) {
-	fp.wd.Stop(ctx)
 }
 
 func (fp *FProxy) Measure(ctx context.Context, addr string) (tof int64, err error) {
@@ -104,7 +92,7 @@ func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool, disa
 	}
 
 	if !disableCache {
-		if tof, ok := fp.wd.LogicTof(addr); ok {
+		if tof, ok := fp.ma.LogicTof(addr); ok {
 			return tof, nil
 		}
 	}
@@ -133,7 +121,7 @@ func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool, disa
 
 func (fp *FProxy) Gossip(ctx context.Context, addr string) (_ map[string]int64, nominee string, err error) {
 	if addr == fp.localAddr {
-		return fp.wd.AnswerGossip(ctx, addr)
+		return fp.ma.AnswerGossip(ctx, addr)
 	}
 
 	gcli, err := fp.pool.Load(ctx, addr)

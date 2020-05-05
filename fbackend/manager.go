@@ -496,6 +496,20 @@ func (m *RManager) State(ctx context.Context) int64 {
 	return atomic.LoadInt64(&m._state)
 }
 
+func (m *RManager) CopyVote(ctx context.Context) *Vote {
+	m.muVote.RLock()
+	defer m.muVote.RUnlock()
+	copiedVote := m.vote
+	return &copiedVote
+}
+
+func (m *RManager) SetVote(ctx context.Context, vote *Vote) {
+	m.muVote.Lock()
+	defer m.muVote.Unlock()
+	m.vote = *vote
+	m.vote.Voter = m.localAddr
+}
+
 func (m *RManager) clearBallots(ctx context.Context) {
 	m.muBallots.Lock()
 	defer m.muBallots.Unlock()
@@ -520,13 +534,12 @@ func (m *RManager) enterNewElection(ctx context.Context, newElectionID int64) {
 	m.electionID = newElectionID
 	m.clearBallots(ctx)
 
-	m.muVote.Lock()
-	defer m.muVote.Unlock()
-	m.vote.ElectionID = m.electionID
-	m.vote.Nominee = m.localAddr
-	m.vote.ProposalID = m.proposalAllocator.ReadNext()
-	currentVote := m.vote
-	m.voteChan <- &currentVote
+	m.SetVote(ctx, &Vote{
+		ElectionID: m.electionID,
+		ProposalID: m.proposalAllocator.ReadNext(),
+		Nominee:    m.localAddr,
+	})
+	m.voteChan <- m.CopyVote(ctx)
 }
 
 func (m *RManager) ElectionID(ctx context.Context) int64 {
@@ -849,10 +862,7 @@ func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (mas
 	}
 
 	if vote.ElectionID < m.ElectionID(ctx) {
-		m.muVote.RLock()
-		defer m.muVote.RUnlock()
-
-		remoteMasterAddr, err := m.fp.Vote(ctx, vote.Voter, &m.vote)
+		remoteMasterAddr, err := m.fp.Vote(ctx, vote.Voter, m.CopyVote(ctx))
 		if err != nil {
 			logger.E(ctx, "send vote to elderly remote error", "addr", addr, "vote", vote)
 		}

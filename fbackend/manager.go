@@ -484,6 +484,10 @@ func (m *RManager) ErrIfNotFollowingState(ctx context.Context) error {
 }
 
 func (m *RManager) CopyManager(ctx context.Context) (*pb.Manager, error) {
+	if err := m.ErrIfNotLeadingState(ctx); err != nil {
+		return nil, err
+	}
+
 	m.muSync.Lock()
 	defer m.muSync.Unlock()
 

@@ -848,11 +848,28 @@ func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (mas
 		return "", nil
 	}
 
+	if vote.ElectionID < m.ElectionID(ctx) {
+		m.muVote.RLock()
+		defer m.muVote.RUnlock()
+
+		remoteMasterAddr, err := m.fp.Vote(ctx, vote.Voter, &m.vote)
+		if err != nil {
+			logger.E(ctx, "send vote to elderly remote error", "addr", addr, "vote", vote)
+		}
+		if remoteMasterAddr != "" {
+			logger.W(ctx, "elderly remote has non-empty masterAddr")
+		}
+
+		return "", nil
+	}
+
 	if vote.ElectionID > m.ElectionID(ctx) {
 		m.enterNewElection(ctx, vote.ElectionID)
 	}
 
 	m.saveVote(ctx, vote)
+
+	//TODO: update my vote
 	return "", nil
 }
 

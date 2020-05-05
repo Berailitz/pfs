@@ -123,15 +123,15 @@ type Ballot struct {
 
 type ManagerSummary struct {
 	pb.Manager
-	LocalAddr       string                `json:"local_addr"`
-	State           int64                 `json:"state"`
-	TofMap          map[string]int64      `json:"tof_map"`
-	RouteMap        map[string]*RouteRule `json:"route_map"`
-	BackupOwnerMaps map[uint64][]string   `json:"backups_owner_maps"`
-	ElectionID      int64                 `json:"election_id"`
-	Ballots         map[string]*Ballot    `json:"ballots"`
-	NominateMap     map[string]int64      `json:"nominate_map"`
-	Vote            Vote                  `json:"vote"`
+	LocalAddr       string               `json:"local_addr"`
+	State           int64                `json:"state"`
+	TofMap          map[string]int64     `json:"tof_map"`
+	RouteMap        map[string]RouteRule `json:"route_map"`
+	BackupOwnerMaps map[uint64][]string  `json:"backups_owner_maps"`
+	ElectionID      int64                `json:"election_id"`
+	Ballots         map[string]Ballot    `json:"ballots"`
+	NominateMap     map[string]int64     `json:"nominate_map"`
+	Vote            Vote                 `json:"vote"`
 }
 
 type RManager struct {
@@ -1143,10 +1143,10 @@ func (m *RManager) runVoter(ctx context.Context) (err error) {
 	}
 }
 
-func (m *RManager) CopyRouteMap(ctx context.Context) map[string]*RouteRule {
-	r := make(map[string]*RouteRule)
+func (m *RManager) CopyRouteMap(ctx context.Context) map[string]RouteRule {
+	r := make(map[string]RouteRule)
 	m.routeMap.Range(func(key, value interface{}) bool {
-		r[key.(string)] = value.(*RouteRule)
+		r[key.(string)] = *value.(*RouteRule)
 		return true
 	})
 	return r
@@ -1161,14 +1161,13 @@ func (m *RManager) CopyBackupOwnerMap(ctx context.Context) map[uint64][]string {
 	return r
 }
 
-func (m *RManager) CopyBallots(ctx context.Context) map[string]*Ballot {
+func (m *RManager) CopyBallots(ctx context.Context) map[string]Ballot {
 	m.muBallots.RLock()
 	defer m.muBallots.RUnlock()
 
-	r := make(map[string]*Ballot)
+	r := make(map[string]Ballot)
 	for k, v := range m.ballots {
-		b := *v
-		r[k] = &b
+		r[k] = *v
 	}
 	return r
 }

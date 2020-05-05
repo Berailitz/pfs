@@ -70,6 +70,24 @@ func (s *RServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingReply,
 	}, nil
 }
 
+func (s *RServer) Vote(ctx context.Context, req *pb.VoteRequest) (*pb.VoteReply, error) {
+	vote := &fbackend.Vote{
+		Voter:      req.Voter,
+		ElectionID: req.ElectionID,
+		ProposalID: req.ProposalID,
+		Nominee:    req.Nominee,
+	}
+	var perr *pb.Error = &pb.Error{}
+	masterAddr, err := s.fp.Vote(ctx, req.Addr, vote)
+	if err != nil {
+		perr = utility.ToPbErr(err)
+	}
+	return &pb.VoteReply{
+		Err:        perr,
+		MasterAddr: masterAddr,
+	}, nil
+}
+
 func (s *RServer) Propose(ctx context.Context, req *pb.ProposeRequest) (_ *pb.ProposeReply, err error) {
 	var state int64
 	proposal := &fbackend.Proposal{

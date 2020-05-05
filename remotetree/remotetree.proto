@@ -7,6 +7,7 @@ service RemoteTree {
     //rpc WLock(UInt64ID) returns (StatusReply) {}
     //rpc RUnlock(UInt64ID) returns (StatusReply) {}
     //rpc WUnlock(UInt64ID) returns (StatusReply) {}
+    rpc Vote(VoteRequest) returns (VoteReply) {}
     rpc Propose(ProposeRequest) returns (ProposeReply) {}
     rpc PushNode(PushNodeRequest) returns (Error) {}
     rpc CopyManager(EmptyMsg) returns (Manager) {}
@@ -50,6 +51,19 @@ service RemoteTree {
     rpc RegisterOwner(Addr) returns (UInt64Reply) {}
     rpc RemoveOwner(OwnerId) returns (Error) {}
     rpc AllocateRoot(OwnerId) returns (Error) {}
+}
+
+message VoteRequest {
+    string addr = 1;
+    string voter = 2;
+    int64 electionID = 3;
+    int64 proposalID = 4;
+    string nominee = 5;
+}
+
+message VoteReply {
+    Error err = 1;
+    string masterAddr = 2;
 }
 
 message Manager {

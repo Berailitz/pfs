@@ -119,6 +119,33 @@ func (fp *FProxy) Ping(ctx context.Context, addr string, disableCache bool, disa
 	return reply.Offset, utility.FromPbErr(reply.Err)
 }
 
+func (fp *FProxy) Vote(ctx context.Context, addr string, vote *Vote) (masterAddr string, err error) {
+	if addr == fp.localAddr {
+		return fp.ma.AcceptVote(ctx, addr, vote)
+	}
+
+	gcli, err := fp.pool.Load(ctx, addr)
+	if err != nil {
+		return "", err
+	}
+
+	reply, err := gcli.Vote(ctx, &pb.VoteRequest{
+		Addr:       addr,
+		Voter:      vote.Voter,
+		ElectionID: vote.ElectionID,
+		ProposalID: vote.ProposalID,
+		Nominee:    vote.Nominee,
+	})
+	if err == nil {
+		err = utility.FromPbErr(reply.Err)
+	}
+	if err != nil {
+		logger.E(ctx, "fp vote error", "addr", addr, "err", err)
+		return "", err
+	}
+	return reply.MasterAddr, utility.FromPbErr(reply.Err)
+}
+
 func (fp *FProxy) Gossip(ctx context.Context, addr string) (_ map[string]int64, nominee string, err error) {
 	if addr == fp.localAddr {
 		return fp.ma.AnswerGossip(ctx, addr)

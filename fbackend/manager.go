@@ -74,6 +74,13 @@ type Proposal struct {
 	Value   string
 }
 
+type Vote struct {
+	Voter      string
+	ElectionID int64
+	ProposalID int64
+	Nominee    string
+}
+
 const (
 	LookingState   = 0
 	SyncingState   = 1
@@ -720,6 +727,10 @@ func (m *RManager) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []s
 		}
 	}
 	return addrs
+}
+
+func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (masterAddr string, err error) {
+	return "", nil
 }
 
 func (m *RManager) AnswerGossip(ctx context.Context, addr string) (tofMap map[string]int64, nominee string, err error) {

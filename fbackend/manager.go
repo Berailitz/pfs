@@ -806,7 +806,7 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	}
 
 	staticTofMap := m.loadStaticTof(ctx)
-	nomineeMap := make(map[string]int64, len(owners))
+	//nomineeMap := make(map[string]int64, len(owners))
 
 	for _, addr := range owners {
 		rawTof, ok := staticTofMap[addr]
@@ -828,7 +828,7 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 		}
 
 		m.remoteTofMaps.Delete(addr)
-		remoteTofMap, nominee, err := m.fp.Gossip(ctx, addr)
+		remoteTofMap, _, err := m.fp.Gossip(ctx, addr)
 		if err != nil {
 			logger.E(ctx, "gossip error", "addr", addr, "err", err)
 			continue
@@ -839,20 +839,20 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 		m.addNewTransit(ctx, addr, smoothTof, remoteTofMap)
 		m.updateOldTransit(ctx, addr, smoothTof, remoteTofMap)
 
-		if nominee != "" {
-			if counter, ok := nomineeMap[nominee]; ok {
-				nomineeMap[nominee] = counter + 1
-			} else {
-				nomineeMap[nominee] = 1
-			}
-		}
+		//if nominee != "" {
+		//	if counter, ok := nomineeMap[nominee]; ok {
+		//		nomineeMap[nominee] = counter + 1
+		//	} else {
+		//		nomineeMap[nominee] = 1
+		//	}
+		//}
 	}
 
-	for nominee, poll := range nomineeMap {
-		if poll<<1 > int64(len(owners)) {
-			m.SetMaster(ctx, nominee)
-		}
-	}
+	//for nominee, poll := range nomineeMap {
+	//	if poll<<1 > int64(len(owners)) {
+	//		m.SetMaster(ctx, nominee)
+	//	}
+	//}
 	return nil
 }
 

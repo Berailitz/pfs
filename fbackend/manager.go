@@ -83,6 +83,10 @@ type Proposal struct {
 	Value   string
 }
 
+const (
+	EmptyProposalID = 0
+)
+
 type Vote struct {
 	Voter      string
 	ElectionID int64
@@ -507,7 +511,7 @@ func (m *RManager) SetVote(ctx context.Context, nominee string, proposalID uint6
 	m.muVote.Lock()
 	defer m.muVote.Unlock()
 	m.vote.ElectionID = m.electionID
-	if proposalID != 0 {
+	if proposalID != EmptyProposalID {
 		m.vote.ProposalID = proposalID
 	} else {
 		m.vote.ProposalID = m.proposalAllocator.ReadNext()
@@ -539,7 +543,7 @@ func (m *RManager) enterNewElection(ctx context.Context, newElectionID int64) {
 	m.electionID = newElectionID
 	m.clearBallots(ctx)
 
-	m.SetVote(ctx, m.localAddr, 0)
+	m.SetVote(ctx, m.localAddr, EmptyProposalID)
 	m.voteChan <- m.CopyVote(ctx)
 }
 

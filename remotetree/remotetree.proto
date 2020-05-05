@@ -82,7 +82,8 @@ message ProposeRequest {
     int64 proposeType = 3;
     uint64 ownerID = 4;
     uint64 nodeID = 5;
-    string value = 6;
+    repeated string strs = 6;
+    string value = 7;
 }
 
 message ProposeReply {

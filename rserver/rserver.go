@@ -95,6 +95,7 @@ func (s *RServer) Propose(ctx context.Context, req *pb.ProposeRequest) (_ *pb.Pr
 		Typ:     req.ProposeType,
 		OwnerID: req.OwnerID,
 		NodeID:  req.NodeID,
+		Strs:    req.Strs,
 		Value:   req.Value,
 	}
 	if s.fp == nil {

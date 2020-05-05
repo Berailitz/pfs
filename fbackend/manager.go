@@ -31,10 +31,11 @@ const (
 )
 
 const (
-	AddOwnerProposalType    = 1
-	RemoveOwnerProposalType = 2
-	AddNodeProposalType     = 3
-	RemoveNodeProposalType  = 4
+	AddOwnerProposalType       = 1
+	RemoveOwnerProposalType    = 2
+	AddNodeProposalType        = 3
+	RemoveNodeProposalType     = 4
+	SetBackupAddrsProposalType = 5
 )
 
 const (
@@ -82,6 +83,7 @@ type Proposal struct {
 	Typ     int64
 	OwnerID uint64
 	NodeID  uint64
+	Strs    []string
 	Value   string
 }
 
@@ -421,6 +423,8 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 		m.nodeAllocator.SetNext(proposal.NodeID + 1)
 	case RemoveNodeProposalType:
 		err = m.doRemoveNode(ctx, proposal.NodeID)
+	case SetBackupAddrsProposalType:
+		err = m.setBackupAddrs(ctx, proposal.NodeID, proposal.Strs)
 	default:
 		err = &ManagerErr{fmt.Sprintf("invalid proposal type: proposal=%+v", proposal)}
 	}
@@ -783,6 +787,11 @@ func (m *RManager) randomBackupOwners(ctx context.Context, addrs []string, size 
 	return addrs
 }
 
+func (m *RManager) setBackupAddrs(ctx context.Context, nodeID uint64, addrs []string) error {
+	m.backupOwnerMap.Store(nodeID, addrs)
+	return nil
+}
+
 func (m *RManager) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []string) {
 	m.muBackupOwnerMap.Lock(nodeID)
 	defer m.muBackupOwnerMap.Unlock(nodeID)
@@ -792,6 +801,11 @@ func (m *RManager) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []s
 	}
 
 	addrs = m.randomBackupOwners(ctx, addrs, m.backupSize)
+	m.proposalChan <- &Proposal{
+		Typ:    SetBackupAddrsProposalType,
+		NodeID: nodeID,
+		Strs:   addrs,
+	}
 	logger.If(ctx, "get backup addrs", "nodeID", nodeID, "addrs", addrs)
 	m.backupOwnerMap.Store(nodeID, addrs)
 	return addrs

@@ -1100,6 +1100,7 @@ func (fp *FProxy) SendProposal(ctx context.Context, addr string, proposal *Propo
 		ProposeType: proposal.Typ,
 		OwnerID:     proposal.OwnerID,
 		NodeID:      proposal.NodeID,
+		Strs:        proposal.Strs,
 		Value:       proposal.Value,
 	})
 	if err != nil {

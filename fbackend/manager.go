@@ -647,6 +647,17 @@ func (m *RManager) findRoute(ctx context.Context, dst string) *RouteRule {
 	return shortestRule
 }
 
+func (m *RManager) startElection(ctx context.Context) {
+	if m.State(ctx) == LookingState {
+		logger.I(ctx, "already in election")
+		return
+	}
+
+	logger.W(ctx, "start election")
+	m.SetState(ctx, LookingState)
+	// TODO: send votes, async
+}
+
 func (m *RManager) updateOldTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
 	m.muRouteMapRead.Lock()
 	defer m.muRouteMapRead.Unlock()
@@ -664,7 +675,9 @@ func (m *RManager) updateOldTransit(ctx context.Context, transitAddr string, tra
 
 			logger.E(ctx, "owner offline", "dst", dst)
 			m.deleteRoute(ctx, dst)
-			// TODO: handle offline
+			if dst == m.MasterAddr() {
+				m.startElection(ctx)
+			}
 		}
 	}
 }
@@ -739,8 +752,10 @@ func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (mas
 		if m.isMasterAlive(ctx) {
 			return m.MasterAddr(), nil
 		}
-		// TODO: handle offline
+
+		m.startElection(ctx)
 	}
+
 	// TODO: handle vote
 	return "", nil
 }

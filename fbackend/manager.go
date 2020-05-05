@@ -80,12 +80,12 @@ var (
 )
 
 type Proposal struct {
-	ID      uint64
-	Typ     int64
-	OwnerID uint64
-	NodeID  uint64
-	Strs    []string
-	Value   string
+	ID      uint64   `json:"id"`
+	Typ     int64    `json:"typ"`
+	OwnerID uint64   `json:"owner_id"`
+	NodeID  uint64   `json:"node_id"`
+	Strs    []string `json:"strs"`
+	Value   string   `json:"value"`
 }
 
 const (
@@ -93,10 +93,10 @@ const (
 )
 
 type Vote struct {
-	Voter      string
-	ElectionID int64
-	ProposalID uint64
-	Nominee    string
+	Voter      string `json:"voter"`
+	ElectionID int64  `json:"election_id"`
+	ProposalID uint64 `json:"proposal_id"`
+	Nominee    string `json:"nominee"`
 }
 
 const (
@@ -107,8 +107,8 @@ const (
 )
 
 type RouteRule struct {
-	next string
-	tof  int64
+	next string `json:"next"`
+	tof  int64  `json:"tof"`
 }
 
 const (
@@ -117,8 +117,21 @@ const (
 )
 
 type Ballot struct {
-	Nominee  string
-	Deadline time.Time
+	Nominee  string    `json:"nominee"`
+	Deadline time.Time `json:"deadline"`
+}
+
+type ManagerSummary struct {
+	pb.Manager
+	LocalAddr       string                `json:"local_addr"`
+	State           int64                 `json:"state"`
+	TofMap          map[string]int64      `json:"tof_map"`
+	RouteMap        map[string]*RouteRule `json:"route_map"`
+	BackupOwnerMaps map[uint64][]string   `json:"backups_owner_maps"`
+	ElectionID      int64                 `json:"election_id"`
+	Ballots         map[string]*Ballot    `json:"ballots"`
+	NominateMap     map[string]int64      `json:"nominate_map"`
+	Vote            Vote                  `json:"vote"`
 }
 
 type RManager struct {
@@ -1121,6 +1134,67 @@ func (m *RManager) runVoter(ctx context.Context) (err error) {
 		case vote := <-m.voteChan:
 			m.broadcastVote(ctx, vote)
 		}
+	}
+}
+
+func (m *RManager) CopyRouteMap(ctx context.Context) map[string]*RouteRule {
+	r := make(map[string]*RouteRule)
+	m.routeMap.Range(func(key, value interface{}) bool {
+		r[key.(string)] = value.(*RouteRule)
+		return true
+	})
+	return r
+}
+
+func (m *RManager) CopyBackupOwnerMap(ctx context.Context) map[uint64][]string {
+	r := make(map[uint64][]string)
+	m.backupOwnerMap.Range(func(key, value interface{}) bool {
+		r[key.(uint64)] = value.([]string)
+		return true
+	})
+	return r
+}
+
+func (m *RManager) CopyBallots(ctx context.Context) map[string]*Ballot {
+	m.muBallots.RLock()
+	defer m.muBallots.RUnlock()
+
+	r := make(map[string]*Ballot)
+	for k, v := range m.ballots {
+		b := *v
+		r[k] = &b
+	}
+	return r
+}
+
+func (m *RManager) CopyNomineeMap(ctx context.Context) map[string]int64 {
+	m.muBallots.RLock()
+	defer m.muBallots.RUnlock()
+
+	r := make(map[string]int64)
+	for k, v := range m.nomineeMap {
+		r[k] = v
+	}
+	return r
+}
+
+func (m *RManager) Summary(ctx context.Context) *ManagerSummary {
+	pbm, err := m.CopyManager(ctx)
+	if err != nil {
+		return nil
+	}
+
+	return &ManagerSummary{
+		Manager:         *pbm,
+		LocalAddr:       m.localAddr,
+		State:           m.State(ctx),
+		TofMap:          m.CopyTofMap(ctx),
+		RouteMap:        m.CopyRouteMap(ctx),
+		BackupOwnerMaps: m.CopyBackupOwnerMap(ctx),
+		ElectionID:      m.ElectionID(ctx),
+		Ballots:         m.CopyBallots(ctx),
+		NominateMap:     m.CopyNomineeMap(ctx),
+		Vote:            *m.CopyVote(ctx),
 	}
 }
 

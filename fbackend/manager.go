@@ -106,6 +106,15 @@ type RouteRule struct {
 	tof  int64
 }
 
+const (
+	ballotTimeToLive = time.Second * 30
+)
+
+type Ballot struct {
+	Nominee  string
+	Deadline time.Time
+}
+
 type RManager struct {
 	broadcastRunner utility.Runnable
 	voteRunner      utility.Runnable
@@ -154,7 +163,7 @@ type RManager struct {
 	electionID   int64
 
 	muBallots  sync.RWMutex
-	ballots    map[string]string
+	ballots    map[string]*Ballot
 	nomineeMap map[string]int64
 
 	muVote sync.RWMutex
@@ -523,7 +532,7 @@ func (m *RManager) clearBallots(ctx context.Context) {
 	m.muBallots.Lock()
 	defer m.muBallots.Unlock()
 
-	m.ballots = make(map[string]string)
+	m.ballots = make(map[string]*Ballot)
 	m.nomineeMap = make(map[string]int64)
 }
 
@@ -826,8 +835,8 @@ func (m *RManager) isMasterAlive(ctx context.Context) (ok bool) {
 func (m *RManager) recountVotesWithoutLock(ctx context.Context) {
 	logger.W(ctx, "recounting votes")
 	m.nomineeMap = make(map[string]int64)
-	for _, nominee := range m.ballots {
-		m.addVoteWithoutLock(ctx, nominee, 1)
+	for _, ballot := range m.ballots {
+		m.addVoteWithoutLock(ctx, ballot.Nominee, 1)
 	}
 }
 
@@ -843,16 +852,19 @@ func (m *RManager) saveVote(ctx context.Context, vote *Vote) {
 	m.muBallots.Lock()
 	defer m.muBallots.Unlock()
 
-	if oldNominee, ok := m.ballots[vote.Voter]; ok {
+	if ballot, ok := m.ballots[vote.Voter]; ok {
 		logger.I(ctx, "revoke vote", "vote", vote)
-		if m.addVoteWithoutLock(ctx, oldNominee, -1) {
+		if m.addVoteWithoutLock(ctx, ballot.Nominee, -1) {
 			logger.E(ctx, "old nominee not exist error")
 			m.recountVotesWithoutLock(ctx)
 		}
 	}
 
 	logger.I(ctx, "save new vote", "vote", vote)
-	m.ballots[vote.Voter] = vote.Nominee
+	m.ballots[vote.Voter] = &Ballot{
+		Nominee:  vote.Nominee,
+		Deadline: time.Now().Add(ballotTimeToLive),
+	}
 	m.addVoteWithoutLock(ctx, vote.Nominee, 1)
 }
 

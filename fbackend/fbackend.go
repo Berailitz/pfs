@@ -274,10 +274,12 @@ func (fb *FBackEnd) deleteNode(ctx context.Context, id uint64) error {
 
 // MakeRoot should only be called at new
 func (fb *FBackEnd) MakeRoot(ctx context.Context) error {
-	if ok := fb.fp.AllocateRoot(ctx, fb.localID); !ok {
-		logger.W(ctx, "make root allocate root error")
-		return &FBackEndErr{"make root allocate root error"}
+	err := fb.fp.AllocateRoot(ctx, fb.localID)
+	if err != nil {
+		logger.E(ctx, "make root allocate root error", "err", err)
+		return err
 	}
+
 	rootAttrs := fuse.Attr{
 		Valid:     0,
 		Inode:     RootNodeID,

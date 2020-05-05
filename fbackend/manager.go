@@ -41,8 +41,9 @@ const (
 )
 
 var (
-	NodeNotExistErr  = &ManagerErr{"node not exist"}
-	OwnerNotExistErr = &ManagerErr{"owner not exist"}
+	NodeNotExistErr    = &ManagerErr{"node not exist"}
+	OwnerNotExistErr   = &ManagerErr{"owner not exist"}
+	RootAllocatedError = &ManagerErr{"root already allocated error"}
 )
 
 type Proposal struct {
@@ -246,17 +247,18 @@ func (m *RManager) MasterAddr() string {
 // Note that AllocateRoot returns false if ownID is invalid.
 // No need to broadcast for 1. root owner is the first owner and there is no one to answer
 // 2. root owner will be automatically chose after recovery
-func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) bool {
+func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) error {
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
 	if _, ok := m.Owners.Load(ownerID); ok {
 		if _, loaded := m.NodeOwner.LoadOrStore(RootNodeID, ownerID); !loaded {
 			logger.If(ctx, "root allocated: ownerID=%v", ownerID)
-			return true
+			return nil
 		}
+		return RootAllocatedError
 	}
-	return false
+	return OwnerNotExistErr
 }
 
 func (m *RManager) loadManager(ctx context.Context, pbm *pb.Manager) {

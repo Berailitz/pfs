@@ -465,12 +465,16 @@ func (s *RServer) RemoveOwner(ctx context.Context, req *pb.OwnerId) (*pb.Error, 
 	return utility.ToPbErr(ferr), nil
 }
 
-func (s *RServer) AllocateRoot(ctx context.Context, req *pb.OwnerId) (*pb.IsOK, error) {
+func (s *RServer) AllocateRoot(ctx context.Context, req *pb.OwnerId) (*pb.Error, error) {
+	var err error
 	if s.fp != nil {
-		return &pb.IsOK{Ok: s.fp.AllocateRoot(ctx, req.Id)}, nil
+		err = s.fp.AllocateRoot(ctx, req.Id)
+
 	} else {
-		return &pb.IsOK{Ok: s.ma.AllocateRoot(ctx, req.Id)}, nil
+		err = s.ma.AllocateRoot(ctx, req.Id)
 	}
+
+	return utility.ToPbErr(err), nil
 }
 
 func (s *RServer) RegisterFProxy(ctx context.Context, fp *fbackend.FProxy) {

@@ -49,7 +49,7 @@ service RemoteTree {
     rpc Deallocate(UInt64ID) returns (Error) {}
     rpc RegisterOwner(Addr) returns (OwnerId) {}
     rpc RemoveOwner(OwnerId) returns (Error) {}
-    rpc AllocateRoot(OwnerId) returns (IsOK) {}
+    rpc AllocateRoot(OwnerId) returns (Error) {}
 }
 
 message Manager {
@@ -349,5 +349,6 @@ message Addr {
 }
 
 message IsOK {
-    bool ok = 1;
+    Error err = 1;
+    bool ok = 2;
 }

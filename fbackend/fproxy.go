@@ -975,26 +975,26 @@ func (fp *FProxy) RemoveOwner(ctx context.Context, ownerID uint64) error {
 	return nil
 }
 
-func (fp *FProxy) AllocateRoot(ctx context.Context, ownerID uint64) bool {
+func (fp *FProxy) AllocateRoot(ctx context.Context, ownerID uint64) error {
 	if fp.localAddr == fp.ma.MasterAddr() {
 		return fp.ma.AllocateRoot(ctx, ownerID)
 	}
 
 	gcli, err := fp.pool.Load(ctx, fp.ma.MasterAddr())
 	if err != nil {
-		return false
+		return err
 	}
 
 	logger.I(ctx, "allocate root", "ownerID", ownerID)
-	out, err := gcli.AllocateRoot(ctx, &pb.OwnerId{
+	perr, err := gcli.AllocateRoot(ctx, &pb.OwnerId{
 		Id: ownerID,
 	})
 	if err != nil {
 		logger.E(ctx, "allocate root error", "ownerID", ownerID, "err", err)
-		return false
+		return err
 	}
-	logger.I(ctx, "allocate root finished", "ownerID", ownerID, "out", out)
-	return out.Ok
+	logger.I(ctx, "allocate root finished", "ownerID", ownerID, "perr", perr)
+	return utility.FromPbErr(perr)
 }
 
 func (fp *FProxy) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {

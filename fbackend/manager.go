@@ -143,6 +143,10 @@ type RManager struct {
 
 	muElectionID sync.RWMutex
 	electionID   int64
+
+	muBallots  sync.RWMutex
+	ballots    map[string]string
+	nomineeMap map[string]int64
 }
 
 type ManagerErr struct {
@@ -483,6 +487,14 @@ func (m *RManager) State(ctx context.Context) int64 {
 	return atomic.LoadInt64(&m._state)
 }
 
+func (m *RManager) clearBallots(ctx context.Context) {
+	m.muBallots.Lock()
+	defer m.muBallots.Unlock()
+
+	m.ballots = make(map[string]string)
+	m.nomineeMap = make(map[string]int64)
+}
+
 func (m *RManager) enterNewElection(ctx context.Context, newElectionID int64) {
 	m.muElectionID.Lock()
 	defer m.muElectionID.Unlock()
@@ -497,7 +509,8 @@ func (m *RManager) enterNewElection(ctx context.Context, newElectionID int64) {
 	}
 
 	m.electionID = newElectionID
-	// TODO: invalidate old votes, re-send votes
+	m.clearBallots(ctx)
+	// TODO: re-send votes
 }
 
 func (m *RManager) ElectionID(ctx context.Context) int64 {

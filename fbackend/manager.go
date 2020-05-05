@@ -503,11 +503,16 @@ func (m *RManager) CopyVote(ctx context.Context) *Vote {
 	return &copiedVote
 }
 
-func (m *RManager) SetVote(ctx context.Context, vote *Vote) {
+func (m *RManager) SetVote(ctx context.Context, nominee string, proposalID uint64) {
 	m.muVote.Lock()
 	defer m.muVote.Unlock()
-	m.vote = *vote
-	m.vote.Voter = m.localAddr
+	m.vote.ElectionID = m.electionID
+	if proposalID != 0 {
+		m.vote.ProposalID = proposalID
+	} else {
+		m.vote.ProposalID = m.proposalAllocator.ReadNext()
+	}
+	m.vote.Nominee = nominee
 }
 
 func (m *RManager) clearBallots(ctx context.Context) {
@@ -534,11 +539,7 @@ func (m *RManager) enterNewElection(ctx context.Context, newElectionID int64) {
 	m.electionID = newElectionID
 	m.clearBallots(ctx)
 
-	m.SetVote(ctx, &Vote{
-		ElectionID: m.electionID,
-		ProposalID: m.proposalAllocator.ReadNext(),
-		Nominee:    m.localAddr,
-	})
+	m.SetVote(ctx, m.localAddr, 0)
 	m.voteChan <- m.CopyVote(ctx)
 }
 

@@ -928,7 +928,7 @@ func (fp *FProxy) Deallocate(ctx context.Context, nodeID uint64) error {
 	return nil
 }
 
-func (fp *FProxy) RegisterOwner(ctx context.Context, addr string) uint64 {
+func (fp *FProxy) RegisterOwner(ctx context.Context, addr string) (uint64, error) {
 	if fp.localAddr == fp.ma.MasterAddr() {
 		return fp.ma.RegisterOwner(ctx, addr)
 	}
@@ -936,18 +936,21 @@ func (fp *FProxy) RegisterOwner(ctx context.Context, addr string) uint64 {
 	logger.I(ctx, "register owner", "addr", addr)
 	gcli, err := fp.pool.Load(ctx, fp.ma.MasterAddr())
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
 	out, err := gcli.RegisterOwner(ctx, &pb.Addr{
 		Addr: addr,
 	})
+	if err == nil {
+		err = utility.FromPbErr(out.Err)
+	}
 	if err != nil {
 		logger.E(ctx, "register owner error", "adrr", addr, "err", err)
-		return 0
+		return 0, err
 	}
 	logger.I(ctx, "register owner success", "addr", addr)
-	return out.Id
+	return out.Id, nil
 }
 
 func (fp *FProxy) RemoveOwner(ctx context.Context, ownerID uint64) error {

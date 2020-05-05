@@ -95,14 +95,13 @@ func (fb *FBackEnd) registerSelf(ctx context.Context, addr string) {
 		logger.Pf(ctx, "duplicate register error: addr=%v", addr)
 	}
 
-	localID := fb.fp.RegisterOwner(ctx, addr)
-	if localID > 0 {
-		fb.localID = localID
-		logger.If(ctx, "register success: addr=%v, localID=%v", addr, localID)
-		return
+	localID, err := fb.fp.RegisterOwner(ctx, addr)
+	if err != nil {
+		logger.P(ctx, "register self error", "addr", addr, "err", err)
 	}
 
-	logger.Pf(ctx, "register error: addr=%v", addr)
+	fb.localID = localID
+	logger.If(ctx, "register success: addr=%v, localID=%v", addr, localID)
 }
 
 func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool, localOnly bool) (*rnode.RNode, error) {

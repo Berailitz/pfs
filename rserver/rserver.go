@@ -446,12 +446,15 @@ func (s *RServer) Deallocate(ctx context.Context, req *pb.UInt64ID) (*pb.Error, 
 	return utility.ToPbErr(ferr), nil
 }
 
-func (s *RServer) RegisterOwner(ctx context.Context, req *pb.Addr) (*pb.OwnerId, error) {
+func (s *RServer) RegisterOwner(ctx context.Context, req *pb.Addr) (*pb.UInt64Reply, error) {
+	var id uint64
+	var ferr error
 	if s.fp != nil {
-		return &pb.OwnerId{Id: s.fp.RegisterOwner(ctx, req.Addr)}, nil
+		id, ferr = s.fp.RegisterOwner(ctx, req.Addr)
 	} else {
-		return &pb.OwnerId{Id: s.ma.RegisterOwner(ctx, req.Addr)}, nil
+		id, ferr = s.ma.RegisterOwner(ctx, req.Addr)
 	}
+	return &pb.UInt64Reply{Id: id, Err: utility.ToPbErr(ferr)}, nil
 }
 
 func (s *RServer) RemoveOwner(ctx context.Context, req *pb.OwnerId) (*pb.Error, error) {

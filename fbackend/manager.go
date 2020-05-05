@@ -44,6 +44,8 @@ var (
 	NodeNotExistErr    = &ManagerErr{"node not exist"}
 	OwnerNotExistErr   = &ManagerErr{"owner not exist"}
 	RootAllocatedError = &ManagerErr{"root already allocated error"}
+	InvalidAddrErr     = &ManagerErr{"invalid empty addr error"}
+	OutOfOwnerIDErr    = &ManagerErr{"out of owner ID error"}
 )
 
 type Proposal struct {
@@ -164,10 +166,10 @@ func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) (err error) {
 	return nil
 }
 
-func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) bool {
+func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) error {
 	if addr == "" {
-		logger.Ef(ctx, "invalid empty addr error")
-		return false
+		logger.Ef(ctx, "invalid empty addr error", "ownerID", ownerID, "addr", addr)
+		return InvalidAddrErr
 	}
 
 	m.muOwnerMapRead.Lock()
@@ -175,18 +177,19 @@ func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) 
 
 	m.Owners.Store(ownerID, addr)
 	m.ownerMapRead[ownerID] = addr
-	return true
+	return nil
 }
 
 // RegisterOwner return 0 if err
-func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
+func (m *RManager) RegisterOwner(ctx context.Context, addr string) (uint64, error) {
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
 	ownerID := m.ownerAllocator.Allocate()
 	if ownerID <= MaxOwnerID {
-		if !m.doAddOwner(ctx, ownerID, addr) {
-			return 0
+		err := m.doAddOwner(ctx, ownerID, addr)
+		if err != nil {
+			return 0, err
 		}
 		m.proposalChan <- &Proposal{
 			Typ:     AddOwnerProposalType,
@@ -194,9 +197,9 @@ func (m *RManager) RegisterOwner(ctx context.Context, addr string) uint64 {
 			Value:   addr,
 		}
 
-		return ownerID
+		return ownerID, nil
 	}
-	return 0
+	return 0, OutOfOwnerIDErr
 }
 
 func (m *RManager) doRemoveOwner(ctx context.Context, ownerID uint64) error {
@@ -313,10 +316,8 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 
 	switch proposal.Typ {
 	case AddOwnerProposalType:
-		if m.doAddOwner(ctx, proposal.OwnerID, proposal.Value) {
+		if err = m.doAddOwner(ctx, proposal.OwnerID, proposal.Value); err == nil {
 			m.ownerAllocator.SetNext(proposal.OwnerID + 1)
-		} else {
-			err = &ManagerErr{fmt.Sprintf("invalid proposal value: proposal=%+v", proposal)}
 		}
 	case RemoveOwnerProposalType:
 		err = m.doRemoveOwner(ctx, proposal.OwnerID)

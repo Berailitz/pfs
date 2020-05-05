@@ -46,6 +46,12 @@ type FBackEndErr struct {
 
 var _ = (error)((*FBackEndErr)(nil))
 
+type FBSummary struct {
+	Nodes       map[uint64]int64  `json:"nodes"`        // map[nodeID]NVersion
+	BackupNodes map[uint64]int64  `json:"backup_nodes"` // map[nodeID]NVersion
+	Handles     map[uint64]uint64 `json:"handles"`
+}
+
 type internalSetInodeAttributesParam struct {
 	Size  *uint64
 	Mode  *os.FileMode
@@ -1443,6 +1449,41 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 func (fb *FBackEnd) SaveRedundantNode(ctx context.Context, node *rnode.RNode) error {
 	fb.redundantNodes.Store(node.ID(), node)
 	return nil
+}
+
+func (fb *FBackEnd) CopyNodes(ctx context.Context) map[uint64]int64 {
+	r := make(map[uint64]int64)
+	fb.nodes.Range(func(key, value interface{}) bool {
+		r[key.(uint64)] = value.(*rnode.RNode).Version()
+		return true
+	})
+	return r
+}
+
+func (fb *FBackEnd) CopyBackupNodes(ctx context.Context) map[uint64]int64 {
+	r := make(map[uint64]int64)
+	fb.redundantNodes.Range(func(key, value interface{}) bool {
+		r[key.(uint64)] = value.(*rnode.RNode).Version()
+		return true
+	})
+	return r
+}
+
+func (fb *FBackEnd) CopyHandles(ctx context.Context) map[uint64]uint64 {
+	r := make(map[uint64]uint64)
+	fb.handleMap.Range(func(key, value interface{}) bool {
+		r[key.(uint64)] = value.(uint64)
+		return true
+	})
+	return r
+}
+
+func (fb *FBackEnd) Summary(ctx context.Context) *FBSummary {
+	return &FBSummary{
+		Nodes:       fb.CopyNodes(ctx),
+		BackupNodes: fb.CopyBackupNodes(ctx),
+		Handles:     fb.CopyHandles(ctx),
+	}
 }
 
 func (e *FBackEndErr) Error() string {

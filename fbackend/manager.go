@@ -122,8 +122,8 @@ type RManager struct {
 
 	muSync sync.RWMutex // lock when syncing, rlock when using
 
-	NodeOwner         sync.Map // [uint64]uint64
-	Owners            sync.Map // [uint64]string
+	NodeOwner         utility.IterableMap // [uint64]uint64
+	Owners            utility.IterableMap // [uint64]string
 	nodeAllocator     *idallocator.IDAllocator
 	ownerAllocator    *idallocator.IDAllocator
 	proposalAllocator *idallocator.IDAllocator
@@ -133,12 +133,6 @@ type RManager struct {
 	muMasterAddr sync.RWMutex
 	masterAddr   string
 
-	muOwnerMapRead sync.RWMutex
-	ownerMapRead   map[uint64]string
-
-	muNodeMapRead sync.RWMutex
-	nodeMapRead   map[uint64]uint64
-
 	fp *FProxy
 
 	localAddr string
@@ -146,19 +140,15 @@ type RManager struct {
 
 	watchDogRunner utility.Runnable
 
-	remoteTofMaps sync.Map // map[string]map[string]int64, inner map is readonly
+	remoteTofMaps utility.IterableMap // map[string]map[string]int64, inner map is readonly
 
-	realTofMap   sync.Map         // map[string]int64
-	tofMapRead   map[string]int64 // map[string]int64
-	muTofMapRead sync.RWMutex
+	realTofMap utility.IterableMap // map[string]int64
 
-	routeMap       sync.Map // map[string]*RouteRule
-	routeMapRead   map[string]*RouteRule
-	muRouteMapRead sync.RWMutex
+	routeMap utility.IterableMap // map[string]*RouteRule
 
 	staticTofCfgFile string
 
-	backupsOwnerMaps []*sync.Map // map[uint64]string
+	backupsOwnerMaps []*utility.IterableMap // map[uint64]string
 
 	muElectionID sync.RWMutex
 	electionID   int64
@@ -208,11 +198,7 @@ func (m *RManager) queryAddr(ctx context.Context, ownerID uint64) string {
 }
 
 func (m *RManager) doAddNode(ctx context.Context, nodeID uint64, ownerID uint64) {
-	m.muNodeMapRead.Lock()
-	defer m.muNodeMapRead.Unlock()
-
 	m.NodeOwner.Store(nodeID, ownerID)
-	m.nodeMapRead[nodeID] = ownerID
 }
 
 func (m *RManager) Allocate(ctx context.Context, ownerID uint64) (uint64, error) {
@@ -239,10 +225,7 @@ func (m *RManager) Allocate(ctx context.Context, ownerID uint64) (uint64, error)
 func (m *RManager) doRemoveNode(ctx context.Context, nodeID uint64) error {
 	if out, ok := m.NodeOwner.Load(nodeID); ok {
 		if _, ok := out.(uint64); ok {
-			m.muNodeMapRead.Lock()
-			defer m.muNodeMapRead.Unlock()
 			m.NodeOwner.Delete(nodeID)
-			delete(m.nodeMapRead, nodeID)
 			return nil
 		}
 	}
@@ -274,11 +257,7 @@ func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) 
 		return InvalidAddrErr
 	}
 
-	m.muOwnerMapRead.Lock()
-	defer m.muOwnerMapRead.Unlock()
-
 	m.Owners.Store(ownerID, addr)
-	m.ownerMapRead[ownerID] = addr
 	return nil
 }
 
@@ -310,11 +289,8 @@ func (m *RManager) RegisterOwner(ctx context.Context, addr string) (uint64, erro
 }
 
 func (m *RManager) doRemoveOwner(ctx context.Context, ownerID uint64) error {
-	m.muOwnerMapRead.Lock()
-	defer m.muOwnerMapRead.Unlock()
 	if _, ok := m.Owners.Load(ownerID); ok {
 		m.Owners.Delete(ownerID)
-		delete(m.ownerMapRead, ownerID)
 		return nil
 	}
 	return OwnerNotExistErr
@@ -343,13 +319,11 @@ func (m *RManager) CopyOwnerMap(ctx context.Context) map[uint64]string {
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
-	m.muOwnerMapRead.RLock()
-	defer m.muOwnerMapRead.RUnlock()
-
-	output := make(map[uint64]string, len(m.ownerMapRead))
-	for k, v := range m.ownerMapRead {
-		output[k] = v
-	}
+	output := make(map[uint64]string)
+	m.Owners.Range(func(key, value interface{}) bool {
+		output[key.(uint64)] = value.(string)
+		return true
+	})
 	return output
 }
 
@@ -385,19 +359,15 @@ func (m *RManager) loadManager(ctx context.Context, pbm *pb.Manager) {
 	m.muSync.Lock()
 	defer m.muSync.Unlock()
 
-	m.Owners = sync.Map{}
-	m.ownerMapRead = make(map[uint64]string)
+	m.Owners = utility.IterableMap{}
 	if pbm.Owners != nil {
-		m.ownerMapRead = pbm.Owners
 		for k, v := range pbm.Owners {
 			m.Owners.Store(k, v)
 		}
 	}
 
-	m.NodeOwner = sync.Map{}
-	m.nodeMapRead = make(map[uint64]uint64)
+	m.NodeOwner = utility.IterableMap{}
 	if pbm.Nodes != nil {
-		m.nodeMapRead = m.nodeMapRead
 		for k, v := range pbm.Nodes {
 			m.NodeOwner.Store(k, v)
 		}
@@ -589,14 +559,16 @@ func (m *RManager) CopyManager(ctx context.Context) (*pb.Manager, error) {
 	copiedNodes := make(map[uint64]uint64)
 	copiedOwners := make(map[uint64]string)
 	func() {
-		for k, v := range m.nodeMapRead {
-			copiedNodes[k] = v
-		}
+		m.NodeOwner.Range(func(key, value interface{}) bool {
+			copiedNodes[key.(uint64)] = value.(uint64)
+			return true
+		})
 	}()
 	func() {
-		for k, v := range m.ownerMapRead {
-			copiedOwners[k] = v
-		}
+		m.Owners.Range(func(key, value interface{}) bool {
+			copiedOwners[key.(uint64)] = value.(string)
+			return true
+		})
 	}()
 	return &pb.Manager{
 		Err:          nil,
@@ -627,12 +599,6 @@ func (m *RManager) LogicTof(addr string) (int64, bool) {
 
 func (m *RManager) saveRealTof(ctx context.Context, addr string, tof int64) {
 	m.realTofMap.Store(addr, tof)
-	func() {
-		m.muTofMapRead.Lock()
-		defer m.muTofMapRead.Unlock()
-		m.tofMapRead[addr] = tof
-	}()
-
 	if _, ok := m.routeMap.Load(addr); !ok {
 		m.saveRoute(ctx, addr, addr, tof)
 	}
@@ -646,12 +612,11 @@ func (m *RManager) realTof(addr string) (int64, bool) {
 }
 
 func (m *RManager) CopyTofMap(ctx context.Context) (copied map[string]int64) {
-	m.muTofMapRead.RLock()
-	defer m.muTofMapRead.RUnlock()
-	copied = make(map[string]int64, len(m.tofMapRead))
-	for k, v := range m.tofMapRead {
-		copied[k] = v
-	}
+	copied = make(map[string]int64, m.realTofMap.Len())
+	m.realTofMap.Range(func(key, value interface{}) bool {
+		copied[key.(string)] = value.(int64)
+		return true
+	})
 	return copied
 }
 
@@ -665,9 +630,6 @@ func (m *RManager) smoothTof(ctx context.Context, addr string, rawTof int64) (sm
 
 func (m *RManager) deleteRoute(ctx context.Context, addr string) {
 	m.routeMap.Delete(addr)
-	m.muRouteMapRead.Lock()
-	defer m.muRouteMapRead.Unlock()
-	delete(m.routeMapRead, addr)
 }
 
 func (m *RManager) saveDefaultDirectRoute(ctx context.Context, addr string) {
@@ -679,14 +641,11 @@ func (m *RManager) saveRoute(ctx context.Context, addr string, next string, tof 
 		next: addr,
 		tof:  tof,
 	}
-	m.muRouteMapRead.Lock()
-	defer m.muRouteMapRead.Unlock()
 	m.saveRouteWithoutLock(ctx, addr, rule)
 }
 
 func (m *RManager) saveRouteWithoutLock(ctx context.Context, addr string, rule *RouteRule) {
 	m.routeMap.Store(addr, rule)
-	m.routeMapRead[addr] = rule
 }
 
 // do not need lock
@@ -703,30 +662,33 @@ func (m *RManager) findRoute(ctx context.Context, dst string) *RouteRule {
 		next: dst,
 		tof:  math.MaxInt64,
 	}
-	for transitAddr, transitRule := range m.routeMapRead {
+	m.routeMap.Range(func(key, value interface{}) bool {
+		transitAddr := key.(string)
+		transitRule := value.(*RouteRule)
 		out, ok := m.remoteTofMaps.Load(transitAddr)
 		if !ok {
 			logger.W(ctx, "non remoteTofMap but has tofMap", "transitAddr", transitAddr)
-			continue
+			return true
 		}
 
 		remoteTofMap, ok := out.(map[string]int64)
 		if !ok {
 			logger.E(ctx, "remoteTofMap not map error",
 				"transitAddr", transitAddr, "remoteTofMap", remoteTofMap)
-			continue
+			return true
 		}
 
 		remoteTof, ok := remoteTofMap[dst]
 		if !ok {
 			logger.W(ctx, "remote has offline owner", "transitAddr", transitAddr, "dst", dst)
-			continue
+			return true
 		}
 
 		if totalTof := remoteTof + transitRule.tof; totalTof < shortestRule.tof {
 			shortestRule.tof = totalTof
 		}
-	}
+		return true
+	})
 
 	if shortestRule.tof == math.MaxInt64 {
 		return nil
@@ -746,14 +708,14 @@ func (m *RManager) turnIntoElectionState(ctx context.Context) {
 }
 
 func (m *RManager) updateOldTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
-	m.muRouteMapRead.Lock()
-	defer m.muRouteMapRead.Unlock()
-	for dst, rule := range m.routeMapRead {
+	m.routeMap.Range(func(key, value interface{}) bool {
+		dst := key.(string)
+		rule := value.(*RouteRule)
 		if rule.next == transitAddr {
 			if remoteTof, ok := remoteTofMap[dst]; ok {
 				rule.tof = remoteTof + transitTof
 				m.saveRouteWithoutLock(ctx, dst, rule)
-				continue
+				return true
 			}
 
 			if rule = m.findRoute(ctx, dst); rule != nil {
@@ -766,7 +728,8 @@ func (m *RManager) updateOldTransit(ctx context.Context, transitAddr string, tra
 				m.turnIntoElectionState(ctx)
 			}
 		}
-	}
+		return true
+	})
 }
 
 func (m *RManager) addNewTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
@@ -803,14 +766,13 @@ func (m *RManager) loadStaticTof(ctx context.Context) (staticTofMap map[string]i
 }
 
 func (m *RManager) randomOtherOwner(ctx context.Context) (addr string) {
-	m.muTofMapRead.RLock()
-	defer m.muTofMapRead.RUnlock()
-
-	for addr, _ := range m.tofMapRead {
-		if addr != m.localAddr {
-			return addr
+	m.realTofMap.Range(func(key, value interface{}) bool {
+		if skey := key.(string); skey != m.localAddr {
+			addr = skey
+			return false
 		}
-	}
+		return true
+	})
 	return ""
 }
 
@@ -1101,15 +1063,11 @@ func NewRManager(ctx context.Context, localAddr string, masterAddr string, stati
 		nodeAllocator:     idallocator.NewIDAllocator(RootNodeID + 1), // since root is assigned by AllocateRoot, not allocated
 		ownerAllocator:    idallocator.NewIDAllocator(FirstOwnerID),
 		proposalAllocator: idallocator.NewIDAllocator(FirstProposalID),
-		ownerMapRead:      make(map[uint64]string),
-		nodeMapRead:       make(map[uint64]uint64),
 		proposalChan:      make(chan *Proposal),
 		localAddr:         localAddr,
 		masterAddr:        masterAddr,
-		tofMapRead:        make(map[string]int64),
-		routeMapRead:      make(map[string]*RouteRule),
 		staticTofCfgFile:  staticTofCfgFile,
-		backupsOwnerMaps:  make([]*sync.Map, backupSize),
+		backupsOwnerMaps:  make([]*utility.IterableMap, backupSize),
 		voteChan:          make(chan *Vote),
 		vote: Vote{
 			Voter:      localAddr,

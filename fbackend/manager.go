@@ -60,6 +60,8 @@ var (
 
 	InternalInvalidOwnerIDErr = &ManagerErr{"owner ID not uint64 error"}
 
+	NotLeadingStateErr = &ManagerErr{"not leading state error"}
+
 	NoRouteErr = &ManagerErr{"no route"}
 )
 
@@ -170,6 +172,10 @@ func (m *RManager) doAddNode(ctx context.Context, nodeID uint64, ownerID uint64)
 }
 
 func (m *RManager) Allocate(ctx context.Context, ownerID uint64) (uint64, error) {
+	if err := m.ErrIfNotLeadingState(ctx); err != nil {
+		return 0, err
+	}
+
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
@@ -200,6 +206,10 @@ func (m *RManager) doRemoveNode(ctx context.Context, nodeID uint64) error {
 }
 
 func (m *RManager) Deallocate(ctx context.Context, nodeID uint64) (err error) {
+	if err := m.ErrIfNotLeadingState(ctx); err != nil {
+		return err
+	}
+
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
@@ -230,6 +240,10 @@ func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) 
 
 // RegisterOwner return 0 if err
 func (m *RManager) RegisterOwner(ctx context.Context, addr string) (uint64, error) {
+	if err := m.ErrIfNotLeadingState(ctx); err != nil {
+		return 0, err
+	}
+
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
@@ -263,6 +277,10 @@ func (m *RManager) doRemoveOwner(ctx context.Context, ownerID uint64) error {
 }
 
 func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) (err error) {
+	if err := m.ErrIfNotLeadingState(ctx); err != nil {
+		return err
+	}
+
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
@@ -300,6 +318,10 @@ func (m *RManager) MasterAddr() string {
 // No need to broadcast for 1. root owner is the first owner and there is no one to answer
 // 2. root owner will be automatically chose after recovery
 func (m *RManager) AllocateRoot(ctx context.Context, ownerID uint64) error {
+	if err := m.ErrIfNotLeadingState(ctx); err != nil {
+		return err
+	}
+
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
@@ -440,6 +462,13 @@ func (m *RManager) SetState(ctx context.Context, state int64) {
 
 func (m *RManager) State(ctx context.Context) int64 {
 	return atomic.LoadInt64(&m._state)
+}
+
+func (m *RManager) ErrIfNotLeadingState(ctx context.Context) error {
+	if atomic.LoadInt64(&m._state) != LeadingState {
+		return NotLeadingStateErr
+	}
+	return nil
 }
 
 func (m *RManager) CopyManager(ctx context.Context) (*pb.Manager, error) {

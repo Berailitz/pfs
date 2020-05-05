@@ -152,6 +152,9 @@ type RManager struct {
 	ballots    map[string]string
 	nomineeMap map[string]int64
 
+	muVote sync.RWMutex
+	vote   Vote
+
 	voteChan chan *Vote
 }
 
@@ -516,7 +519,14 @@ func (m *RManager) enterNewElection(ctx context.Context, newElectionID int64) {
 
 	m.electionID = newElectionID
 	m.clearBallots(ctx)
-	// TODO: re-send votes
+
+	m.muVote.Lock()
+	defer m.muVote.Unlock()
+	m.vote.ElectionID = m.electionID
+	m.vote.Nominee = m.localAddr
+	m.vote.ProposalID = m.proposalAllocator.ReadNext()
+	currentVote := m.vote
+	m.voteChan <- &currentVote
 }
 
 func (m *RManager) ElectionID(ctx context.Context) int64 {
@@ -956,6 +966,12 @@ func NewRManager(ctx context.Context, localAddr string, masterAddr string, stati
 		staticTofCfgFile:  staticTofCfgFile,
 		backupsOwnerMaps:  make([]*sync.Map, backupSize),
 		voteChan:          make(chan *Vote),
+		vote: Vote{
+			Voter:      localAddr,
+			ElectionID: 0,
+			ProposalID: 0,
+			Nominee:    "",
+		},
 	}
 	switch masterAddr {
 	case localAddr:

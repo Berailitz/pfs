@@ -146,14 +146,14 @@ func (fp *FProxy) Vote(ctx context.Context, addr string, vote *Vote) (masterAddr
 	return reply.MasterAddr, utility.FromPbErr(reply.Err)
 }
 
-func (fp *FProxy) Gossip(ctx context.Context, addr string) (_ map[string]int64, nominee string, err error) {
+func (fp *FProxy) Gossip(ctx context.Context, addr string) (_ map[string]int64, err error) {
 	if addr == fp.localAddr {
 		return fp.ma.AnswerGossip(ctx, addr)
 	}
 
 	gcli, err := fp.pool.Load(ctx, addr)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	reply, err := gcli.Gossip(ctx, &pb.GossipRequest{
@@ -161,9 +161,9 @@ func (fp *FProxy) Gossip(ctx context.Context, addr string) (_ map[string]int64, 
 	})
 	if err != nil {
 		logger.E(ctx, "fp gossip error", "addr", addr, "err", err)
-		return nil, "", err
+		return nil, err
 	}
-	return reply.TofMap, reply.Nominee, utility.FromPbErr(reply.Err)
+	return reply.TofMap, utility.FromPbErr(reply.Err)
 }
 
 func (fp *FProxy) CopyManager(ctx context.Context) (*pb.Manager, error) {

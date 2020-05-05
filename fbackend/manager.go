@@ -143,8 +143,6 @@ type RManager struct {
 
 	staticTofCfgFile string
 
-	nominee string
-
 	backupsOwnerMaps []*sync.Map // map[uint64]string
 
 	muElectionID sync.RWMutex
@@ -848,8 +846,8 @@ func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (mas
 	return "", nil
 }
 
-func (m *RManager) AnswerGossip(ctx context.Context, addr string) (tofMap map[string]int64, nominee string, err error) {
-	return m.CopyTofMap(ctx), m.nominee, nil
+func (m *RManager) AnswerGossip(ctx context.Context, addr string) (tofMap map[string]int64, err error) {
+	return m.CopyTofMap(ctx), nil
 }
 
 func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
@@ -882,7 +880,7 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 		}
 
 		m.remoteTofMaps.Delete(addr)
-		remoteTofMap, _, err := m.fp.Gossip(ctx, addr)
+		remoteTofMap, err := m.fp.Gossip(ctx, addr)
 		if err != nil {
 			logger.E(ctx, "gossip error", "addr", addr, "err", err)
 			continue

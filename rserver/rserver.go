@@ -114,15 +114,14 @@ func (s *RServer) Propose(ctx context.Context, req *pb.ProposeRequest) (_ *pb.Pr
 }
 
 func (s *RServer) Gossip(ctx context.Context, req *pb.GossipRequest) (*pb.GossipReply, error) {
-	tofMap, nominee, err := s.fp.Gossip(ctx, req.Addr)
+	tofMap, err := s.fp.Gossip(ctx, req.Addr)
 	var perr *pb.Error = &pb.Error{}
 	if err != nil {
 		perr = utility.ToPbErr(err)
 	}
 	return &pb.GossipReply{
-		Err:     perr,
-		TofMap:  tofMap,
-		Nominee: nominee,
+		Err:    perr,
+		TofMap: tofMap,
 	}, nil
 }
 

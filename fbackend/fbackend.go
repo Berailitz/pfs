@@ -275,7 +275,7 @@ func (fb *FBackEnd) deleteNode(ctx context.Context, id uint64) error {
 func (fb *FBackEnd) MakeRoot(ctx context.Context) error {
 	err := fb.fp.AllocateRoot(ctx, fb.localID)
 	if err != nil {
-		logger.E(ctx, "make root allocate root error", "err", err)
+		logger.W(ctx, "make root allocate root error", "err", err)
 		return err
 	}
 

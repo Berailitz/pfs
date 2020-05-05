@@ -28,10 +28,8 @@ type FBackEnd struct {
 
 	mu sync.RWMutex
 
-	nodes          sync.Map // [uint64]*rnode.RNode
-	redundantNodes sync.Map // [uint64]*rnode.RNode
-	nodesRead      map[uint64]*rnode.RNode
-	muNodesRead    sync.RWMutex
+	nodes          utility.IterableMap // [uint64]*rnode.RNode
+	redundantNodes utility.IterableMap // [uint64]*rnode.RNode
 	localID        uint64
 
 	fp *FProxy
@@ -72,7 +70,6 @@ func NewFBackEnd(
 		uid:             uid,
 		gid:             gid,
 		handleAllocator: allocator,
-		nodesRead:       make(map[uint64]*rnode.RNode),
 		ma:              ma,
 	}
 }
@@ -247,26 +244,20 @@ func (fb *FBackEnd) IsLocal(ctx context.Context, id uint64) bool {
 
 func (fb *FBackEnd) storeNode(ctx context.Context, id uint64, node *rnode.RNode) error {
 	logger.If(ctx, "store node: id=%v", id)
-	fb.muNodesRead.Lock()
-	defer fb.muNodesRead.Unlock()
 	if _, loaded := fb.nodes.LoadOrStore(id, node); loaded {
 		logger.Ef(ctx, "store node overwrite error: id=%v", id)
 	} else {
 		logger.If(ctx, "store node success: id=%v", id)
 	}
-	fb.nodesRead[id] = node
 	return nil
 }
 
 func (fb *FBackEnd) deleteNode(ctx context.Context, id uint64) error {
 	logger.If(ctx, "delete node: id=%v", id)
-	fb.muNodesRead.Lock()
-	defer fb.muNodesRead.Unlock()
 	if !fb.IsLocal(ctx, id) {
 		return &FBackEndErr{fmt.Sprintf("delete node not exist error: id=%v", id)}
 	}
 	fb.nodes.Delete(id)
-	delete(fb.nodesRead, id)
 	logger.If(ctx, "delete node success: id=%v", id)
 	return nil
 }

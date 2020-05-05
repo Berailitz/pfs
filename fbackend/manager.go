@@ -460,15 +460,10 @@ func (m *RManager) runBroadcast(ctx context.Context) (err error) {
 }
 
 func (m *RManager) broadcastProposal(ctx context.Context, proposal *Proposal) {
-	m.muSync.RLock()
-	defer m.muSync.RUnlock()
-
+	currentOwnerMap := m.CopyOwnerMap(ctx)
 	proposal.ID = m.proposalAllocator.Allocate()
 
-	m.muOwnerMapRead.RLock()
-	defer m.muOwnerMapRead.RUnlock()
-
-	for _, addr := range m.ownerMapRead {
+	for _, addr := range currentOwnerMap {
 		if addr != m.MasterAddr() {
 			// TODO handle state and err
 			_, err := m.fp.SendProposal(ctx, addr, proposal)

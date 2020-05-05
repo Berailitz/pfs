@@ -49,7 +49,7 @@ func (p *PFS) Mount(ctx context.Context) error {
 	localAddr := fmt.Sprintf("%s:%d", p.param.Host, p.param.Port)
 
 	p.ma = fbackend.NewRManager(ctx, localAddr, p.param.Master, p.param.StaticTofCfgFile, p.param.BackupSize)
-	p.ma.SetMaster(p.param.Master)
+	p.ma.SetMaster(ctx, p.param.Master)
 
 	logger.If(ctx, "start rs: port=%v", p.param.Port)
 	p.rsvr = rserver.NewRServer(p.ma)

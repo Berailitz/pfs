@@ -376,7 +376,7 @@ func (m *RManager) loadManager(ctx context.Context, pbm *pb.Manager) {
 	m.nodeAllocator.SetNext(pbm.NextNode)
 	m.proposalAllocator.SetNext(pbm.NextProposal)
 
-	m.SetMaster(pbm.MasterAddr)
+	m.SetMaster(ctx, pbm.MasterAddr)
 }
 
 func (m *RManager) fetchManager(ctx context.Context) {
@@ -467,7 +467,7 @@ func (m *RManager) broadcastProposal(ctx context.Context, proposal *Proposal) {
 	}
 }
 
-func (m *RManager) SetMaster(masterAddr string) {
+func (m *RManager) SetMaster(ctx context.Context, masterAddr string) {
 	m.masterAddr = masterAddr
 }
 
@@ -850,7 +850,7 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 
 	for nominee, poll := range nomineeMap {
 		if poll<<1 > int64(len(owners)) {
-			m.SetMaster(nominee)
+			m.SetMaster(ctx, nominee)
 		}
 	}
 	return nil

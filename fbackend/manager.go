@@ -877,11 +877,11 @@ func (m *RManager) sweepOldBallots(ctx context.Context) {
 
 func (m *RManager) syncWithMaster(ctx context.Context) {
 	m.SetState(ctx, SyncingState)
-	m.fetchManager(ctx)
 	if m.MasterAddr() == m.localAddr {
 		m.SetState(ctx, LeadingState)
 	} else {
 		m.SetState(ctx, FollowingState)
+		m.fetchManager(ctx)
 	}
 }
 

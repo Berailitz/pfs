@@ -36,6 +36,7 @@ const (
 	AddNodeProposalType        = 3
 	RemoveNodeProposalType     = 4
 	SetBackupAddrsProposalType = 5
+	UpdateOwnerIDProposalType  = 6
 )
 
 const (
@@ -192,6 +193,21 @@ func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) (string, error
 	}
 	logger.Ef(ctx, "query owner no node error: nodeID=%v", nodeID)
 	return "", OwnerNotExistErr
+}
+
+func (m *RManager) queryOwnerID(ctx context.Context, addr string) (ownerID uint64) {
+	m.Owners.Range(func(key, value interface{}) bool {
+		if value.(string) == addr {
+			ownerID = key.(uint64)
+			return false
+		}
+
+		logger.I(ctx, "owner found by addr", "addr", addr, "ownerID", ownerID)
+		return true
+	})
+
+	logger.E(ctx, "owner not found by addr", "addr", addr)
+	return 0
 }
 
 func (m *RManager) queryAddr(ctx context.Context, ownerID uint64) string {
@@ -425,6 +441,8 @@ func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Pr
 		err = m.doRemoveNode(ctx, proposal.NodeID)
 	case SetBackupAddrsProposalType:
 		err = m.setBackupAddrs(ctx, proposal.NodeID, proposal.Strs)
+	case UpdateOwnerIDProposalType:
+		m.doAddNode(ctx, proposal.NodeID, proposal.OwnerID)
 	default:
 		err = &ManagerErr{fmt.Sprintf("invalid proposal type: proposal=%+v", proposal)}
 	}
@@ -875,10 +893,51 @@ func (m *RManager) sweepOldBallots(ctx context.Context) {
 	}
 }
 
+func (m *RManager) replaceUnreachableNodes(ctx context.Context) {
+	m.muSync.Lock()
+	defer m.muSync.Unlock()
+
+	m.NodeOwner.Range(func(key, value interface{}) bool {
+		nodeID := key.(uint64)
+		oldOwnerID := value.(uint64)
+		oldOwnerAddr := m.queryAddr(ctx, oldOwnerID)
+		if _, err := m.Route(oldOwnerAddr); err != NoRouteErr {
+			return true
+		}
+
+		backupAddrs := m.getBackupAddrs(ctx, nodeID)
+		for _, backupAddr := range backupAddrs {
+			if _, err := m.Route(backupAddr); err != NoRouteErr {
+				backupOwnerID := m.queryOwnerID(ctx, backupAddr)
+				if backupOwnerID == 0 {
+					continue
+				}
+
+				m.doAddNode(ctx, nodeID, backupOwnerID)
+				m.proposalChan <- &Proposal{
+					Typ:     UpdateOwnerIDProposalType,
+					OwnerID: backupOwnerID,
+					NodeID:  nodeID,
+				}
+				return true
+			}
+		}
+
+		logger.E(ctx, "node lost", "nodeID", nodeID, "oldOwnerID", oldOwnerID, "oldOwnerAddr", oldOwnerAddr)
+		_ = m.doRemoveNode(ctx, nodeID)
+		m.proposalChan <- &Proposal{
+			Typ:    RemoveNodeProposalType,
+			NodeID: nodeID,
+		}
+		return true
+	})
+}
+
 func (m *RManager) syncWithMaster(ctx context.Context) {
 	m.SetState(ctx, SyncingState)
 	if m.MasterAddr() == m.localAddr {
 		m.SetState(ctx, LeadingState)
+		m.replaceUnreachableNodes(ctx)
 	} else {
 		m.SetState(ctx, FollowingState)
 		m.fetchManager(ctx)

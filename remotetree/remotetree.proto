@@ -44,7 +44,7 @@ service RemoteTree {
     rpc SetXattr(SetXattrRequest) returns (Error) {}
     rpc Fallocate(FallocateRequest) returns (Error) {}
 
-    rpc QueryOwner(UInt64ID) returns (Addr) {}
+    rpc QueryOwner(UInt64ID) returns (AddrReply) {}
     rpc Allocate(OwnerId) returns (UInt64Reply) {}
     rpc Deallocate(UInt64ID) returns (Error) {}
     rpc RegisterOwner(Addr) returns (UInt64Reply) {}
@@ -351,6 +351,11 @@ message OwnerId {
 
 message Addr {
     string addr = 1;
+}
+
+message AddrReply {
+    Error err = 1;
+    string addr = 2;
 }
 
 message IsOK {

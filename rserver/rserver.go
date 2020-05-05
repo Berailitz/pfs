@@ -419,12 +419,15 @@ func (s *RServer) Fallocate(ctx context.Context, req *pb.FallocateRequest) (*pb.
 	return perr, nil
 }
 
-func (s *RServer) QueryOwner(ctx context.Context, req *pb.UInt64ID) (*pb.Addr, error) {
+func (s *RServer) QueryOwner(ctx context.Context, req *pb.UInt64ID) (*pb.AddrReply, error) {
+	var addr string
+	var ferr error
 	if s.fp != nil {
-		return &pb.Addr{Addr: s.fp.QueryOwner(ctx, req.Id)}, nil
+		addr, ferr = s.fp.QueryOwner(ctx, req.Id)
 	} else {
-		return &pb.Addr{Addr: s.ma.QueryOwner(ctx, req.Id)}, nil
+		addr, ferr = s.ma.QueryOwner(ctx, req.Id)
 	}
+	return &pb.AddrReply{Addr: addr, Err: utility.ToPbErr(ferr)}, nil
 }
 
 func (s *RServer) Allocate(ctx context.Context, req *pb.OwnerId) (*pb.UInt64Reply, error) {

@@ -46,6 +46,8 @@ var (
 	RootAllocatedError = &ManagerErr{"root already allocated error"}
 	InvalidAddrErr     = &ManagerErr{"invalid empty addr error"}
 	OutOfOwnerIDErr    = &ManagerErr{"out of owner ID error"}
+
+	InternalInvalidOwnerIDErr = &ManagerErr{"owner ID not uint64 error"}
 )
 
 type Proposal struct {
@@ -86,7 +88,7 @@ type ManagerErr struct {
 
 var _ = (error)((*ManagerErr)(nil))
 
-func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) string {
+func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) (string, error) {
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
@@ -95,13 +97,13 @@ func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) string {
 		if owner, ok := ownerOut.(uint64); ok {
 			addr := m.queryAddr(ctx, owner)
 			logger.If(ctx, "query owner success: nodeID=%v, addr=%v", nodeID, addr)
-			return addr
+			return addr, nil
 		}
 		logger.Ef(ctx, "query owner not node error: nodeID=%v", nodeID)
-		return ""
+		return "", InternalInvalidOwnerIDErr
 	}
 	logger.Ef(ctx, "query owner no node error: nodeID=%v", nodeID)
-	return ""
+	return "", OwnerNotExistErr
 }
 
 func (m *RManager) queryAddr(ctx context.Context, ownerID uint64) string {

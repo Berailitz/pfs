@@ -60,7 +60,8 @@ var (
 
 	InternalInvalidOwnerIDErr = &ManagerErr{"owner ID not uint64 error"}
 
-	NotLeadingStateErr = &ManagerErr{"not leading state error"}
+	NotFollowingStateErr = &ManagerErr{"not following state error"}
+	NotLeadingStateErr   = &ManagerErr{"not leading state error"}
 
 	NoRouteErr = &ManagerErr{"no route"}
 )
@@ -382,6 +383,10 @@ func (m *RManager) fetchManager(ctx context.Context) {
 }
 
 func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {
+	if err := m.ErrIfNotFollowingState(ctx); err != nil {
+		return ErrorProposalState, err
+	}
+
 	m.muSync.RLock()
 	defer m.muSync.RUnlock()
 
@@ -467,6 +472,13 @@ func (m *RManager) State(ctx context.Context) int64 {
 func (m *RManager) ErrIfNotLeadingState(ctx context.Context) error {
 	if atomic.LoadInt64(&m._state) != LeadingState {
 		return NotLeadingStateErr
+	}
+	return nil
+}
+
+func (m *RManager) ErrIfNotFollowingState(ctx context.Context) error {
+	if atomic.LoadInt64(&m._state) == FollowingState {
+		return NotFollowingStateErr
 	}
 	return nil
 }

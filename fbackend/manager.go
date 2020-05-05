@@ -791,7 +791,10 @@ func (m *RManager) isMasterAlive(ctx context.Context) (ok bool) {
 
 func (m *RManager) recountVotesWithoutLock(ctx context.Context) {
 	logger.W(ctx, "recounting votes")
-	// TODO: recount votes
+	m.nomineeMap = make(map[string]int64)
+	for _, nominee := range m.ballots {
+		m.addVoteWithoutLock(ctx, nominee, 1)
+	}
 }
 
 func (m *RManager) addVoteWithoutLock(ctx context.Context, nominee string, addition int64) (isNewNominee bool) {

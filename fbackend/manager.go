@@ -148,8 +148,7 @@ type RManager struct {
 
 	proposalChan chan *Proposal
 
-	muMasterAddr sync.RWMutex
-	masterAddr   string
+	masterAddr atomic.Value
 
 	fp *FProxy
 
@@ -363,9 +362,7 @@ func (m *RManager) CopyOwnerMap(ctx context.Context) map[uint64]string {
 }
 
 func (m *RManager) MasterAddr() string {
-	m.muMasterAddr.RLock()
-	defer m.muMasterAddr.RUnlock()
-	return m.masterAddr
+	return m.masterAddr.Load().(string)
 }
 
 // AllocateRoot returns true if ownerID acquires the root node, false otherwise.
@@ -503,9 +500,7 @@ func (m *RManager) broadcastProposal(ctx context.Context, proposal *Proposal) {
 }
 
 func (m *RManager) SetMaster(ctx context.Context, masterAddr string) {
-	m.muMasterAddr.Lock()
-	defer m.muMasterAddr.Unlock()
-	m.masterAddr = masterAddr
+	m.masterAddr.Store(masterAddr)
 }
 
 func (m *RManager) SetFP(fp *FProxy) {
@@ -1223,7 +1218,6 @@ func NewRManager(ctx context.Context, localAddr string, masterAddr string, stati
 		proposalAllocator: idallocator.NewIDAllocator(FirstProposalID),
 		proposalChan:      make(chan *Proposal),
 		localAddr:         localAddr,
-		masterAddr:        masterAddr,
 		staticTofCfgFile:  staticTofCfgFile,
 		backupSize:        backupSize,
 		muBackupOwnerMap:  kmutex.New(),
@@ -1235,6 +1229,7 @@ func NewRManager(ctx context.Context, localAddr string, masterAddr string, stati
 			Nominee:    "",
 		},
 	}
+	ma.masterAddr.Store(masterAddr)
 	switch masterAddr {
 	case localAddr:
 		ma.SetState(ctx, LeadingState)

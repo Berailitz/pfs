@@ -2,7 +2,6 @@ package utility
 
 import (
 	"os"
-	"sync"
 	"syscall"
 	"time"
 
@@ -98,7 +97,6 @@ func FromPbNode(node *pb.Node) *rnode.RNode {
 		},
 		NEntries:  FromPbDirents(node.NEntries),
 		NContents: node.NContents,
-		NLock:     &sync.RWMutex{},
 		NCanLock:  node.CanLock,
 		NVersion:  node.Version,
 	}

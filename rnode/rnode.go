@@ -52,7 +52,7 @@ type RNode struct {
 
 	NContents []byte
 
-	NLock    *sync.RWMutex
+	NLock    sync.RWMutex
 	NCanLock int32 // 0 for can lock
 
 	NAddr string
@@ -190,7 +190,6 @@ func NewRNode(attrs fuse.Attr, id uint64) *RNode {
 			NXattrs: make(map[string][]byte),
 		},
 		NCanLock: CanLockTrue,
-		NLock:    &sync.RWMutex{},
 		NVersion: 0,
 	}
 }

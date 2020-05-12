@@ -914,6 +914,7 @@ func (m *RManager) replaceUnreachableNodes(ctx context.Context) {
 		}
 
 		backupAddrs := m.getBackupAddrs(ctx, nodeID)
+		// TODO: compare versions
 		for _, backupAddr := range backupAddrs {
 			if _, err := m.Route(backupAddr); err != NoRouteErr {
 				backupOwnerID := m.queryOwnerID(ctx, backupAddr)

@@ -48,7 +48,7 @@ func BuildGCli(ctx context.Context, addr string) (pb.RemoteTreeClient, error) {
 	logger.If(ctx, "build gcli: addr=%v", addr)
 	conn, err := grpc.Dial(addr, gcliOptions...)
 	if err != nil {
-		logger.If(ctx, "new rcli fial error: addr=%v, opts=%#v, err=%+V",
+		logger.If(ctx, "new rcli fial error: addr=%v, opts=%#v, err=%+v",
 			addr, gcliOptions, err)
 		return nil, err
 	}

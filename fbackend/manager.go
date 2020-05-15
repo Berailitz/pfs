@@ -493,6 +493,8 @@ func (m *RManager) broadcastProposal(ctx context.Context, proposal *Proposal) {
 	for _, addr := range currentOwnerMap {
 		if addr != m.MasterAddr() || proposal.Typ == SetBackupAddrsProposalType {
 			// TODO handle state and err
+			logger.I(ctx, "rpc proposal",
+				"addr", addr, "proposal", *proposal)
 			_, err := m.fp.SendProposal(ctx, addr, proposal)
 			if err != nil {
 				logger.If(ctx, "rpc proposal error: addr=%v, proposal=%+v, err=%+v",

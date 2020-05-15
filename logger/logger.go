@@ -22,7 +22,7 @@ type internalContextKeyType interface{}
 
 var (
 	ContextRunnableNameIKey     internalContextKeyType = "rn"
-	ContextRunnableIntervalIKey internalContextKeyType = "RI"
+	ContextRunnableIntervalIKey internalContextKeyType = "runi"
 
 	ContextRequestIDKey internalContextKeyType = "ri"
 	ContextLocalPortKey internalContextKeyType = "LP"

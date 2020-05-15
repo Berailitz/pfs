@@ -1104,7 +1104,9 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	//		m.SetMaster(ctx, nominee)
 	//	}
 	//}
-	m.canExitElection(ctx)
+	if m.State(ctx) == LookingState {
+		m.canExitElection(ctx)
+	}
 	return nil
 }
 

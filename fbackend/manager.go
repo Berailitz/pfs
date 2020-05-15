@@ -430,8 +430,11 @@ func (m *RManager) fetchManager(ctx context.Context) {
 }
 
 func (m *RManager) AnswerProposal(ctx context.Context, addr string, proposal *Proposal) (state int64, err error) {
-	if err := m.ErrIfNotFollowingState(ctx); err != nil {
-		return ErrorProposalState, err
+	if proposal.Typ != SetBackupAddrsProposalType {
+		if err := m.ErrIfNotFollowingState(ctx); err != nil {
+			logger.E(ctx, "not in following state", "proposal", *proposal)
+			return ErrorProposalState, err
+		}
 	}
 
 	m.muSync.RLock()
@@ -488,7 +491,7 @@ func (m *RManager) broadcastProposal(ctx context.Context, proposal *Proposal) {
 	proposal.ID = m.proposalAllocator.Allocate()
 
 	for _, addr := range currentOwnerMap {
-		if addr != m.MasterAddr() {
+		if addr != m.MasterAddr() || proposal.Typ == SetBackupAddrsProposalType {
 			// TODO handle state and err
 			_, err := m.fp.SendProposal(ctx, addr, proposal)
 			if err != nil {

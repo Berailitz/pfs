@@ -513,6 +513,7 @@ func (m *RManager) SetFP(fp *FProxy) {
 }
 
 func (m *RManager) SetState(ctx context.Context, state int64) {
+	logger.W(ctx, "set state", "state", state)
 	atomic.StoreInt64(&m._state, state)
 }
 

@@ -625,13 +625,13 @@ func (m *RManager) CopyManager(ctx context.Context) (*pb.Manager, error) {
 	}, nil
 }
 
-func (m *RManager) Route(addr string) (string, error) {
+func (m *RManager) Route(addr string) (*RouteRule, error) {
 	if out, ok := m.routeMap.Load(addr); ok {
 		if route, ok := out.(*RouteRule); ok {
-			return route.next, nil
+			return route, nil
 		}
 	}
-	return "", NoRouteErr
+	return nil, NoRouteErr
 }
 
 func (m *RManager) LogicTof(addr string) (int64, bool) {

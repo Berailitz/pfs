@@ -29,7 +29,7 @@ func (p *GCliPool) Load(ctx context.Context, addr string) (_ pb.RemoteTreeClient
 		logger.E(ctx, "load gcli error", "addr", addr, "err", err)
 		return nil, err
 	}
-	return p.LoadWithoutRoute(ctx, hopAddr)
+	return p.LoadWithoutRoute(ctx, hopAddr.next)
 }
 
 func (p *GCliPool) LoadWithoutRoute(ctx context.Context, addr string) (pb.RemoteTreeClient, error) {

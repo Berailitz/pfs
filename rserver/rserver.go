@@ -29,23 +29,23 @@ import (
 
 const rServerStartTime = time.Second * 2
 
-var (
-	rpcServerOption = []grpc.ServerOption{
-		grpc_middleware.WithUnaryServerChain(
-			grpc_ctxtags.UnaryServerInterceptor(
-				grpc_ctxtags.WithFieldExtractor(
-					grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			utility.CtxMDServerInterceptor(),
-			grpc_logrus.UnaryServerInterceptor(
-				logger.Entry(), grpc_logrus.WithMessageProducer(logger.StubMessageProducer))),
-	}
-)
-
 type RServer struct {
 	pb.UnimplementedRemoteTreeServer
 	Server *grpc.Server
 	fp     *fbackend.FProxy
 	ma     *fbackend.RManager
+}
+
+func makeServerOptions(ctx context.Context) []grpc.ServerOption {
+	return []grpc.ServerOption{
+		grpc_middleware.WithUnaryServerChain(
+			grpc_ctxtags.UnaryServerInterceptor(
+				grpc_ctxtags.WithFieldExtractor(
+					grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			utility.CtxMDServerInterceptor(ctx),
+			grpc_logrus.UnaryServerInterceptor(
+				logger.Entry(), grpc_logrus.WithMessageProducer(logger.StubMessageProducer))),
+	}
 }
 
 func (s *RServer) Push(ctx context.Context, req *pb.PushNodeRequest) (*pb.Error, error) {
@@ -539,7 +539,7 @@ func (s *RServer) Start(ctx context.Context, port int) error {
 	if err != nil {
 		logger.Pf(ctx, "failed to listen: %v", err)
 	}
-	s.Server = grpc.NewServer(rpcServerOption...)
+	s.Server = grpc.NewServer(makeServerOptions(ctx)...)
 	pb.RegisterRemoteTreeServer(s.Server, s)
 	logger.If(ctx, "starting...localhost:%d", port)
 	go func() {

@@ -30,24 +30,25 @@ func CtxMDClientInterceptor() grpc.UnaryClientInterceptor {
 	}
 }
 
-func CtxMDServerInterceptor() grpc.UnaryServerInterceptor {
+func CtxMDServerInterceptor(serverCtx context.Context) grpc.UnaryServerInterceptor {
 	return func(
-		ctx context.Context,
+		requestCtx context.Context,
 		req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 	) (resp interface{}, err error) {
-		md, ok := metadata.FromIncomingContext(ctx)
+		md, ok := metadata.FromIncomingContext(requestCtx)
 		if !ok {
 			md = metadata.Pairs()
 		}
 
 		for _, contextKey := range logger.ContextLogKeys {
-			values := md[contextKey.(string)]
-			if len(values) >= 1 {
-				ctx = context.WithValue(ctx, contextKey, values[0])
-				return handler(ctx, req)
+			if clientValues := md[contextKey.(string)]; len(clientValues) >= 1 {
+				requestCtx = context.WithValue(requestCtx, contextKey, clientValues[0])
+			}
+			if serverValue := serverCtx.Value(contextKey); serverValue != nil {
+				requestCtx = context.WithValue(requestCtx, contextKey, serverValue)
 			}
 		}
 
-		return handler(ctx, req)
+		return handler(requestCtx, req)
 	}
 }

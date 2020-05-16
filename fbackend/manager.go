@@ -491,6 +491,10 @@ func (m *RManager) broadcastProposal(ctx context.Context, proposal *Proposal) {
 	proposal.ID = m.proposalAllocator.Allocate()
 
 	for _, addr := range currentOwnerMap {
+		if addr == m.localAddr {
+			continue
+		}
+
 		if addr != m.MasterAddr() || proposal.Typ == SetBackupAddrsProposalType {
 			// TODO handle state and err
 			logger.I(ctx, "rpc proposal",

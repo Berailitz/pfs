@@ -677,7 +677,7 @@ func (m *RManager) deleteRoute(ctx context.Context, addr string) {
 }
 
 func (m *RManager) saveDefaultDirectRoute(ctx context.Context, addr string) {
-	m.saveRoute(ctx, addr, addr, math.MaxInt64)
+	m.saveRoute(ctx, addr, addr, math.MaxInt32)
 }
 
 func (m *RManager) saveRoute(ctx context.Context, addr string, next string, tof int64) {
@@ -704,7 +704,7 @@ func (m *RManager) findRoute(ctx context.Context, dst string) *RouteRule {
 
 	shortestRule := &RouteRule{
 		next: dst,
-		tof:  math.MaxInt64,
+		tof:  math.MaxInt32,
 	}
 	m.routeMap.Range(func(key, value interface{}) bool {
 		transitAddr := key.(string)
@@ -734,7 +734,7 @@ func (m *RManager) findRoute(ctx context.Context, dst string) *RouteRule {
 		return true
 	})
 
-	if shortestRule.tof == math.MaxInt64 {
+	if shortestRule.tof == math.MaxInt32 {
 		return nil
 	}
 
@@ -1110,7 +1110,7 @@ func (m *RManager) useRemoteMasterAddr(ctx context.Context, remoteMasterAddr str
 	if _, err := m.fp.Measure(ctx, remoteMasterAddr); err == nil {
 		m.saveDefaultDirectRoute(ctx, remoteMasterAddr)
 	} else {
-		m.saveRoute(ctx, remoteMasterAddr, voter, math.MaxInt64)
+		m.saveRoute(ctx, remoteMasterAddr, voter, math.MaxInt32)
 	}
 	m.SetMaster(ctx, remoteMasterAddr)
 }

@@ -703,7 +703,17 @@ func (fb *FBackEnd) CreateFile(
 		}
 	}()
 
-	handleID, err := fb.fp.AttachChild(ctx, parentID, child.ID(), name, fuse.DT_File, true)
+	if _, err = fb.fp.AttachChild(ctx, parentID, child.ID(), name, fuse.DT_File, false); err != nil {
+		logger.E(ctx, "create file attach child err",
+			"parentID", parentID, "childID", child.ID(), "err", err.Error())
+		return 0, 0, err
+	}
+
+	handleID, err := fb.AllocateHandle(ctx, child.ID())
+	if err != nil {
+		logger.E(ctx, "create file allocate handle err: id=%v, err=%v", child.ID(), err.Error())
+		return 0, 0, err
+	}
 
 	logger.If(ctx, "fb create file result: parent=%v, name=%v, mode=%v, childID=%v, handleID=%v, err=%+v",
 		parentID, name, mode, child.ID(), handleID, err)

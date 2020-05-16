@@ -1093,21 +1093,8 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 
 		m.addNewTransit(ctx, addr, smoothTof, remoteTofMap)
 		m.updateOldTransit(ctx, addr, smoothTof, remoteTofMap)
-
-		//if nominee != "" {
-		//	if counter, ok := nomineeMap[nominee]; ok {
-		//		nomineeMap[nominee] = counter + 1
-		//	} else {
-		//		nomineeMap[nominee] = 1
-		//	}
-		//}
 	}
 
-	//for nominee, poll := range nomineeMap {
-	//	if poll<<1 > int64(len(owners)) {
-	//		m.SetMaster(ctx, nominee)
-	//	}
-	//}
 	if m.State(ctx) == LookingState {
 		m.canExitElection(ctx)
 	}

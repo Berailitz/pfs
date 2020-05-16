@@ -1,13 +1,14 @@
-package utility
+package rnode
 
 import (
+	"context"
 	"os"
 	"syscall"
 	"time"
 
-	"bazil.org/fuse"
-	"github.com/Berailitz/pfs/rnode"
+	"github.com/Berailitz/pfs/utility"
 
+	"bazil.org/fuse"
 	pb "github.com/Berailitz/pfs/remotetree"
 )
 
@@ -74,7 +75,7 @@ func FromPbDirents(dirents []*pb.Dirent) []fuse.Dirent {
 	return r
 }
 
-func ToPbNode(node *rnode.RNode) *pb.Node {
+func ToPbNode(node *RNode) *pb.Node {
 	return &pb.Node{
 		NID:       node.NID,
 		NAttr:     ToPbAttr(node.Attrs()),
@@ -87,10 +88,10 @@ func ToPbNode(node *rnode.RNode) *pb.Node {
 	}
 }
 
-func FromPbNode(node *pb.Node) *rnode.RNode {
-	return &rnode.RNode{
+func FromPbNode(ctx context.Context, node *pb.Node) *RNode {
+	return &RNode{
 		NID: node.NID,
-		RNodeAttr: rnode.RNodeAttr{
+		RNodeAttr: RNodeAttr{
 			NAttr:   FromPbAttr(*node.NAttr),
 			NTarget: node.NTarget,
 			NXattrs: node.NXattrs,
@@ -99,6 +100,7 @@ func FromPbNode(node *pb.Node) *rnode.RNode {
 		NContents: node.NContents,
 		NCanLock:  node.CanLock,
 		NVersion:  node.Version,
+		NLock:     utility.NewMutexWithTimeout(ctx, time.Second*0),
 	}
 }
 
@@ -123,7 +125,7 @@ func FromPbErr(perr *pb.Error) error {
 		if perr.Msg == "" {
 			return syscall.Errno(perr.Status)
 		} else {
-			return &RemoteErr{perr.Msg}
+			return &RNodeErr{perr.Msg}
 		}
 	}
 	return nil

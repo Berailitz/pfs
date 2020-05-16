@@ -18,8 +18,8 @@ service RemoteTree {
     rpc GetOwnerMap(EmptyMsg) returns (Uint64StrMapMsg) {}
 
     rpc FetchNode(NodeIsReadRequest) returns (FetchNodeReply) {}
-    rpc RUnlockNode(UInt64ID) returns (Error) {}
-    rpc UnlockNode(Node) returns (Error) {}
+    rpc RUnlockNode(RUnlockNodeRequest) returns (Error) {}
+    rpc UnlockNode(UnlockNodeRequest) returns (Error) {}
 
     rpc LookUpInode(LookUpInodeRequest) returns (LookUpInodeReply) {}
     rpc GetInodeAttributes(UInt64ID) returns (GetInodeAttributesReply) {}
@@ -134,6 +134,17 @@ message NodeIsReadRequest {
 message FetchNodeReply {
     Error err = 1;
     Node node = 2;
+    int64 lockID = 3;
+}
+
+message RUnlockNodeRequest {
+    uint64 nodeID = 1;
+    int64 lockID = 2;
+}
+
+message UnlockNodeRequest {
+    Node node = 1;
+    int64 lockID = 2;
 }
 
 message Node {

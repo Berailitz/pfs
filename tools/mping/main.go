@@ -8,6 +8,7 @@ import (
 
 	"github.com/Berailitz/pfs/logger"
 	pb "github.com/Berailitz/pfs/remotetree"
+	"github.com/Berailitz/pfs/rnode"
 
 	"github.com/Berailitz/pfs/utility"
 )
@@ -35,7 +36,7 @@ func main() {
 	if err != nil {
 		logger.Pf(ctx, "fp ping error: addr=%v, err=%+v", *dst, err)
 	}
-	if err := utility.FromPbErr(reply.Err); err != nil {
+	if err := rnode.FromPbErr(reply.Err); err != nil {
 		logger.Pf(ctx, "fp ping reply error: addr=%v, err=%+v", *dst, err)
 	}
 	tof := time.Now().UnixNano() - departure + reply.Offset

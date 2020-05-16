@@ -107,33 +107,34 @@ func (fb *FBackEnd) registerSelf(ctx context.Context, addr string) {
 	logger.If(ctx, "register success: addr=%v, localID=%v", addr, localID)
 }
 
-func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool, localOnly bool) (*rnode.RNode, error) {
-	node, err := fb.LoadLocalNode(ctx, id)
+func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool,
+	localOnly bool) (node *rnode.RNode, lockID int64, err error) {
+	node, err = fb.LoadLocalNode(ctx, id)
 
 	if err != nil && !localOnly {
 		logger.I(ctx, "load node load local", "id", id, "isRead", isRead, "err", err)
-		node, err = fb.LoadRemoteNode(ctx, id, isRead)
+		node, err = fb.fp.LoadRemoteNode(ctx, id, isRead)
 		if err != nil {
 			logger.Ef(ctx, "load node load remote error: id=%v, isRead=%v, err=%+v", id, isRead, err)
-			return nil, err
+			return nil, 0, err
 		}
 	}
 
 	if err != nil {
 		logger.Ef(ctx, "load node error: id=%v, isRead=%v, err=%+v", id, isRead, err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	if isRead {
-		err = node.RLock(ctx)
+		lockID, err = node.RLock(ctx)
 	} else {
-		err = node.Lock(ctx)
+		lockID, err = node.Lock(ctx)
 	}
 	if err != nil {
 		logger.Ef(ctx, "load node lock error: id=%v, isRead=%v, err=%+v", id, isRead, err)
-		return nil, err
+		return nil, 0, err
 	}
-	return node, nil
+	return node, lockID, nil
 }
 
 func (fb *FBackEnd) LoadLocalNode(ctx context.Context, id uint64) (*rnode.RNode, error) {
@@ -146,29 +147,19 @@ func (fb *FBackEnd) LoadLocalNode(ctx context.Context, id uint64) (*rnode.RNode,
 	return nil, &FBackEndErr{msg: fmt.Sprintf("load local node not exist error: id=%v", id)}
 }
 
-func (fb *FBackEnd) LoadRemoteNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
-	node, err := fb.fp.LoadRemoteNode(ctx, id, isRead)
-	if err != nil {
-		logger.If(ctx, "rpc fetch node error: id=%v, err=%+v",
-			id, err)
-		return nil, &FBackEndErr{msg: fmt.Sprintf("load node rpc error: id=%v, isRead=%v, err=%+v", id, isRead, err)}
-	}
-	return node, nil
-}
-
-func (fb *FBackEnd) LoadLocalNodeForRead(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
+func (fb *FBackEnd) LoadLocalNodeForRead(ctx context.Context, id uint64) (node *rnode.RNode, lockID int64, err error) {
 	return fb.doLoadNodeForX(ctx, id, true, true)
 }
 
-func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
+func (fb *FBackEnd) LoadNodeForRead(ctx context.Context, id uint64) (node *rnode.RNode, lockID int64, err error) {
 	return fb.doLoadNodeForX(ctx, id, true, false)
 }
 
-func (fb *FBackEnd) LoadLocalNodeForWrite(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
+func (fb *FBackEnd) LoadLocalNodeForWrite(ctx context.Context, id uint64) (node *rnode.RNode, lockID int64, err error) {
 	return fb.doLoadNodeForX(ctx, id, false, true)
 }
 
-func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (node *rnode.RNode, err error) {
+func (fb *FBackEnd) LoadNodeForWrite(ctx context.Context, id uint64) (node *rnode.RNode, lockID int64, err error) {
 	return fb.doLoadNodeForX(ctx, id, false, false)
 }
 
@@ -187,9 +178,9 @@ func (fb *FBackEnd) doUnlockRemoteNode(ctx context.Context, node *rnode.RNode, i
 	id := node.ID()
 
 	if isRead {
-		err = fb.fp.RUnlockNode(ctx, id)
+		err = fb.fp.RUnlockNode(ctx, id, node.RemoteLockID())
 	} else {
-		err = fb.fp.UnlockNode(ctx, node)
+		err = fb.fp.UnlockNode(ctx, node, node.RemoteLockID())
 	}
 	if err != nil {
 		logger.Ef(ctx, "unlock remote node error: id=%v, isRead=%v, err=%+v", id, isRead, err)
@@ -199,17 +190,17 @@ func (fb *FBackEnd) doUnlockRemoteNode(ctx context.Context, node *rnode.RNode, i
 	return nil
 }
 
-func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, isRead bool) error {
+func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, lockID int64, isRead bool) error {
 	id := node.ID()
 	logger.If(ctx, "unlock node: id=%v, isRead=%v", id, isRead)
 	if isRead {
-		node.RUnlock(ctx)
+		node.RUnlock(ctx, lockID)
 	} else {
 		node.IncrVersion()
 		if fb.IsLocal(ctx, id) {
 			go fb.pushBackupNode(ctx, *node)
 		}
-		node.Unlock(ctx)
+		node.Unlock(ctx, lockID)
 	}
 	if fb.IsLocal(ctx, id) {
 		logger.If(ctx, "unlock local node success: id=%v, isRead=%v", id, isRead)
@@ -219,12 +210,12 @@ func (fb *FBackEnd) doUnlockNode(ctx context.Context, node *rnode.RNode, isRead 
 	return fb.doUnlockRemoteNode(ctx, node, isRead)
 }
 
-func (fb *FBackEnd) UnlockNode(ctx context.Context, node *rnode.RNode) error {
-	return fb.doUnlockNode(ctx, node, false)
+func (fb *FBackEnd) UnlockNode(ctx context.Context, node *rnode.RNode, lockID int64) error {
+	return fb.doUnlockNode(ctx, node, lockID, false)
 }
 
-func (fb *FBackEnd) RUnlockNode(ctx context.Context, node *rnode.RNode) error {
-	return fb.doUnlockNode(ctx, node, true)
+func (fb *FBackEnd) RUnlockNode(ctx context.Context, node *rnode.RNode, lockID int64) error {
+	return fb.doUnlockNode(ctx, node, lockID, true)
 }
 
 func (fb *FBackEnd) MakeRegular(
@@ -312,7 +303,7 @@ func (fb *FBackEnd) MakeRoot(ctx context.Context) error {
 		Flags:     0,
 		BlockSize: 0,
 	}
-	if err := fb.storeNode(ctx, RootNodeID, rnode.NewRNode(rootAttrs, RootNodeID)); err != nil {
+	if err := fb.storeNode(ctx, RootNodeID, rnode.NewRNode(ctx, rootAttrs, RootNodeID)); err != nil {
 		logger.Ef(ctx, "make root store node error")
 		return err
 	}
@@ -376,7 +367,7 @@ func (fb *FBackEnd) allocateInode(
 		return nil, err
 	}
 
-	node := rnode.NewRNode(attrs, id)
+	node := rnode.NewRNode(ctx, attrs, id)
 	if err := fb.storeNode(ctx, id, node); err != nil {
 		logger.Ef(ctx, "allocate inode store error: id=%v, err=%v", id, err)
 		return nil, err
@@ -409,13 +400,13 @@ func (fb *FBackEnd) AttachChild(
 	logger.If(ctx, "attach child: parentID=%v, childID=%v, name=%v, dt=%v, doOpen=%v",
 		parentID, childID, name, dt, doOpen)
 
-	parent, err := fb.LoadNodeForWrite(ctx, parentID)
+	parent, lockID, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		logger.If(ctx, "sadd child load parent err: err=%v", err.Error())
 		return 0, err
 	}
 	defer func() {
-		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
+		if uerr := fb.UnlockNode(ctx, parent, lockID); uerr != nil {
 			logger.Ef(ctx, "unlock node error: id=%v, err=%+v", parent.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -460,13 +451,13 @@ func (fb *FBackEnd) LookUpInode(
 
 	logger.If(ctx, "fb look up inode: parent=%v, name=%v", parentID, name)
 	// Grab the parent directory.
-	parent, err := fb.LoadNodeForRead(ctx, parentID)
+	parent, pLockID, err := fb.LoadNodeForRead(ctx, parentID)
 	if err != nil {
 		logger.If(ctx, "look up inode load prarent err: err=%v", err.Error())
 		return 0, fuse.Attr{}, err
 	}
 	defer func() {
-		if uerr := fb.RUnlockNode(ctx, parent); uerr != nil {
+		if uerr := fb.RUnlockNode(ctx, parent, pLockID); uerr != nil {
 			logger.Ef(ctx, "rlock node error: id=%v, err=%+v", parent.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -484,13 +475,13 @@ func (fb *FBackEnd) LookUpInode(
 	}
 
 	// Grab the child.
-	child, err := fb.LoadNodeForRead(ctx, childID)
+	child, cLockID, err := fb.LoadNodeForRead(ctx, childID)
 	if err != nil {
 		logger.If(ctx, "look up inode load child err: err=%v", err.Error())
 		return 0, fuse.Attr{}, err
 	}
 	defer func() {
-		if uerr := fb.RUnlockNode(ctx, child); uerr != nil {
+		if uerr := fb.RUnlockNode(ctx, child, cLockID); uerr != nil {
 			logger.Ef(ctx, "rlock node error: id=%v, err=%+v", child.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -512,13 +503,13 @@ func (fb *FBackEnd) GetInodeAttributes(
 
 	logger.If(ctx, "fb get inode attr: id=%v", id)
 	// Grab the rnode.RNode.
-	node, err := fb.LoadNodeForRead(ctx, id)
+	node, lockID, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		logger.If(ctx, "get node attr err: err=%v", err.Error())
 		return fuse.Attr{}, err
 	}
 	defer func() {
-		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.RUnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "rlock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -543,13 +534,13 @@ func (fb *FBackEnd) SetInodeAttributes(
 	logger.If(ctx, "fb set inode attr: id=%v, param=%+v",
 		id, param)
 	// Grab the rnode.RNode.
-	node, err := fb.LoadNodeForWrite(ctx, id)
+	node, lockID, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		logger.If(ctx, "set node attr err: err=%v", err.Error())
 		return fuse.Attr{}, err
 	}
 	defer func() {
-		if uerr := fb.UnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.UnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "lock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -777,13 +768,13 @@ func (fb *FBackEnd) CreateLink(
 	logger.If(ctx, "fb create link: parent=%v, name=%v, target=%v",
 		parentID, name, targetID)
 	// Grab the parent, which we will update shortly.
-	parent, err := fb.LoadNodeForWrite(ctx, parentID)
+	parent, lockID, err := fb.LoadNodeForWrite(ctx, parentID)
 	if err != nil {
 		logger.If(ctx, "create link load parent err: err=%v", err.Error())
 		return 0, err
 	}
 	defer func() {
-		if uerr := fb.UnlockNode(ctx, parent); uerr != nil {
+		if uerr := fb.UnlockNode(ctx, parent, lockID); uerr != nil {
 			logger.Ef(ctx, "lock node error: id=%v, err=%+v", parent.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -800,13 +791,13 @@ func (fb *FBackEnd) CreateLink(
 	}
 
 	// Get the target rnode.RNode to be linked
-	target, err := fb.LoadNodeForWrite(ctx, targetID)
+	target, lockID, err := fb.LoadNodeForWrite(ctx, targetID)
 	if err != nil {
 		logger.If(ctx, "create link load target err: err=%v", err.Error())
 		return 0, err
 	}
 	defer func() {
-		if uerr := fb.UnlockNode(ctx, target); uerr != nil {
+		if uerr := fb.UnlockNode(ctx, target, lockID); uerr != nil {
 			logger.Ef(ctx, "lock node error: id=%v, err=%+v", target.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -841,12 +832,12 @@ func (fb *FBackEnd) Rename(
 	logger.If(ctx, "fb rename: oldParent=%v, olaName=%v, newParent=%v, newName=%v",
 		oldParent, oldName, newParent, newName)
 	// Ask the old parent for the child's rnode.RNode ID and type.
-	oldParentNode, err := fb.LoadNodeForWrite(ctx, oldParent)
+	oldParentNode, oldParentLockID, err := fb.LoadNodeForWrite(ctx, oldParent)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if uerr := fb.UnlockNode(ctx, oldParentNode); uerr != nil {
+		if uerr := fb.UnlockNode(ctx, oldParentNode, oldParentLockID); uerr != nil {
 			logger.Ef(ctx, "lock node error: id=%v, err=%+v", oldParentNode.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -865,12 +856,13 @@ func (fb *FBackEnd) Rename(
 	// non-empty directory, then delete it.
 	newParentNode := oldParentNode
 	if newParent != oldParent {
-		newParentNode, err = fb.LoadNodeForWrite(ctx, newParent)
+		var newParentLockID int64
+		newParentNode, newParentLockID, err = fb.LoadNodeForWrite(ctx, newParent)
 		if err != nil {
 			return err
 		}
 		defer func() {
-			if uerr := fb.UnlockNode(ctx, newParentNode); uerr != nil {
+			if uerr := fb.UnlockNode(ctx, newParentNode, newParentLockID); uerr != nil {
 				logger.Ef(ctx, "lock node error: id=%v, err=%+v", newParentNode.ID(), uerr)
 				if err != nil {
 					logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -883,12 +875,13 @@ func (fb *FBackEnd) Rename(
 	existingID, _, ok := newParentNode.LookUpChild(newName)
 	if ok {
 		var existing *rnode.RNode
-		existing, err = fb.LoadNodeForRead(ctx, existingID)
+		var existingLockID int64
+		existing, existingLockID, err = fb.LoadNodeForRead(ctx, existingID)
 		if err != nil {
 			return err
 		}
 		defer func() {
-			if uerr := fb.RUnlockNode(ctx, existing); uerr != nil {
+			if uerr := fb.RUnlockNode(ctx, existing, existingLockID); uerr != nil {
 				logger.Ef(ctx, "rlock node error: id=%v, err=%+v", existing.ID(), uerr)
 				if err != nil {
 					logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -925,12 +918,12 @@ func (fb *FBackEnd) DetachChild(
 	name string) (err error) {
 	logger.If(ctx, "fb detach child: parent=%v, name=%v", parent, name)
 	// Grab the parent, which we will update shortly.
-	parentNode, err := fb.LoadNodeForWrite(ctx, uint64(parent))
+	parentNode, lockID, err := fb.LoadNodeForWrite(ctx, uint64(parent))
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if uerr := fb.UnlockNode(ctx, parentNode); uerr != nil {
+		if uerr := fb.UnlockNode(ctx, parentNode, lockID); uerr != nil {
 			logger.Ef(ctx, "lock node error: id=%v, err=%+v", parentNode.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -965,13 +958,13 @@ func (fb *FBackEnd) Unlink(
 	logger.If(ctx, "fb unlink: parent=%v, name=%v", parent, name)
 
 	// Grab the child.
-	child, err := fb.LoadNodeForWrite(ctx, childID)
+	child, lockID, err := fb.LoadNodeForWrite(ctx, childID)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if fb.IsLocal(ctx, childID) {
-			if uerr := fb.UnlockNode(ctx, child); uerr != nil {
+			if uerr := fb.UnlockNode(ctx, child, lockID); uerr != nil {
 				logger.Ef(ctx, "lock node error: id=%v, err=%+v", child.ID(), uerr)
 				if err != nil {
 					logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -1010,13 +1003,13 @@ func (fb *FBackEnd) Open(
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	node, err := fb.LoadNodeForRead(ctx, id)
+	node, lockID, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		logger.If(ctx, "open dir err: err=%v", err.Error())
 		return 0, err
 	}
 	defer func() {
-		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.RUnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "rlock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -1049,13 +1042,13 @@ func (fb *FBackEnd) ReadDir(
 
 	logger.If(ctx, "fb readdir: id=%v", id)
 	// Grab the directory.
-	node, err := fb.LoadNodeForRead(ctx, id)
+	node, lockID, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		logger.If(ctx, "read dir err: err=%v", err.Error())
 		return nil, err
 	}
 	defer func() {
-		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.RUnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "rlock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -1095,13 +1088,13 @@ func (fb *FBackEnd) OpenFile(
 	// We don't mutate spontaneosuly, so if the VFS layer has asked for an
 	// rnode.RNode that doesn't exist, something screwed up earlier (a lookup, a
 	// cache invalidation, etc.).
-	node, err := fb.LoadNodeForRead(ctx, id)
+	node, lockID, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		logger.If(ctx, "open file err: err=%v", err.Error())
 		return 0, err
 	}
 	defer func() {
-		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.RUnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "rlock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -1136,13 +1129,13 @@ func (fb *FBackEnd) ReadFile(
 
 	logger.If(ctx, "fb readfile: id=%v, length=%v, offset=%v", id, length, offset)
 	// Find the rnode.RNode in question.
-	node, err := fb.LoadNodeForRead(ctx, id)
+	node, lockID, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		logger.If(ctx, "read file err: err=%v", err.Error())
 		return
 	}
 	defer func() {
-		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.RUnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "rlock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -1180,13 +1173,13 @@ func (fb *FBackEnd) WriteFile(
 
 	logger.If(ctx, "write file: id=%v, offset=%v, data=%v", id, offset, data)
 	// Find the rnode.RNode in question.
-	node, err := fb.LoadNodeForWrite(ctx, id)
+	node, lockID, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		logger.If(ctx, "write file err: err=%v", err.Error())
 		return 0, err
 	}
 	defer func() {
-		if uerr := fb.UnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.UnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "lock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -1231,13 +1224,13 @@ func (fb *FBackEnd) ReadSymlink(
 
 	logger.If(ctx, "fp read symlink: id=%v", id)
 	// Find the rnode.RNode in question.
-	node, err := fb.LoadNodeForRead(ctx, id)
+	node, lockID, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		logger.If(ctx, "read symlink err: err=%v", err.Error())
 		return
 	}
 	defer func() {
-		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.RUnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "rlock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -1262,13 +1255,13 @@ func (fb *FBackEnd) GetXattr(ctx context.Context,
 
 	logger.If(ctx, "fb get xattr: id=%v, name=%v, length=%v",
 		id, name, length)
-	node, err := fb.LoadNodeForRead(ctx, id)
+	node, lockID, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		logger.If(ctx, "get xattr err: err=%v", err.Error())
 		return
 	}
 	defer func() {
-		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.RUnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "rlock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -1304,13 +1297,13 @@ func (fb *FBackEnd) ListXattr(ctx context.Context,
 
 	logger.If(ctx, "fb list xattr: id=%v, length=%v",
 		id, length)
-	node, err := fb.LoadNodeForRead(ctx, id)
+	node, lockID, err := fb.LoadNodeForRead(ctx, id)
 	if err != nil {
 		logger.If(ctx, "list xattr err: err=%v", err.Error())
 		return
 	}
 	defer func() {
-		if uerr := fb.RUnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.RUnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "rlock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "runlock node error overwrite method error: err=%+v", err)
@@ -1346,13 +1339,13 @@ func (fb *FBackEnd) RemoveXattr(ctx context.Context,
 	defer fb.unlock()
 
 	logger.If(ctx, "fb rm xattr: id=%v, name=%v", id, name)
-	node, err := fb.LoadNodeForWrite(ctx, id)
+	node, lockID, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		logger.If(ctx, "remove xattr err: err=%v", err.Error())
 		return err
 	}
 	defer func() {
-		if uerr := fb.UnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.UnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "lock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -1382,14 +1375,14 @@ func (fb *FBackEnd) SetXattr(ctx context.Context,
 	defer fb.unlock()
 
 	logger.If(ctx, "fb set xattr: id=%v, name=%v, flag=%v, value=%X", id, name, flags, value)
-	node, err := fb.LoadNodeForWrite(ctx, id)
+	node, lockID, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		logger.If(ctx, "fb set xattr load node error: id=%v, name=%v, flag=%v, value=%X",
 			id, name, flags, value, err)
 		return err
 	}
 	defer func() {
-		if uerr := fb.UnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.UnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "lock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)
@@ -1430,13 +1423,13 @@ func (fb *FBackEnd) Fallocate(ctx context.Context,
 	defer fb.unlock()
 
 	logger.If(ctx, "fb fallocate: id=%v, mode=%v, len=%v", id, mode, length)
-	node, err := fb.LoadNodeForWrite(ctx, id)
+	node, lockID, err := fb.LoadNodeForWrite(ctx, id)
 	if err != nil {
 		logger.If(ctx, "fallocate err: err=%v", err.Error())
 		return err
 	}
 	defer func() {
-		if uerr := fb.UnlockNode(ctx, node); uerr != nil {
+		if uerr := fb.UnlockNode(ctx, node, lockID); uerr != nil {
 			logger.Ef(ctx, "lock node error: id=%v, err=%+v", node.ID(), uerr)
 			if err != nil {
 				logger.Ef(ctx, "unlock node error overwrite method error: err=%+v", err)

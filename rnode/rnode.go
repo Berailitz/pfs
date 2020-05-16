@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Berailitz/pfs/utility"
 
 	"bazil.org/fuse"
 	"github.com/Berailitz/pfs/logger"
@@ -52,8 +53,10 @@ type RNode struct {
 
 	NContents []byte
 
-	NLock    sync.RWMutex
+	NLock    *utility.MutexWithTimeout
 	NCanLock int32 // 0 for can lock
+
+	NRemoteLockID int64 // to unlock remote lock
 
 	NAddr string
 
@@ -131,36 +134,44 @@ func (rn *RNode) CanLock() bool {
 	return atomic.LoadInt32(&rn.NCanLock) == CanLockTrue
 }
 
-func (rn *RNode) RLock(ctx context.Context) error {
-	logger.If(ctx, "rlock node: id=%v", rn.ID())
+func (rn *RNode) RemoteLockID() int64 {
+	return atomic.LoadInt64(&rn.NRemoteLockID)
+}
+
+func (rn *RNode) SetRemoteLockID(lockID int64) {
+	atomic.StoreInt64(&rn.NRemoteLockID, lockID)
+}
+
+func (rn *RNode) RLock(ctx context.Context) (int64, error) {
+	logger.I(ctx, "rlock node", "id", rn.ID())
 	if rn.CanLock() {
-		rn.NLock.RLock()
-		logger.If(ctx, "rlock node success: id=%v", rn.ID())
-		return nil
+		lockID := rn.NLock.RLock(ctx)
+		logger.I(ctx, "rlock node success:", "id", rn.ID(), "lockID", lockID)
+		return lockID, nil
 	}
-	logger.If(ctx, "rlock node cannot lock: id=%v", rn.ID())
-	return RNodeCanNotLockErr
+	logger.E(ctx, "rlock node cannot lock", "id", rn.ID())
+	return 0, RNodeCanNotLockErr
 }
 
-func (rn *RNode) RUnlock(ctx context.Context) {
-	logger.If(ctx, "runlock node: id=%v", rn.ID())
-	rn.NLock.RUnlock()
+func (rn *RNode) RUnlock(ctx context.Context, lockID int64) {
+	logger.I(ctx, "runlock node", "id", rn.ID())
+	rn.NLock.RUnlock(ctx, lockID)
 }
 
-func (rn *RNode) Lock(ctx context.Context) error {
-	logger.If(ctx, "lock node: id=%v", rn.ID())
+func (rn *RNode) Lock(ctx context.Context) (int64, error) {
+	logger.I(ctx, "lock node", "id", rn.ID())
 	if rn.CanLock() {
-		rn.NLock.Lock()
-		logger.If(ctx, "lock node success: id=%v", rn.ID())
-		return nil
+		lockID := rn.NLock.Lock(ctx)
+		logger.I(ctx, "lock node success", "id", rn.ID(), "lockID", lockID)
+		return lockID, nil
 	}
-	logger.Ef(ctx, "lock node cannot lock error: id=%v", rn.ID())
-	return RNodeCanNotLockErr
+	logger.E(ctx, "lock node cannot lock error", "id", rn.ID())
+	return 0, RNodeCanNotLockErr
 }
 
-func (rn *RNode) Unlock(ctx context.Context) {
-	logger.If(ctx, "unlock node: id=%v", rn.ID())
-	rn.NLock.Unlock()
+func (rn *RNode) Unlock(ctx context.Context, lockID int64) {
+	logger.I(ctx, "unlock node", "id", rn.ID())
+	rn.NLock.Unlock(ctx, lockID)
 }
 
 func (rn *RNode) Addr() string {
@@ -173,7 +184,7 @@ func (rn *RNode) SetAddr(addr string) {
 
 // Create a new RNode with the supplied attributes, which need not contain
 // time-related information (the RNode object will take care of that).
-func NewRNode(attrs fuse.Attr, id uint64) *RNode {
+func NewRNode(ctx context.Context, attrs fuse.Attr, id uint64) *RNode {
 	// Update time info.
 	attrs.Inode = id
 	// no need to set following 2 lines for NMTime and NCTime takes cares for them
@@ -191,6 +202,7 @@ func NewRNode(attrs fuse.Attr, id uint64) *RNode {
 		},
 		NCanLock: CanLockTrue,
 		NVersion: 0,
+		NLock:    utility.NewMutexWithTimeout(ctx, time.Second*0),
 	}
 }
 

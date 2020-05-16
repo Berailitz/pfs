@@ -57,8 +57,7 @@ func (p *PFS) Mount(ctx context.Context) error {
 	p.ma.Start(ctx)
 
 	logger.If(ctx, "create fp: master=%v, localAddr=%v", p.param.Master, localAddr)
-	fp := fbackend.NewFProxy(ctx, utility.GetUID(ctx), utility.GetGID(ctx),
-		localAddr, p.ma, p.param.StaticTofCfgFile, p.param.BackupSize)
+	fp := fbackend.NewFProxy(ctx, utility.GetUID(ctx), utility.GetGID(ctx), localAddr, p.ma)
 	p.ma.SetFP(fp)
 	p.rsvr.RegisterFProxy(ctx, fp)
 

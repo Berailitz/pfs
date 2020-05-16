@@ -56,9 +56,7 @@ func NewFProxy(
 	uid uint32,
 	gid uint32,
 	localAddr string,
-	ma *RManager,
-	staticTofCfgFile string,
-	backupSize int) *FProxy {
+	ma *RManager) *FProxy {
 	allcator := idallocator.NewIDAllocator(initialHandle)
 	fb := NewFBackEnd(uid, gid, allcator, ma)
 	if fb == nil {

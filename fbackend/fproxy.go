@@ -224,6 +224,30 @@ func (fp *FProxy) GetOwnerMap(ctx context.Context) (map[uint64]string, error) {
 	return reply.Map, nil
 }
 
+func (fp *FProxy) LoadRemoteNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
+	addr, qaErr := fp.QueryOwner(ctx, id)
+	if qaErr != nil {
+		return nil, qaErr
+	}
+	gcli, err := fp.pool.Load(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+
+	reply, err := gcli.FetchNode(ctx, &pb.NodeIsReadRequest{
+		Id:     id,
+		IsRead: isRead,
+	})
+	if err == nil {
+		err = utility.FromPbErr(reply.Err)
+	}
+	if err != nil {
+		logger.E(ctx, "rpc get inode attr error", "id", id, "err", err)
+		return nil, err
+	}
+	return utility.FromPbNode(reply.Node), nil
+}
+
 func (fp *FProxy) LoadNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
 	if isRead {
 		return fp.fb.LoadNodeForRead(ctx, id)
@@ -233,7 +257,7 @@ func (fp *FProxy) LoadNode(ctx context.Context, id uint64, isRead bool) (*rnode.
 }
 
 func (fp *FProxy) RUnlockNode(ctx context.Context, id uint64) error {
-	if node, err := fp.fb.LoadLocalNode(ctx, id); err != nil {
+	if node, err := fp.fb.LoadLocalNode(ctx, id); err == nil {
 		return fp.fb.RUnlockNode(ctx, node)
 	}
 

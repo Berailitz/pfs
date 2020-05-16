@@ -147,7 +147,7 @@ func (fb *FBackEnd) LoadLocalNode(ctx context.Context, id uint64) (*rnode.RNode,
 }
 
 func (fb *FBackEnd) LoadRemoteNode(ctx context.Context, id uint64, isRead bool) (*rnode.RNode, error) {
-	node, err := fb.fp.LoadNode(ctx, id, isRead)
+	node, err := fb.fp.LoadRemoteNode(ctx, id, isRead)
 	if err != nil {
 		logger.If(ctx, "rpc fetch node error: id=%v, err=%+v",
 			id, err)

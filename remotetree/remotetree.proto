@@ -17,7 +17,7 @@ service RemoteTree {
     rpc Gossip(GossipRequest) returns (GossipReply) {}
     rpc GetOwnerMap(EmptyMsg) returns (Uint64StrMapMsg) {}
 
-    rpc FetchNode(NodeIsReadRequest) returns (Node) {}
+    rpc FetchNode(NodeIsReadRequest) returns (FetchNodeReply) {}
     rpc RUnlockNode(UInt64ID) returns (Error) {}
     rpc UnlockNode(Node) returns (Error) {}
 
@@ -129,6 +129,11 @@ message GossipReply {
 message NodeIsReadRequest {
     uint64 id = 1;
     bool isRead = 2;
+}
+
+message FetchNodeReply {
+    Error err = 1;
+    Node node = 2;
 }
 
 message Node {

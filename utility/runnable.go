@@ -33,7 +33,7 @@ func (r *Runnable) runFunc(ctx context.Context) (err error) {
 		ctx = context.WithValue(ctx, logger.ContextRunnableIntervalIKey, strconv.Itoa(r.interval))
 		select {
 		case <-r.ToStop:
-			logger.I(ctx, "runnable is quitting", "name", r.Name)
+			logger.W(ctx, "runnable is quitting", "name", r.Name)
 			return nil
 		case <-time.After(r.LoopInterval):
 			if err = r.runLoop(ctx); err != nil {

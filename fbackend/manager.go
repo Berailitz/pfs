@@ -1054,6 +1054,11 @@ func (m *RManager) AnswerGossip(ctx context.Context, addr string) (tofMap map[st
 func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	m.sweepOldBallots(ctx)
 
+	if m.fp == nil {
+		logger.W(ctx, "nil fp")
+		return nil
+	}
+
 	logger.I(ctx, "updating tof map")
 	owners, err := m.fp.GetOwnerMap(ctx)
 	if err != nil {

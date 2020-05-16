@@ -111,7 +111,7 @@ func (fb *FBackEnd) doLoadNodeForX(ctx context.Context, id uint64, isRead bool, 
 	node, err := fb.LoadLocalNode(ctx, id)
 
 	if err != nil && !localOnly {
-		logger.Ef(ctx, "load node load local error: id=%v, isRead=%v, err=%+v", id, isRead, err)
+		logger.I(ctx, "load node load local", "id", id, "isRead", isRead, "err", err)
 		node, err = fb.LoadRemoteNode(ctx, id, isRead)
 		if err != nil {
 			logger.Ef(ctx, "load node load remote error: id=%v, isRead=%v, err=%+v", id, isRead, err)

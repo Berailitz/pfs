@@ -842,7 +842,7 @@ func (m *RManager) getBackupAddrs(ctx context.Context, nodeID uint64) (addrs []s
 		NodeID: nodeID,
 		Strs:   addrs,
 	}
-	logger.If(ctx, "get backup addrs", "nodeID", nodeID, "addrs", addrs)
+	logger.I(ctx, "get backup addrs", "nodeID", nodeID, "addrs", addrs)
 	m.backupOwnerMap.Store(nodeID, addrs)
 	return addrs
 }

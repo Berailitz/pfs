@@ -12,14 +12,10 @@ type IterableMap struct {
 }
 
 func (m *IterableMap) Len() int64 {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
 	return atomic.LoadInt64(&m.size)
 }
 
 func (m *IterableMap) Load(key interface{}) (interface{}, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
 	return m.smap.Load(key)
 }
 

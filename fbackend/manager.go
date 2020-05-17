@@ -1190,7 +1190,9 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	}
 
 	if m.State(ctx) == LookingState {
-		m.canExitElection(ctx)
+		if !m.canExitElection(ctx) {
+			m.voteChan <- m.CopyVote(ctx)
+		}
 	}
 	return nil
 }

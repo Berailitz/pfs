@@ -224,7 +224,7 @@ func (m *RManager) queryOwnerID(ctx context.Context, addr string) (ownerID uint6
 	})
 
 	logger.E(ctx, "owner not found by addr", "addr", addr)
-	return 0
+	return ownerID
 }
 
 func (m *RManager) queryAddr(ctx context.Context, ownerID uint64) string {

@@ -1076,19 +1076,8 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	}
 
 	logger.I(ctx, "updating tof map")
-	owners, err := m.fp.GetOwnerMap(ctx)
-	if err != nil {
-		logger.E(ctx, "get owners error", "err", err)
-		if !m.isMasterAlive(ctx) {
-			m.turnIntoElectionState(ctx)
-			return nil
-		}
-
-		owners = m.CopyOwnerMap(ctx)
-	}
-
+	owners := m.CopyOwnerMap(ctx)
 	staticTofMap := m.loadStaticTof(ctx)
-	//nomineeMap := make(map[string]int64, len(owners))
 
 	for _, addr := range owners {
 		rawTof, ok := staticTofMap[addr]

@@ -916,8 +916,13 @@ func (m *RManager) addVoteWithoutLock(ctx context.Context, nominee string, addit
 			logger.E(ctx, "poll reached minus", "nominee", nominee, "addition", addition)
 			newPoll = 0
 		}
-		m.nomineeMap[nominee] = newPoll
-		logger.W(ctx, "update nominee", "nominee", nominee, "poll", newPoll)
+		if newPoll > 0 {
+			m.nomineeMap[nominee] = newPoll
+			logger.W(ctx, "update nominee", "nominee", nominee, "poll", newPoll)
+		} else {
+			delete(m.nomineeMap, nominee)
+			logger.W(ctx, "remove nominee", "nominee")
+		}
 		return false
 	}
 

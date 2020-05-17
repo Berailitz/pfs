@@ -413,6 +413,7 @@ func (m *RManager) loadManager(ctx context.Context, pbm *pb.Manager) {
 	m.Owners = utility.IterableMap{}
 	if pbm.Owners != nil {
 		for k, v := range pbm.Owners {
+			logger.I(ctx, "synced owner", "ownerID", k, "addr", v)
 			m.Owners.Store(k, v)
 		}
 	}

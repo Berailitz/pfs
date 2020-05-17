@@ -1283,6 +1283,9 @@ func (m *RManager) InitialSync(ctx context.Context) {
 }
 
 func (m *RManager) Start(ctx context.Context) {
+	if err := m.runWatchDogLoop(ctx); err != nil {
+		logger.P(ctx, "initial wd loop err", "err", err)
+	}
 	m.broadcastRunner.Start(ctx)
 	m.voteRunner.Start(ctx)
 	m.watchDogRunner.Start(ctx)

@@ -64,6 +64,10 @@ const (
 	newElectionIDByIncr = 0
 )
 
+const (
+	defaultDirectRouteTof = math.MaxInt32 - 1
+)
+
 var (
 	NodeNotExistErr    = &ManagerErr{"node not exist"}
 	OwnerNotExistErr   = &ManagerErr{"owner not exist"}
@@ -677,7 +681,7 @@ func (m *RManager) deleteRoute(ctx context.Context, addr string) {
 }
 
 func (m *RManager) saveDefaultDirectRoute(ctx context.Context, addr string) {
-	m.saveRoute(ctx, addr, addr, math.MaxInt32)
+	m.saveRoute(ctx, addr, addr, defaultDirectRouteTof)
 }
 
 func (m *RManager) saveRoute(ctx context.Context, addr string, next string, tof int64) {

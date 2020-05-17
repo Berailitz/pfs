@@ -1067,6 +1067,12 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	owners, err := m.fp.GetOwnerMap(ctx)
 	if err != nil {
 		logger.E(ctx, "get owners error", "err", err)
+		if !m.isMasterAlive(ctx) {
+			m.turnIntoElectionState(ctx)
+			return nil
+		}
+
+		owners = m.CopyOwnerMap(ctx)
 	}
 
 	staticTofMap := m.loadStaticTof(ctx)

@@ -562,6 +562,8 @@ func (m *RManager) SetVote(ctx context.Context, nominee string, proposalID uint6
 		m.vote.ProposalID = m.proposalAllocator.ReadNext()
 	}
 	m.vote.Nominee = nominee
+	copiedVote := m.vote
+	m.voteChan <- &copiedVote
 }
 
 func (m *RManager) clearBallots(ctx context.Context) {
@@ -589,7 +591,6 @@ func (m *RManager) enterNewElection(ctx context.Context, newElectionID int64) {
 	m.clearBallots(ctx)
 
 	m.SetVote(ctx, m.localAddr, EmptyProposalID)
-	m.voteChan <- m.CopyVote(ctx)
 
 	m.saveVote(ctx, m.CopyVote(ctx))
 }

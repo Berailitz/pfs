@@ -61,6 +61,7 @@ func main() {
 	}
 
 	wg := &sync.WaitGroup{}
+	pfss := make([]*pfs.PFS, len(tc.PFS))
 
 	for i, pc := range tc.PFS {
 		pfsCtx := context.WithValue(ctx, logger.ContextLocalPortKey, pc.Port)
@@ -70,6 +71,7 @@ func main() {
 			logger.Pf(pfsCtx, "create pfs error")
 			return
 		}
+		pfss[i] = p
 
 		if err := p.Mount(pfsCtx); err != nil {
 			logger.Pf(pfsCtx, "mount pfs error: i=%d, err=%+v", i, err)

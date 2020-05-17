@@ -297,6 +297,7 @@ func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) 
 	}
 
 	m.Owners.Store(ownerID, addr)
+	m.saveDefaultDirectRoute(ctx, addr)
 	return nil
 }
 
@@ -315,7 +316,6 @@ func (m *RManager) RegisterOwner(ctx context.Context, addr string) (uint64, erro
 		if err != nil {
 			return 0, err
 		}
-		m.saveDefaultDirectRoute(ctx, addr)
 		m.proposalChan <- &Proposal{
 			Typ:     AddOwnerProposalType,
 			OwnerID: ownerID,

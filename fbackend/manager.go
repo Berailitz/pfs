@@ -65,7 +65,8 @@ const (
 )
 
 const (
-	defaultDirectRouteTof = math.MaxInt32 - 1
+	unreachableDirectRouteTof = math.MaxInt32
+	defaultDirectRouteTof     = unreachableDirectRouteTof - 1
 )
 
 var (
@@ -700,7 +701,7 @@ func (m *RManager) saveRouteWithoutLock(ctx context.Context, addr string, rule *
 func (m *RManager) findRoute(ctx context.Context, dst string) (shortestRule *RouteRule) {
 	shortestRule = &RouteRule{
 		next: dst,
-		tof:  math.MaxInt32,
+		tof:  unreachableDirectRouteTof,
 	}
 
 	if tof, ok := m.realTof(dst); ok {
@@ -742,7 +743,7 @@ func (m *RManager) findRoute(ctx context.Context, dst string) (shortestRule *Rou
 		return true
 	})
 
-	if shortestRule.tof == math.MaxInt32 {
+	if shortestRule.tof == unreachableDirectRouteTof {
 		return nil
 	}
 
@@ -1124,7 +1125,7 @@ func (m *RManager) useRemoteMasterAddr(ctx context.Context, remoteMasterAddr str
 	if _, err := m.fp.Measure(ctx, remoteMasterAddr); err == nil {
 		m.saveDefaultDirectRoute(ctx, remoteMasterAddr)
 	} else {
-		m.saveRoute(ctx, remoteMasterAddr, voter, math.MaxInt32)
+		m.saveRoute(ctx, remoteMasterAddr, voter, defaultDirectRouteTof)
 	}
 	m.SetMaster(ctx, remoteMasterAddr)
 }

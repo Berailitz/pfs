@@ -2,7 +2,7 @@
 
 inDir=''
 outDir=''
-ls='ls -l'
+ls='ls'
 
 function usage()
 {

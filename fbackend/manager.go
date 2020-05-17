@@ -335,6 +335,19 @@ func (m *RManager) doRemoveOwner(ctx context.Context, ownerID uint64) error {
 	return OwnerNotExistErr
 }
 
+func (m *RManager) removeOfflineOwner(ctx context.Context, ownerID uint64) (err error) {
+	logger.W(ctx, "remove offline owner", "ownerID", ownerID)
+
+	m.muSync.RLock()
+	defer m.muSync.RUnlock()
+
+	if err = m.doRemoveOwner(ctx, ownerID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (m *RManager) RemoveOwner(ctx context.Context, ownerID uint64) (err error) {
 	if err := m.ErrIfNotLeadingState(ctx); err != nil {
 		return err
@@ -763,8 +776,20 @@ func (m *RManager) turnIntoElectionState(ctx context.Context) {
 	m.enterNewElection(ctx, newElectionIDByIncr)
 }
 
+func (m *RManager) onOwnerOffline(ctx context.Context, addr string, ownerID uint64) {
+	m.realTofMap.Delete(addr)
+	m.deleteRoute(ctx, addr)
+	if err := m.removeOfflineOwner(ctx, ownerID); err != nil {
+		logger.E(ctx, "remove offline owner err", "ownerID", ownerID, "err", err)
+	}
+
+	if addr == m.MasterAddr() {
+		m.turnIntoElectionState(ctx)
+	}
+}
+
 func (m *RManager) updateOldTransit(ctx context.Context, owners map[uint64]string, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
-	for _, dst := range owners {
+	for ownerID, dst := range owners {
 		if dst == m.localAddr {
 			continue
 		}
@@ -791,10 +816,7 @@ func (m *RManager) updateOldTransit(ctx context.Context, owners map[uint64]strin
 		}
 
 		logger.E(ctx, "owner offline", "dst", dst)
-		m.deleteRoute(ctx, dst)
-		if dst == m.MasterAddr() {
-			m.turnIntoElectionState(ctx)
-		}
+		m.onOwnerOffline(ctx, dst, ownerID)
 	}
 }
 
@@ -1105,7 +1127,7 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	owners := m.CopyOwnerMap(ctx)
 	staticTofMap := m.loadStaticTof(ctx)
 
-	for _, addr := range owners {
+	for ownerID, addr := range owners {
 		if addr == m.localAddr {
 			m.saveRealTof(ctx, addr, 0)
 			continue
@@ -1118,6 +1140,7 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 			rawTof, err = m.fp.Measure(ctx, addr)
 			if err != nil {
 				logger.E(ctx, "ping error", "addr", addr, "rawTof", rawTof, "err", err)
+				m.onOwnerOffline(ctx, addr, ownerID)
 				continue
 			}
 			logger.I(ctx, "ping success", "addr", addr, "rawTof", rawTof)

@@ -12,8 +12,7 @@ import (
 const (
 	NotStartYetState    = 0
 	RunningState        = 1
-	SelfStoppedState    = 2
-	OutsideStoppedState = 3
+	OutsideStoppedState = 2
 )
 
 type Runnable struct {
@@ -50,7 +49,7 @@ func (r *Runnable) Start(ctx context.Context) {
 		ctx = context.WithValue(ctx, logger.ContextRunnableNameIKey, r.Name)
 		defer func() {
 			RecoverWithStack(ctx, nil)
-			if atomic.LoadInt64(&r.state) == SelfStoppedState {
+			if atomic.LoadInt64(&r.state) != OutsideStoppedState {
 				close(r.ToStop)
 			}
 			close(r.Stopped)
@@ -58,22 +57,21 @@ func (r *Runnable) Start(ctx context.Context) {
 
 		logger.If(ctx, "runnable start: name=%v", r.Name)
 		_ = r.run(ctx)
-		atomic.StoreInt64(&r.state, SelfStoppedState)
 	}()
 }
 
 func (r *Runnable) Stop(ctx context.Context) {
 	oldState := atomic.LoadInt64(&r.state)
-	if oldState == RunningState {
+	if oldState != RunningState {
 		logger.E(ctx, "not running error", "name", r.Name, "state", oldState)
 		return
 	}
 
 	atomic.StoreInt64(&r.state, OutsideStoppedState)
-	logger.If(ctx, "runnable stopping: name=%v", r.Name)
+	logger.W(ctx, "runnable stopping", "name", r.Name)
 	close(r.ToStop)
 	<-r.Stopped
-	logger.If(ctx, "runnable stopped: name=%v", r.Name)
+	logger.W(ctx, "runnable stopped", "name", r.Name)
 }
 
 func (r *Runnable) InitRunnable(

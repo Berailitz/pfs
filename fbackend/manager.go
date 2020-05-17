@@ -937,7 +937,7 @@ func (m *RManager) sweepOldBallots(ctx context.Context) {
 	}
 }
 
-func (m *RManager) replaceUnreachableNodes(ctx context.Context) {
+func (m *RManager) getReplaceProposals(ctx context.Context) (wl []*Proposal) {
 	m.muSync.Lock()
 	defer m.muSync.Unlock()
 
@@ -976,12 +976,19 @@ func (m *RManager) replaceUnreachableNodes(ctx context.Context) {
 
 		logger.E(ctx, "node lost", "nodeID", nodeID, "oldOwnerID", oldOwnerID, "oldOwnerAddr", oldOwnerAddr)
 		_ = m.doRemoveNode(ctx, nodeID)
-		m.proposalChan <- &Proposal{
+		wl = append(wl, &Proposal{
 			Typ:    RemoveNodeProposalType,
 			NodeID: nodeID,
-		}
+		})
 		return true
 	})
+	return wl
+}
+
+func (m *RManager) replaceUnreachableNodes(ctx context.Context) {
+	for _, proposal := range m.getReplaceProposals(ctx) {
+		m.proposalChan <- proposal
+	}
 }
 
 func (m *RManager) syncWithMaster(ctx context.Context) {

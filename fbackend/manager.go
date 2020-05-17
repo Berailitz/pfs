@@ -713,7 +713,7 @@ func (m *RManager) findRoute(ctx context.Context, dst string) (shortestRule *Rou
 
 	m.routeMap.Range(func(key, value interface{}) bool {
 		transitAddr := key.(string)
-		if transitAddr == dst {
+		if transitAddr == dst || transitAddr == m.localAddr {
 			return true
 		}
 

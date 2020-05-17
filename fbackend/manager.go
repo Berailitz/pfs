@@ -213,7 +213,7 @@ func (m *RManager) QueryOwner(ctx context.Context, nodeID uint64) (string, error
 }
 
 func (m *RManager) queryOwnerID(ctx context.Context, addr string) (ownerID uint64) {
-	m.Owners.Range(func(key, value interface{}) bool {
+	m.Owners.RangeWithLock(func(key, value interface{}) bool {
 		if value.(string) == addr {
 			ownerID = key.(uint64)
 			return false
@@ -359,7 +359,7 @@ func (m *RManager) CopyOwnerMap(ctx context.Context) map[uint64]string {
 	defer m.muSync.RUnlock()
 
 	output := make(map[uint64]string)
-	m.Owners.Range(func(key, value interface{}) bool {
+	m.Owners.RangeWithLock(func(key, value interface{}) bool {
 		output[key.(uint64)] = value.(string)
 		return true
 	})
@@ -610,13 +610,13 @@ func (m *RManager) CopyManager(ctx context.Context) (*pb.Manager, error) {
 	copiedNodes := make(map[uint64]uint64)
 	copiedOwners := make(map[uint64]string)
 	func() {
-		m.NodeOwner.Range(func(key, value interface{}) bool {
+		m.NodeOwner.RangeWithLock(func(key, value interface{}) bool {
 			copiedNodes[key.(uint64)] = value.(uint64)
 			return true
 		})
 	}()
 	func() {
-		m.Owners.Range(func(key, value interface{}) bool {
+		m.Owners.RangeWithLock(func(key, value interface{}) bool {
 			copiedOwners[key.(uint64)] = value.(string)
 			return true
 		})
@@ -664,7 +664,7 @@ func (m *RManager) realTof(addr string) (int64, bool) {
 
 func (m *RManager) CopyTofMap(ctx context.Context) (copied map[string]int64) {
 	copied = make(map[string]int64, m.realTofMap.Len())
-	m.realTofMap.Range(func(key, value interface{}) bool {
+	m.realTofMap.RangeWithLock(func(key, value interface{}) bool {
 		copied[key.(string)] = value.(int64)
 		return true
 	})
@@ -713,7 +713,7 @@ func (m *RManager) findRoute(ctx context.Context, dst string) (shortestRule *Rou
 		}
 	}
 
-	m.routeMap.Range(func(key, value interface{}) bool {
+	m.routeMap.RangeWithLock(func(key, value interface{}) bool {
 		transitAddr := key.(string)
 		if transitAddr == dst || transitAddr == m.localAddr {
 			return true
@@ -832,7 +832,7 @@ func (m *RManager) loadStaticTof(ctx context.Context) (staticTofMap map[string]i
 }
 
 func (m *RManager) randomBackupOwners(ctx context.Context, addrs []string, size int) []string {
-	m.realTofMap.Range(func(key, value interface{}) bool {
+	m.realTofMap.RangeWithLock(func(key, value interface{}) bool {
 		if len(addrs) >= size {
 			return false
 		}
@@ -941,7 +941,7 @@ func (m *RManager) replaceUnreachableNodes(ctx context.Context) {
 	m.muSync.Lock()
 	defer m.muSync.Unlock()
 
-	m.NodeOwner.Range(func(key, value interface{}) bool {
+	m.NodeOwner.RangeWithoutLock(func(key, value interface{}) bool {
 		nodeID := key.(uint64)
 		oldOwnerID := value.(uint64)
 		oldOwnerAddr := m.queryAddr(ctx, oldOwnerID)
@@ -1167,7 +1167,7 @@ func (m *RManager) runVoter(ctx context.Context) (err error) {
 
 func (m *RManager) CopyRouteMap(ctx context.Context) map[string]RouteRule {
 	r := make(map[string]RouteRule)
-	m.routeMap.Range(func(key, value interface{}) bool {
+	m.routeMap.RangeWithLock(func(key, value interface{}) bool {
 		r[key.(string)] = *value.(*RouteRule)
 		return true
 	})
@@ -1176,7 +1176,7 @@ func (m *RManager) CopyRouteMap(ctx context.Context) map[string]RouteRule {
 
 func (m *RManager) CopyBackupOwnerMap(ctx context.Context) map[uint64][]string {
 	r := make(map[uint64][]string)
-	m.backupOwnerMap.Range(func(key, value interface{}) bool {
+	m.backupOwnerMap.RangeWithLock(func(key, value interface{}) bool {
 		r[key.(uint64)] = value.([]string)
 		return true
 	})

@@ -39,7 +39,11 @@ func (m *IterableMap) Delete(key interface{}) {
 	m.smap.Delete(key)
 }
 
-func (m *IterableMap) Range(f func(key, value interface{}) bool) {
+func (m *IterableMap) RangeWithoutLock(f func(key, value interface{}) bool) {
+	m.smap.Range(f)
+}
+
+func (m *IterableMap) RangeWithLock(f func(key, value interface{}) bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.smap.Range(f)

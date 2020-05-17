@@ -1456,7 +1456,7 @@ func (fb *FBackEnd) SaveRedundantNode(ctx context.Context, node *rnode.RNode) er
 
 func (fb *FBackEnd) CopyNodes(ctx context.Context) map[uint64]int64 {
 	r := make(map[uint64]int64)
-	fb.nodes.Range(func(key, value interface{}) bool {
+	fb.nodes.RangeWithLock(func(key, value interface{}) bool {
 		r[key.(uint64)] = value.(*rnode.RNode).Version()
 		return true
 	})
@@ -1465,7 +1465,7 @@ func (fb *FBackEnd) CopyNodes(ctx context.Context) map[uint64]int64 {
 
 func (fb *FBackEnd) CopyBackupNodes(ctx context.Context) map[uint64]int64 {
 	r := make(map[uint64]int64)
-	fb.redundantNodes.Range(func(key, value interface{}) bool {
+	fb.redundantNodes.RangeWithLock(func(key, value interface{}) bool {
 		r[key.(uint64)] = value.(*rnode.RNode).Version()
 		return true
 	})
@@ -1474,7 +1474,7 @@ func (fb *FBackEnd) CopyBackupNodes(ctx context.Context) map[uint64]int64 {
 
 func (fb *FBackEnd) CopyHandles(ctx context.Context) map[uint64]uint64 {
 	r := make(map[uint64]uint64)
-	fb.handleMap.Range(func(key, value interface{}) bool {
+	fb.handleMap.RangeWithLock(func(key, value interface{}) bool {
 		r[key.(uint64)] = value.(uint64)
 		return true
 	})

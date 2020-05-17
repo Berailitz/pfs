@@ -1080,6 +1080,11 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 	staticTofMap := m.loadStaticTof(ctx)
 
 	for _, addr := range owners {
+		if addr == m.localAddr {
+			m.saveRealTof(ctx, addr, 0)
+			continue
+		}
+
 		rawTof, ok := staticTofMap[addr]
 		if ok {
 			logger.I(ctx, "use static tof", "addr", addr, "rawTof", rawTof)
@@ -1093,10 +1098,6 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 		}
 		smoothTof := m.smoothTof(ctx, addr, rawTof)
 		m.saveRealTof(ctx, addr, smoothTof)
-
-		if addr == m.localAddr {
-			continue
-		}
 
 		m.remoteTofMaps.Delete(addr)
 		remoteTofMap, err := m.fp.Gossip(ctx, addr)

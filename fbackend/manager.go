@@ -707,6 +707,7 @@ func (m *RManager) saveDefaultTof(ctx context.Context, addr string) {
 }
 
 func (m *RManager) saveDefaultDirectRoute(ctx context.Context, addr string) {
+	logger.I(ctx, "save default route", "addr", addr)
 	m.saveRoute(ctx, addr, addr, defaultDirectRouteTof)
 }
 

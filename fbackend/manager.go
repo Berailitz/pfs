@@ -1067,12 +1067,18 @@ func (m *RManager) doElectionReachAgreement(ctx context.Context) (newMasterAddr 
 
 	m.muBallots.Lock()
 	defer m.muBallots.Unlock()
-	if len(m.nomineeMap) == 1 && (mapSize == 1 || (len(m.ballots) >= minBallotBoxSize && len(m.ballots)<<1 > mapSize)) {
+	ballotCounter := len(m.ballots)
+	nomineeCounter := len(m.nomineeMap)
+	if nomineeCounter == 1 && (mapSize == 1 || (ballotCounter >= minBallotBoxSize && ballotCounter<<1 > mapSize)) {
 		for nominee, _ := range m.nomineeMap {
+			logger.W(ctx, "election ends", "nominee", nominee,
+				"ballotCounter", ballotCounter, "mapSize", mapSize, "nomineeCounter", nomineeCounter)
 			return nominee
 		}
 	}
 
+	logger.W(ctx, "election continues",
+		"ballotCounter", ballotCounter, "mapSize", mapSize, "nomineeCounter", nomineeCounter)
 	return ""
 }
 

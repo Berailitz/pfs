@@ -298,6 +298,7 @@ func (m *RManager) doAddOwner(ctx context.Context, ownerID uint64, addr string) 
 
 	m.Owners.Store(ownerID, addr)
 	m.saveDefaultDirectRoute(ctx, addr)
+	m.saveDefaultTof(ctx, addr)
 	return nil
 }
 
@@ -694,6 +695,10 @@ func (m *RManager) smoothTof(ctx context.Context, addr string, rawTof int64) (sm
 
 func (m *RManager) deleteRoute(ctx context.Context, addr string) {
 	m.routeMap.Delete(addr)
+}
+
+func (m *RManager) saveDefaultTof(ctx context.Context, addr string) {
+	m.saveRealTof(ctx, addr, defaultDirectRouteTof)
 }
 
 func (m *RManager) saveDefaultDirectRoute(ctx context.Context, addr string) {
@@ -1311,6 +1316,7 @@ func NewRManager(ctx context.Context, localAddr string, masterAddr string, stati
 	default:
 		ma.SetState(ctx, FollowingState)
 		ma.saveDefaultDirectRoute(ctx, masterAddr)
+		ma.saveDefaultTof(ctx, masterAddr)
 	}
 	ma.saveDefaultDirectRoute(ctx, localAddr)
 	ma.broadcastRunner.InitRunnable(ctx, maRunnableName, maRunnableLoopInterval, nil, ma.runBroadcast)

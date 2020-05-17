@@ -575,6 +575,8 @@ func (m *RManager) enterNewElection(ctx context.Context, newElectionID int64) {
 
 	m.SetVote(ctx, m.localAddr, EmptyProposalID)
 	m.voteChan <- m.CopyVote(ctx)
+
+	m.saveVote(ctx, m.CopyVote(ctx))
 }
 
 func (m *RManager) ElectionID(ctx context.Context) int64 {

@@ -693,19 +693,19 @@ func (m *RManager) saveRouteWithoutLock(ctx context.Context, addr string, rule *
 }
 
 // do not need lock
-func (m *RManager) findRoute(ctx context.Context, dst string) *RouteRule {
+func (m *RManager) findRoute(ctx context.Context, dst string) (shortestRule *RouteRule) {
+	shortestRule = &RouteRule{
+		next: dst,
+		tof:  math.MaxInt32,
+	}
+
 	if tof, ok := m.realTof(dst); ok {
-		m.saveRoute(ctx, dst, dst, tof)
-		return &RouteRule{
+		shortestRule = &RouteRule{
 			next: dst,
 			tof:  tof,
 		}
 	}
 
-	shortestRule := &RouteRule{
-		next: dst,
-		tof:  math.MaxInt32,
-	}
 	m.routeMap.Range(func(key, value interface{}) bool {
 		transitAddr := key.(string)
 		if transitAddr == dst {

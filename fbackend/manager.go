@@ -975,7 +975,16 @@ func (m *RManager) getReplaceProposals(ctx context.Context) (wl []*Proposal) {
 		}
 
 		logger.E(ctx, "node lost", "nodeID", nodeID, "oldOwnerID", oldOwnerID, "oldOwnerAddr", oldOwnerAddr)
-		_ = m.doRemoveNode(ctx, nodeID)
+		if nodeID == RootNodeID {
+			m.fp.fb.InsertRoot(ctx)
+			wl = append(wl, &Proposal{
+				Typ:     UpdateOwnerIDProposalType,
+				OwnerID: m.fp.fb.localID,
+				NodeID:  RootNodeID,
+			})
+			return true
+		}
+
 		wl = append(wl, &Proposal{
 			Typ:    RemoveNodeProposalType,
 			NodeID: nodeID,

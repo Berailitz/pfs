@@ -59,6 +59,7 @@ func (p *PFS) Mount(ctx context.Context) error {
 	logger.If(ctx, "create fp: master=%v, localAddr=%v", p.param.Master, localAddr)
 	fp := fbackend.NewFProxy(ctx, utility.GetUID(ctx), utility.GetGID(ctx), localAddr, p.ma)
 	p.ma.SetFP(fp)
+	p.ma.InitialSync(ctx)
 	p.rsvr.RegisterFProxy(ctx, fp)
 
 	if err := p.rsvr.Start(ctx, p.param.Port); err != nil {

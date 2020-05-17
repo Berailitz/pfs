@@ -1276,6 +1276,12 @@ func (m *RManager) Summary(ctx context.Context) *ManagerSummary {
 	}
 }
 
+func (m *RManager) InitialSync(ctx context.Context) {
+	if m.State(ctx) != LeadingState {
+		m.fetchManager(ctx)
+	}
+}
+
 func (m *RManager) Start(ctx context.Context) {
 	m.broadcastRunner.Start(ctx)
 	m.voteRunner.Start(ctx)

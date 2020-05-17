@@ -765,6 +765,10 @@ func (m *RManager) turnIntoElectionState(ctx context.Context) {
 
 func (m *RManager) updateOldTransit(ctx context.Context, owners map[uint64]string, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
 	for _, dst := range owners {
+		if dst == m.localAddr {
+			continue
+		}
+
 		rule, err := m.Route(dst)
 		if err != nil {
 			logger.E(ctx, "route err", "dst", dst, "err", err)

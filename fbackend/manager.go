@@ -1099,10 +1099,10 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 		smoothTof := m.smoothTof(ctx, addr, rawTof)
 		m.saveRealTof(ctx, addr, smoothTof)
 
-		m.remoteTofMaps.Delete(addr)
 		remoteTofMap, err := m.fp.Gossip(ctx, addr)
 		if err != nil {
 			logger.E(ctx, "gossip error", "addr", addr, "err", err)
+			m.remoteTofMaps.Delete(addr)
 			continue
 		}
 		logger.I(ctx, "gossip success", "addr", addr, "remoteTofMap", remoteTofMap)

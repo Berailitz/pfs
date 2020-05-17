@@ -1118,16 +1118,19 @@ func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (mas
 	}
 
 	if vote.ElectionID > m.ElectionID(ctx) {
+		logger.W(ctx, "enter new election", "electionID", vote.ElectionID)
 		m.enterNewElection(ctx, vote.ElectionID)
 	}
 
 	m.saveVote(ctx, vote)
 
 	if vote.ProposalID > m.CopyVote(ctx).ProposalID {
+		logger.W(ctx, "accept remote newer nominee", "ProposalID", vote.ProposalID)
 		m.SetVote(ctx, vote.Nominee, vote.ProposalID)
 	}
 
 	if vote.Nominee < m.CopyVote(ctx).Nominee {
+		logger.W(ctx, "accept remote smaller nominee", "vote.Nominee", vote.Nominee)
 		m.SetVote(ctx, vote.Nominee, EmptyProposalID)
 	}
 

@@ -1207,6 +1207,8 @@ func (m *RManager) useRemoteMasterAddr(ctx context.Context, remoteMasterAddr str
 }
 
 func (m *RManager) broadcastVote(ctx context.Context, vote *Vote) {
+	m.saveVote(ctx, vote)
+
 	for _, addr := range m.CopyOwnerMap(ctx) {
 		if addr != m.localAddr {
 			remoteMasterAddr, err := m.fp.Vote(ctx, addr, vote)

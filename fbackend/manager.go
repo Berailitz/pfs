@@ -1077,6 +1077,13 @@ func (m *RManager) AcceptVote(ctx context.Context, addr string, vote *Vote) (mas
 			return m.MasterAddr(), nil
 		}
 
+		masterAddr := m.MasterAddr()
+		ownerID := m.queryOwnerID(ctx, masterAddr)
+		if ownerID < FirstOwnerID {
+			logger.E(ctx, "master ID not found", "masterAddr", masterAddr)
+		}
+
+		m.onOwnerOffline(ctx, masterAddr, ownerID)
 		m.turnIntoElectionState(ctx)
 		return "", nil
 	}

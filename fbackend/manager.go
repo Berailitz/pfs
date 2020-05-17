@@ -1015,6 +1015,7 @@ func (m *RManager) getReplaceProposals(ctx context.Context) (wl []*Proposal) {
 		logger.E(ctx, "node lost", "nodeID", nodeID, "oldOwnerID", oldOwnerID, "oldOwnerAddr", oldOwnerAddr)
 		if nodeID == RootNodeID {
 			m.fp.fb.InsertRoot(ctx)
+			m.doAddNode(ctx, RootNodeID, m.fp.fb.localID)
 			wl = append(wl, &Proposal{
 				Typ:     UpdateOwnerIDProposalType,
 				OwnerID: m.fp.fb.localID,

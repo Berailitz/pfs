@@ -278,14 +278,7 @@ func (fb *FBackEnd) deleteNode(ctx context.Context, id uint64) error {
 	return nil
 }
 
-// MakeRoot should only be called at new
-func (fb *FBackEnd) MakeRoot(ctx context.Context) error {
-	err := fb.fp.AllocateRoot(ctx, fb.localID)
-	if err != nil {
-		logger.W(ctx, "make root allocate root error", "err", err)
-		return err
-	}
-
+func (fb *FBackEnd) InsertRoot(ctx context.Context) {
 	rootAttrs := fuse.Attr{
 		Valid:     0,
 		Inode:     RootNodeID,
@@ -304,10 +297,20 @@ func (fb *FBackEnd) MakeRoot(ctx context.Context) error {
 		BlockSize: 0,
 	}
 	if err := fb.storeNode(ctx, RootNodeID, rnode.NewRNode(ctx, rootAttrs, RootNodeID)); err != nil {
-		logger.Ef(ctx, "make root store node error")
+		logger.P(ctx, "insert root store node error")
+	}
+	logger.If(ctx, "insert root success")
+}
+
+// MakeRoot should only be called at new
+func (fb *FBackEnd) MakeRoot(ctx context.Context) error {
+	err := fb.fp.AllocateRoot(ctx, fb.localID)
+	if err != nil {
+		logger.W(ctx, "make root allocate root error", "err", err)
 		return err
 	}
-	logger.If(ctx, "make root success")
+
+	fb.InsertRoot(ctx)
 	return nil
 }
 

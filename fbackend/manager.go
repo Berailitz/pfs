@@ -1045,7 +1045,7 @@ func (m *RManager) syncWithMaster(ctx context.Context) {
 }
 
 func (m *RManager) canExitElection(ctx context.Context) bool {
-	newMasterAddr := m.doElectionReachAgreement(ctx)
+	newMasterAddr := m.doesElectionReachAgreement(ctx)
 	if newMasterAddr != "" {
 		logger.W(ctx, "exit election", "newMasterAddr", newMasterAddr)
 		m.SetMaster(ctx, newMasterAddr)
@@ -1057,7 +1057,7 @@ func (m *RManager) canExitElection(ctx context.Context) bool {
 	return false
 }
 
-func (m *RManager) doElectionReachAgreement(ctx context.Context) (newMasterAddr string) {
+func (m *RManager) doesElectionReachAgreement(ctx context.Context) (newMasterAddr string) {
 	mapSize := len(m.CopyOwnerMap(ctx))
 
 	if m.State(ctx) != LookingState {

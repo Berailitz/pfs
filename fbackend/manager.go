@@ -1208,7 +1208,9 @@ func (m *RManager) useRemoteMasterAddr(ctx context.Context, remoteMasterAddr str
 	} else {
 		m.saveRoute(ctx, remoteMasterAddr, voter, defaultDirectRouteTof)
 	}
+	logger.W(ctx, "use remote shared master", "remoteMasterAddr", remoteMasterAddr)
 	m.SetMaster(ctx, remoteMasterAddr)
+	m.syncWithMaster(ctx)
 }
 
 func (m *RManager) broadcastVote(ctx context.Context, vote *Vote) {

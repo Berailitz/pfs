@@ -747,6 +747,7 @@ func (m *RManager) findRoute(ctx context.Context, dst string) (shortestRule *Rou
 		return nil
 	}
 
+	logger.I(ctx, "route found", "dst", dst, "rule", shortestRule)
 	return shortestRule
 }
 

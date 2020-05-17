@@ -1024,7 +1024,7 @@ func (m *RManager) doElectionReachAgreement(ctx context.Context) (newMasterAddr 
 
 	m.muBallots.Lock()
 	defer m.muBallots.Unlock()
-	if len(m.nomineeMap) == 1 && len(m.ballots) >= minBallotBoxSize && len(m.ballots)<<1 > mapSize {
+	if len(m.nomineeMap) == 1 && (mapSize == 1 || (len(m.ballots) >= minBallotBoxSize && len(m.ballots)<<1 > mapSize)) {
 		for nominee, _ := range m.nomineeMap {
 			return nominee
 		}

@@ -80,7 +80,12 @@ func (p *PFS) Mount(ctx context.Context) error {
 
 func (p *PFS) Run(ctx context.Context) (err error) {
 	defer func() {
+		p.ma.Stop(ctx)
+	}()
+
+	defer func() {
 		if serr := p.stopRS(ctx); serr != nil && err == nil {
+			logger.E(ctx, "stop rs err", "err", err)
 			err = serr
 		}
 	}()

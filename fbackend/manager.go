@@ -708,6 +708,10 @@ func (m *RManager) findRoute(ctx context.Context, dst string) *RouteRule {
 	}
 	m.routeMap.Range(func(key, value interface{}) bool {
 		transitAddr := key.(string)
+		if transitAddr == dst {
+			return true
+		}
+
 		transitRule := value.(*RouteRule)
 		out, ok := m.remoteTofMaps.Load(transitAddr)
 		if !ok {

@@ -761,29 +761,35 @@ func (m *RManager) turnIntoElectionState(ctx context.Context) {
 	m.enterNewElection(ctx, newElectionIDByIncr)
 }
 
-func (m *RManager) updateOldTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
-	m.routeMap.Range(func(key, value interface{}) bool {
-		dst := key.(string)
-		rule := value.(*RouteRule)
+func (m *RManager) updateOldTransit(ctx context.Context, owners map[uint64]string, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
+	for _, dst := range owners {
+		rule, err := m.Route(dst)
+		if err != nil {
+			logger.E(ctx, "route err", "dst", dst, "err", err)
+			continue
+		}
+
 		if rule.next == transitAddr {
 			if remoteTof, ok := remoteTofMap[dst]; ok {
-				rule.tof = remoteTof + transitTof
-				m.saveRouteWithoutLock(ctx, dst, rule)
-				return true
-			}
-
-			if rule = m.findRoute(ctx, dst); rule != nil {
-				m.saveRouteWithoutLock(ctx, dst, rule)
-			}
-
-			logger.E(ctx, "owner offline", "dst", dst)
-			m.deleteRoute(ctx, dst)
-			if dst == m.MasterAddr() {
-				m.turnIntoElectionState(ctx)
+				if newTof := remoteTof + transitTof; newTof < rule.tof {
+					rule.tof = newTof
+					m.saveRouteWithoutLock(ctx, dst, rule)
+					continue
+				}
 			}
 		}
-		return true
-	})
+
+		if bestRule := m.findRoute(ctx, dst); bestRule != nil {
+			m.saveRouteWithoutLock(ctx, dst, bestRule)
+			continue
+		}
+
+		logger.E(ctx, "owner offline", "dst", dst)
+		m.deleteRoute(ctx, dst)
+		if dst == m.MasterAddr() {
+			m.turnIntoElectionState(ctx)
+		}
+	}
 }
 
 func (m *RManager) addNewTransit(ctx context.Context, transitAddr string, transitTof int64, remoteTofMap map[string]int64) {
@@ -1113,7 +1119,7 @@ func (m *RManager) runWatchDogLoop(ctx context.Context) (err error) {
 		m.remoteTofMaps.Store(addr, remoteTofMap)
 
 		m.addNewTransit(ctx, addr, smoothTof, remoteTofMap)
-		m.updateOldTransit(ctx, addr, smoothTof, remoteTofMap)
+		m.updateOldTransit(ctx, owners, addr, smoothTof, remoteTofMap)
 	}
 
 	if m.State(ctx) == LookingState {
